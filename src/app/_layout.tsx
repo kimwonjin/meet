@@ -7,6 +7,7 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { ConfirmProvider } from '@/contexts/ConfirmContext';
+import { useWebAutoUpdate } from '@/hooks/use-web-auto-update';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -32,6 +33,8 @@ function RootLayout() {
 }
 
 export default function App() {
+  useWebAutoUpdate();
+
   return (
     <AuthProvider>
       <ToastProvider>

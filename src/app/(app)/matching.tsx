@@ -110,6 +110,14 @@ export default function MatchingScreen() {
         // 최신 매칭이 위로 오도록 정렬
         matchData.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+        // 동맹 매칭의 연결자 이름 (누구의 동의를 기다리는지 표시)
+        const connectorIds = [...new Set(matchData.flatMap((m: any) => [m.connector_1_id, m.connector_2_id]))];
+        const { data: connectorUsers } = await supabase
+          .from('users')
+          .select('id, name')
+          .in('id', connectorIds.length ? connectorIds : ['00000000-0000-0000-0000-000000000000']);
+        const connectorName = (id: string) => (connectorUsers || []).find((u: any) => u.id === id)?.name || '상대 연결자';
+
         // 희望자 정보 조회
         const hopefulUserIds = matchData.flatMap((m: any) => [m.hopeful_1_id, m.hopeful_2_id]);
         const { data: hopefulUsers } = await supabase
@@ -137,6 +145,8 @@ export default function MatchingScreen() {
             connector_2_id: m.connector_2_id,
             connector_1_consented: m.connector_1_consented,
             connector_2_consented: m.connector_2_consented,
+            connector_1_name: connectorName(m.connector_1_id),
+            connector_2_name: connectorName(m.connector_2_id),
             meeting_scheduled_at: m.meeting_scheduled_at,
           };
         });
@@ -530,10 +540,10 @@ export default function MatchingScreen() {
               <View style={styles.timelineLine} />
             </>
           )}
-          {/* 1단계: 매칭 */}
+          {/* 1단계: 매칭 (동맹 매칭은 양쪽 연결자가 모두 동의해야 회원에게 전달된다) */}
           <View style={styles.timelineStep}>
-            <View style={[styles.timelineCircle, styles.timelineComplete]}>
-              <Text style={styles.timelineIcon}>✓</Text>
+            <View style={[styles.timelineCircle, consentDone ? styles.timelineComplete : styles.timelinePending]}>
+              <Text style={styles.timelineIcon}>{consentDone ? '✓' : '•'}</Text>
             </View>
             <Text style={styles.timelineLabel}>매칭</Text>
           </View>
@@ -608,7 +618,9 @@ export default function MatchingScreen() {
             </TouchableOpacity>
           ) : (
             <View style={styles.statusMessage}>
-              <Text style={styles.statusMessageText}>상대 연결자의 동의를 기다리는 중입니다</Text>
+              <Text style={styles.statusMessageText}>
+                {(item.connector_1_consented ? item.connector_2_name : item.connector_1_name)}님의 동의를 기다리는 중입니다
+              </Text>
             </View>
           )
         ) : (
