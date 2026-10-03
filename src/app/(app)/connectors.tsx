@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { useFocusPolling } from '@/hooks/use-focus-polling';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { formatRegions } from '@/lib/format';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
 import { purchasePackage, getCredit, PACKAGE_OPTIONS } from '@/lib/payments';
@@ -61,11 +63,7 @@ export default function ConnectorsScreen() {
     fetchConnectors();
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchConnectors();
-    }, [])
-  );
+  useFocusPolling(() => fetchConnectors(), 15000, !!user);
 
   async function fetchConnectors() {
     try {
@@ -590,7 +588,7 @@ export default function ConnectorsScreen() {
             </View>
             <View style={styles.meta}>
               <Text style={styles.price}>{item.fee_per_session ? `${item.fee_per_session.toLocaleString()}원 / 건` : '-'}</Text>
-              {!!item.main_region && <Text style={styles.rating}>{item.main_region}</Text>}
+              {!!item.main_region && <Text style={styles.rating}>{formatRegions(item.main_region)}</Text>}
             </View>
           </TouchableOpacity>
         )}

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity }
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
+import { createNotification } from '@/lib/notifications';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import NotificationBell from '@/components/NotificationBell';
 
@@ -108,6 +109,13 @@ export default function SettlementsScreen() {
       const { error: e2 } = await supabase.from('users').update({ role: 'connector' }).eq('id', connectorId);
       if (e2) throw e2;
 
+      await createNotification({
+        userId: connectorId,
+        type: 'connector_approved',
+        title: '매칭 파트너로 승인되었습니다',
+        body: '이제 회원을 받고 매칭을 제안할 수 있어요',
+        route: '/home',
+      });
       toast.show('✓ 매칭 파트너를 승인했습니다', 'success');
       await fetchPendingConnectors();
     } catch (error) {
@@ -124,6 +132,13 @@ export default function SettlementsScreen() {
       const { error } = await supabase.from('connectors').update({ status: 'rejected' }).eq('id', connectorId);
       if (error) throw error;
 
+      await createNotification({
+        userId: connectorId,
+        type: 'connector_rejected',
+        title: '매칭 파트너 신청이 반려되었습니다',
+        body: '프로필 › 매칭 파트너에서 다시 신청할 수 있어요',
+        route: '/profile',
+      });
       toast.show('매칭 파트너 신청을 반려했습니다', 'info');
       await fetchPendingConnectors();
     } catch (error) {

@@ -13,6 +13,7 @@ import BottomSheet from '@/components/BottomSheet';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { formatRegions } from '@/lib/format';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { createNotification } from '@/lib/notifications';
 
@@ -298,7 +299,7 @@ export default function AlliancesScreen() {
                 <Text style={styles.modalSectionTitle}>파트너 정보</Text>
                 {[
                   ['회사명', selectedAlly?.business_name],
-                  ['주요 지역', selectedAlly?.main_region],
+                  ['주요 지역', formatRegions(selectedAlly?.main_region)],
                   ['회당 비용', selectedAlly?.fee_per_session ? `${Number(selectedAlly.fee_per_session).toLocaleString()}원` : null],
                   ['인증', selectedAlly?.verified ? '✓ 인증됨' : '미인증'],
                 ].map(([label, value]) => (

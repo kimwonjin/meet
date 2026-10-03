@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,8 @@ import {
   ActivityIndicator,
   FlatList,
 } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusPolling } from '@/hooks/use-focus-polling';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -57,15 +58,11 @@ export default function MatchingScreen() {
     }
   }, [user]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (user) {
-        fetchMatches();
-        fetchOwnMembers();
-        fetchAllyConnectors();
-      }
-    }, [user])
-  );
+  useFocusPolling(() => {
+    fetchMatches();
+    fetchOwnMembers();
+    fetchAllyConnectors();
+  }, 15000, !!user);
 
   async function fetchMatches() {
     try {

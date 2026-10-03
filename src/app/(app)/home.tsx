@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
   FlatList,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
+import { useFocusPolling } from '@/hooks/use-focus-polling';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -48,13 +49,7 @@ export default function HomeScreen() {
     }
   }, [user]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (user) {
-        fetchDashboard();
-      }
-    }, [user])
-  );
+  useFocusPolling(() => fetchDashboard(), 15000, !!user);
 
   async function fetchDashboard() {
     try {
@@ -322,7 +317,7 @@ export default function HomeScreen() {
 
       if (error) throw error;
 
-      toast.show(`✓ 애프터의사가 저장되었습니다: ${afterCareType}`, 'success');
+      toast.show('의사를 전달했어요', 'success');
 
       // 상대방이 이미 제출했는지는 화면에 남아있는 예전 상태가 아니라 방금 저장된 실제 DB 값으로 판단해야 한다
       // (두 회원이 서로 다른 기기에서 시차를 두고 제출하면 내 화면의 match는 상대방 제출 사실을 모를 수 있다)
@@ -348,6 +343,11 @@ export default function HomeScreen() {
       setProcessingId(null);
       toast.show('애프터의사 저장 중 오류가 발생했습니다', 'error');
     }
+  }
+
+  // 운영자는 홈이 없다 (탭: 정산관리·설정)
+  if (user?.role === 'operator') {
+    return <Redirect href="/settlements" />;
   }
 
   if (loading) {
@@ -787,7 +787,7 @@ export default function HomeScreen() {
                   ((item.isHopeful1 && !item.after_care_hopeful_1) ||
                     (!item.isHopeful1 && !item.after_care_hopeful_2)) && (
                     <View style={styles.afterCareSection}>
-                      <Text style={styles.afterCareLabel}>소개팅을 마친 후 의사를 선택하세요</Text>
+                      <Text style={styles.afterCareLabel}>소개팅은 어떠셨나요? 상대에게는 알려지지 않아요</Text>
                       <View style={styles.afterCareButtons}>
                         <TouchableOpacity
                           style={[styles.afterCareBtn, styles.afterCarePrimary, processingId === item.id && styles.buttonDisabled]}
@@ -795,7 +795,7 @@ export default function HomeScreen() {
                           disabled={processingId !== null}
                         >
                           <Text style={styles.afterCareBtnText}>
-                            {processingId === item.id ? '처리 중...' : '신청'}
+                            {processingId === item.id ? '처리 중...' : '또 만나고 싶어요'}
                           </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -804,7 +804,7 @@ export default function HomeScreen() {
                           disabled={processingId !== null}
                         >
                           <Text style={styles.afterCareBtnText}>
-                            {processingId === item.id ? '처리 중...' : '미신청'}
+                            {processingId === item.id ? '처리 중...' : '이번이 마지막이에요'}
                           </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -815,7 +815,7 @@ export default function HomeScreen() {
                           disabled={processingId !== null}
                         >
                           <Text style={styles.afterCareBtnText}>
-                            {processingId === item.id ? '처리 중...' : '노쇼신고'}
+                            {processingId === item.id ? '처리 중...' : '상대가 안 나왔어요'}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -830,7 +830,7 @@ export default function HomeScreen() {
                       <Text style={styles.waitingText}>
                         {item.settlement_completed
                           ? '✓ 정산이 완료되었습니다. 매칭이 종료되었습니다.'
-                          : '✓ 애프터 의사를 보냈습니다. 상대방도 응답하면 매칭이 마무리됩니다.'}
+                          : '✓ 의사를 전달했어요. 상대방도 응답하면 매칭이 마무리됩니다.'}
                       </Text>
                     </View>
                   )}
@@ -1359,16 +1359,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   afterCareButtons: {
-    flexDirection: 'row',
     gap: 8,
   },
   afterCareBtn: {
-    flex: 1,
     backgroundColor: '#fff',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#ddd',
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   afterCarePrimary: {

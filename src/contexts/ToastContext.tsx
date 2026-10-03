@@ -20,7 +20,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const show = useCallback((message: string, type: ToastType = 'info') => {
     const id = Date.now().toString();
-    const newToast = { id, message, type };
+    // 토스트가 성공 아이콘을 따로 그리므로 메시지 앞의 ✓는 뺀다
+    const newToast = { id, message: message.replace(/^✓\s*/, ''), type };
     setToasts((prev) => [...prev, newToast]);
 
     setTimeout(() => {

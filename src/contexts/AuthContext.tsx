@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loginWithPhone } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 
 export interface User {
   id: string;
@@ -28,6 +29,7 @@ interface AuthContextType {
   login: (phone: string) => Promise<any>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
+  refreshUser: (id: string) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,7 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const stored = await AsyncStorage.getItem('user');
       if (stored) {
-        setUser(JSON.parse(stored));
+        const storedUser: User = JSON.parse(stored);
+        setUser(storedUser);
+        refreshUser(storedUser.id);
       }
       const recent = await AsyncStorage.getItem(RECENT_LOGINS_KEY);
       if (recent) {
@@ -56,6 +60,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  // 운영자 승인으로 역할이 바뀌는 등 서버 쪽 변경을 반영한다 (실패해도 저장된 값으로 계속 사용)
+  async function refreshUser(id: string) {
+    const { data } = await supabase.from('users').select('*').eq('id', id).maybeSingle();
+    if (!data) return;
+    setUser(data);
+    await AsyncStorage.setItem('user', JSON.stringify(data));
   }
 
   async function login(phone: string) {
@@ -85,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, recentLogins, loading, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, recentLogins, loading, login, logout, updateUser, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

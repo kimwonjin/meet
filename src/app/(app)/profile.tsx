@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -12,7 +12,14 @@ import { Avatar } from '@/components/ProfilePhoto';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout, updateUser, refreshUser } = useAuth();
+
+  // 파트너 승인 등 역할 변경을 바로 반영한다
+  useFocusEffect(
+    useCallback(() => {
+      if (user) refreshUser(user.id);
+    }, [user?.id])
+  );
   const toast = useToast();
   const [showConnectorModal, setShowConnectorModal] = useState(false);
   const [businessName, setBusinessName] = useState('');
