@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, type RecentLogin } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
+
+// 테스트 단계에서만 최근 로그인 계정 목록을 보여준다 (.env의 EXPO_PUBLIC_TEST_MODE=true)
+const TEST_MODE = process.env.EXPO_PUBLIC_TEST_MODE === 'true';
+
+const ROLE_LABELS: Record<RecentLogin['role'], string> = {
+  hopeful: '회원',
+  connector: '파트너',
+  operator: '운영자',
+};
 
 function formatPhone(value: string) {
   const cleaned = value.replace(/\D/g, '');
@@ -12,41 +22,37 @@ function formatPhone(value: string) {
 
 export default function LoginScreen() {
   const [phone, setPhone] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loadingPhone, setLoadingPhone] = useState<string | null>(null);
   const router = useRouter();
-  const { user, login } = useAuth();
+  const toast = useToast();
+  const { user, login, recentLogins } = useAuth();
+  const loading = loadingPhone !== null;
 
   useEffect(() => {
     if (user) {
-      console.log('User detected, navigating to home');
       router.replace('/(app)/home');
     }
   }, [user]);
 
-  async function handleLogin() {
-    console.log('Login attempt:', phone);
-
-    if (!phone.replace(/\D/g, '') || phone.replace(/\D/g, '').length !== 11) {
-      Alert.alert('오류', '올바른 전화번호를 입력해주세요');
+  async function loginWith(target: string) {
+    if (target.replace(/\D/g, '').length !== 11) {
+      toast.show('올바른 전화번호를 입력해주세요', 'error');
       return;
     }
 
-    setLoading(true);
+    setLoadingPhone(target);
     try {
-      const { error } = await login(phone);
-      console.log('Login result:', { error });
-
+      const { error } = await login(target);
       if (error) {
-        Alert.alert('오류', '로그인에 실패했습니다');
-        return;
+        // PGRST116: 해당 전화번호로 조회된 회원이 없음
+        const notFound = (error as { code?: string }).code === 'PGRST116';
+        toast.show(notFound ? '가입되지 않은 전화번호입니다' : '로그인에 실패했습니다. 잠시 후 다시 시도해주세요', 'error');
       }
-
-      console.log('Login successful');
     } catch (err) {
       console.error('Login error:', err);
-      Alert.alert('오류', '로그인 중 오류가 발생했습니다');
+      toast.show('로그인 중 오류가 발생했습니다', 'error');
     } finally {
-      setLoading(false);
+      setLoadingPhone(null);
     }
   }
 
@@ -69,10 +75,14 @@ export default function LoginScreen() {
 
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleLogin}
+          onPress={() => loginWith(phone)}
           disabled={loading}
         >
-          <Text style={styles.buttonText}>{loading ? '로그인 중...' : '시작하기'}</Text>
+          {loadingPhone === phone ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>시작하기</Text>
+          )}
         </TouchableOpacity>
 
         <View style={styles.footer}>
@@ -82,6 +92,30 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {TEST_MODE && recentLogins.length > 0 && (
+        <View style={styles.recent}>
+          <Text style={styles.label}>최근 로그인 (테스트용)</Text>
+          {recentLogins.map((item) => (
+            <TouchableOpacity
+              key={item.phone}
+              style={styles.recentItem}
+              onPress={() => loginWith(item.phone)}
+              disabled={loading}
+            >
+              <View style={styles.recentInfo}>
+                <Text style={styles.recentName}>{item.name}</Text>
+                <Text style={styles.recentPhone}>{item.phone}</Text>
+              </View>
+              {loadingPhone === item.phone ? (
+                <ActivityIndicator color="#5B21FF" />
+              ) : (
+                <Text style={styles.recentRole}>{ROLE_LABELS[item.role] ?? item.role}</Text>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -143,6 +177,36 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 12,
     color: '#999',
+  },
+  recent: {
+    marginTop: 40,
+    gap: 8,
+  },
+  recentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  recentInfo: {
+    gap: 2,
+  },
+  recentName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#333',
+  },
+  recentPhone: {
+    fontSize: 12,
+    color: '#999',
+  },
+  recentRole: {
+    fontSize: 12,
+    color: '#666',
   },
   footerLink: {
     fontSize: 12,
