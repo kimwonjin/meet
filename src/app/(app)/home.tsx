@@ -17,6 +17,7 @@ import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
 import { getMyConnectorCredits } from '@/lib/payments';
 import BottomSheet from '@/components/BottomSheet';
+import { formatMeetingTime } from '@/lib/format';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
 
 export default function HomeScreen() {
@@ -157,6 +158,7 @@ export default function HomeScreen() {
             after_care_hopeful_1: r.after_care_hopeful_1,
             after_care_hopeful_2: r.after_care_hopeful_2,
             meeting_status: r.meeting_status,
+            meeting_scheduled_at: r.meeting_scheduled_at,
             settlement_completed: r.settlement_completed,
             isHopeful1,
             created_at: r.created_at,
@@ -712,7 +714,11 @@ export default function HomeScreen() {
                   {/* 3단계: 소개팅 진행 대기 */}
                   {bothApproved && item.meeting_status !== 'completed' && !item.after_care_hopeful_1 && !item.after_care_hopeful_2 && (
                     <View style={styles.waitingMessage}>
-                      <Text style={styles.waitingText}>🎯 소개팅 일정을 기다리는 중입니다...</Text>
+                      <Text style={styles.waitingText}>
+                        {item.meeting_scheduled_at
+                          ? `📅 ${formatMeetingTime(item.meeting_scheduled_at)} 소개팅이 잡혔어요`
+                          : '🎯 파트너가 소개팅 일정을 정하는 중입니다'}
+                      </Text>
                     </View>
                   )}
 

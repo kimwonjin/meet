@@ -16,6 +16,7 @@ import AlliancesScreen from './alliances';
 import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
 import DateTimePickerSheet from '@/components/DateTimePickerSheet';
+import { formatMeetingTime } from '@/lib/format';
 
 type Segment = 'internal' | 'ally' | 'alliance';
 
@@ -145,6 +146,7 @@ export default function MatchingScreen() {
             connector_2_id: m.connector_2_id,
             connector_1_consented: m.connector_1_consented,
             connector_2_consented: m.connector_2_consented,
+            proposer_connector_id: m.proposer_connector_id,
             connector_1_name: connectorName(m.connector_1_id),
             connector_2_name: connectorName(m.connector_2_id),
             meeting_scheduled_at: m.meeting_scheduled_at,
@@ -347,6 +349,27 @@ export default function MatchingScreen() {
 
       if (error) throw error;
 
+      const match = matchRequests.find((m) => m.id === matchId);
+      if (match && user) {
+        const when = formatMeetingTime(scheduledAt.toISOString());
+        const otherConnectorId = match.connector_1_id === user.id ? match.connector_2_id : match.connector_1_id;
+        await Promise.all([
+          ...[match.hopeful_1?.id, match.hopeful_2?.id].filter(Boolean).map((id: string) =>
+            createNotification({ userId: id, type: 'meeting_scheduled', title: '소개팅 일정이 정해졌어요', body: when, route: '/home' })
+          ),
+          otherConnectorId && otherConnectorId !== user.id
+            ? createNotification({
+                userId: otherConnectorId,
+                type: 'meeting_scheduled',
+                title: '동맹 매칭 일정이 정해졌어요',
+                body: `${match.hopeful_1?.name} ↔ ${match.hopeful_2?.name} · ${when}`,
+                route: '/matching',
+                routeParams: { segment: 'ally' },
+              })
+            : Promise.resolve(),
+        ]);
+      }
+
       toast.show('✓ 만남 일정을 확정했습니다', 'success');
       await fetchMatches();
     } catch (error) {
@@ -501,6 +524,10 @@ export default function MatchingScreen() {
   function renderMatchCard(item: any) {
     const crossConnector = item.connector_1_id !== item.connector_2_id;
     const consentDone = !crossConnector || (item.connector_1_consented && item.connector_2_consented);
+    // 일정·진행 상태는 한 사람만 관리한다: 동맹 매칭은 제안한 연결자
+    const schedulerId = crossConnector ? item.proposer_connector_id || item.connector_1_id : user?.id;
+    const isScheduler = schedulerId === user?.id;
+    const schedulerName = schedulerId === item.connector_1_id ? item.connector_1_name : item.connector_2_name;
     const needsMyConsent = crossConnector && (
       (item.connector_1_id === user?.id && !item.connector_1_consented) ||
       (item.connector_2_id === user?.id && !item.connector_2_consented)
@@ -631,12 +658,36 @@ export default function MatchingScreen() {
               </View>
             )}
 
-            {item.hopeful_1_approved && item.hopeful_2_approved && item.meeting_status === 'announced' && (
-              item.meeting_scheduled_at ? (
-                <View style={styles.scheduleConfirmedRow}>
-                  <Text style={styles.scheduleConfirmedText}>
-                    📅 {new Date(item.meeting_scheduled_at).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </Text>
+            {item.hopeful_1_approved && item.hopeful_2_approved && item.meeting_status !== 'completed' && (
+              <View style={styles.scheduleConfirmedRow}>
+                {item.meeting_scheduled_at ? (
+                  <View style={styles.scheduleLine}>
+                    <Text style={styles.scheduleConfirmedText}>📅 {formatMeetingTime(item.meeting_scheduled_at)}</Text>
+                    {isScheduler && item.meeting_status === 'announced' && (
+                      <TouchableOpacity onPress={() => setScheduleMatchId(item.id)} disabled={processingId !== null}>
+                        <Text style={styles.scheduleChangeText}>변경</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : !isScheduler ? (
+                  <View style={styles.statusMessage}>
+                    <Text style={styles.statusMessageText}>{schedulerName}님이 만남 일정을 정하는 중입니다</Text>
+                  </View>
+                ) : null}
+
+                {isScheduler && !item.meeting_scheduled_at && (
+                  <TouchableOpacity
+                    style={[styles.actionBtn, processingId === item.id && styles.buttonDisabled]}
+                    onPress={() => setScheduleMatchId(item.id)}
+                    disabled={processingId !== null}
+                  >
+                    <Text style={styles.actionBtnText}>
+                      {processingId === item.id ? '저장 중...' : '📅 만남 일정 정하기'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {isScheduler && item.meeting_scheduled_at && item.meeting_status === 'announced' && (
                   <TouchableOpacity
                     style={[styles.actionBtn, processingId === item.id && styles.buttonDisabled]}
                     onPress={() => handleUpdateMeetingStatus(item.id, 'in_progress')}
@@ -646,30 +697,26 @@ export default function MatchingScreen() {
                       {processingId === item.id ? '처리 중...' : '🎯 만남중으로 변경'}
                     </Text>
                   </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.actionBtn, processingId === item.id && styles.buttonDisabled]}
-                  onPress={() => setScheduleMatchId(item.id)}
-                  disabled={processingId !== null}
-                >
-                  <Text style={styles.actionBtnText}>
-                    {processingId === item.id ? '저장 중...' : '📅 만남 일정 정하기'}
-                  </Text>
-                </TouchableOpacity>
-              )
-            )}
+                )}
 
-            {item.hopeful_1_approved && item.hopeful_2_approved && item.meeting_status === 'in_progress' && (
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.completeBtn, processingId === item.id && styles.buttonDisabled]}
-                onPress={() => handleUpdateMeetingStatus(item.id, 'completed')}
-                disabled={processingId !== null}
-              >
-                <Text style={styles.completeBtnText}>
-                  {processingId === item.id ? '처리 중...' : '✓ 만남 완료'}
-                </Text>
-              </TouchableOpacity>
+                {isScheduler && item.meeting_status === 'in_progress' && (
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.completeBtn, processingId === item.id && styles.buttonDisabled]}
+                    onPress={() => handleUpdateMeetingStatus(item.id, 'completed')}
+                    disabled={processingId !== null}
+                  >
+                    <Text style={styles.completeBtnText}>
+                      {processingId === item.id ? '처리 중...' : '✓ 만남 완료'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {!isScheduler && item.meeting_status === 'in_progress' && (
+                  <View style={styles.statusMessage}>
+                    <Text style={styles.statusMessageText}>만남이 진행 중입니다</Text>
+                  </View>
+                )}
+              </View>
             )}
 
             {item.meeting_status === 'completed' && (item.settlement_completed || (item.after_care_hopeful_1 && item.after_care_hopeful_2)) && (
@@ -771,6 +818,10 @@ export default function MatchingScreen() {
 
       <DateTimePickerSheet
         visible={scheduleMatchId !== null}
+        initialDate={(() => {
+          const at = matchRequests.find((m) => m.id === scheduleMatchId)?.meeting_scheduled_at;
+          return at ? new Date(at) : undefined;
+        })()}
         onClose={() => setScheduleMatchId(null)}
         onConfirm={(date) => scheduleMatchId && handleSetSchedule(scheduleMatchId, date)}
       />
@@ -1003,12 +1054,25 @@ const styles = StyleSheet.create({
   scheduleConfirmedRow: {
     marginTop: 8,
   },
+  scheduleLine: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
   scheduleConfirmedText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: '#5B21FF',
-    marginBottom: 8,
     textAlign: 'center',
+  },
+  scheduleChangeText: {
+    fontSize: 12,
+    color: '#888',
+    textDecorationLine: 'underline',
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
   actionBtn: {
     backgroundColor: '#5B21FF',
