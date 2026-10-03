@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { getMyConnectorCredits, chargeWallet, getWalletBalance, CHARGE_OPTIONS } from '@/lib/payments';
 import NotificationBell from '@/components/NotificationBell';
+import BottomSheet from '@/components/BottomSheet';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -552,7 +553,7 @@ export default function ProfileScreen() {
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowCreditScoreModal(true)}>
             <Text style={styles.menuIcon}>⭐</Text>
             <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>신용지표</Text>
+              <Text style={styles.menuTitle}>신뢰지표</Text>
               <Text style={styles.menuSub}>등급 및 신뢰 점수</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
@@ -600,166 +601,158 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
 
-      <Modal visible={showProfileModal} transparent animationType="slide">
-        <View style={styles.modalContainer}>
-          <ScrollView style={styles.profileModalContent} showsVerticalScrollIndicator={false}>
-            <TouchableOpacity onPress={() => setShowProfileModal(false)} style={styles.modalClose}>
-              <Text style={styles.modalCloseText}>✕</Text>
-            </TouchableOpacity>
+      <BottomSheet visible={showProfileModal} onClose={() => setShowProfileModal(false)} title="내 프로필 수정">
 
-            <Text style={styles.profileModalTitle}>내 프로필 수정</Text>
-
-            <View style={styles.profileFormSection}>
-              <Text style={styles.formLabel}>지역</Text>
-              <View style={styles.buttonGroup}>
-                {locations.map((loc) => (
-                  <TouchableOpacity
-                    key={loc}
-                    style={[styles.optionBtn, profileData.location === loc && styles.optionBtnSelected]}
-                    onPress={() => setProfileData({...profileData, location: loc})}
-                  >
-                    <Text style={[styles.optionBtnText, profileData.location === loc && styles.optionBtnTextSelected]}>{loc}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.profileFormSection}>
-              <Text style={styles.formLabel}>생년월일</Text>
-              <View style={[styles.formInput, {justifyContent: 'center', paddingLeft: 10}]}>
-                <Text style={{color: '#333', fontSize: 16}}>
-                  {user?.birth_date || '-'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.profileFormSection}>
-              <Text style={styles.formLabel}>키 (cm)</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="170"
-                placeholderTextColor="#ddd"
-                keyboardType="number-pad"
-                value={profileData.height}
-                onChangeText={(text) => setProfileData({...profileData, height: text})}
-              />
-            </View>
-
-            <View style={styles.profileFormSection}>
-              <Text style={styles.formLabel}>직업</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="개발자"
-                placeholderTextColor="#ddd"
-                value={profileData.job}
-                onChangeText={(text) => setProfileData({...profileData, job: text})}
-              />
-            </View>
-
-            <View style={styles.profileFormSection}>
-              <Text style={styles.formLabel}>학력</Text>
-              <View style={styles.buttonGroup}>
-                {educations.map((edu) => (
-                  <TouchableOpacity
-                    key={edu}
-                    style={[styles.optionBtn, profileData.education === edu && styles.optionBtnSelected]}
-                    onPress={() => setProfileData({...profileData, education: edu})}
-                  >
-                    <Text style={[styles.optionBtnText, profileData.education === edu && styles.optionBtnTextSelected]}>{edu}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.profileFormSection}>
-              <Text style={styles.formLabel}>종교</Text>
-              <View style={styles.buttonGroup}>
-                {religions.map((rel) => (
-                  <TouchableOpacity
-                    key={rel}
-                    style={[styles.optionBtn, profileData.religion === rel && styles.optionBtnSelected]}
-                    onPress={() => setProfileData({...profileData, religion: rel})}
-                  >
-                    <Text style={[styles.optionBtnText, profileData.religion === rel && styles.optionBtnTextSelected]}>{rel}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.profileFormSection}>
-              <Text style={styles.formLabel}>흡연</Text>
-              <View style={styles.buttonGroup}>
-                {smokings.map((smk) => (
-                  <TouchableOpacity
-                    key={smk}
-                    style={[styles.optionBtn, profileData.smoking === smk && styles.optionBtnSelected]}
-                    onPress={() => setProfileData({...profileData, smoking: smk})}
-                  >
-                    <Text style={[styles.optionBtnText, profileData.smoking === smk && styles.optionBtnTextSelected]}>{smk}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.profileFormSection}>
-              <Text style={styles.formLabel}>음주</Text>
-              <View style={styles.buttonGroup}>
-                {drinkings.map((drk) => (
-                  <TouchableOpacity
-                    key={drk}
-                    style={[styles.optionBtn, profileData.drinking === drk && styles.optionBtnSelected]}
-                    onPress={() => setProfileData({...profileData, drinking: drk})}
-                  >
-                    <Text style={[styles.optionBtnText, profileData.drinking === drk && styles.optionBtnTextSelected]}>{drk}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.profileFormSection}>
-              <Text style={styles.formLabel}>체형</Text>
-              <View style={styles.buttonGroup}>
-                {bodyTypes.map((body) => (
-                  <TouchableOpacity
-                    key={body}
-                    style={[styles.optionBtn, profileData.body_type === body && styles.optionBtnSelected]}
-                    onPress={() => setProfileData({...profileData, body_type: body})}
-                  >
-                    <Text style={[styles.optionBtnText, profileData.body_type === body && styles.optionBtnTextSelected]}>{body}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.profileFormSection}>
-              <Text style={styles.formLabel}>자기소개</Text>
-              <TextInput
-                style={[styles.formInput, {minHeight: 100}]}
-                placeholder="자신을 소개해주세요"
-                placeholderTextColor="#ddd"
-                multiline
-                value={profileData.bio}
-                onChangeText={(text) => setProfileData({...profileData, bio: text})}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[styles.profileSaveBtn, loading && styles.storeSaveBtnDisabled]}
-              onPress={handleProfileSave}
-              disabled={loading}
-            >
-              <Text style={styles.profileSaveBtnText}>{loading ? '저장 중...' : '저장하기'}</Text>
-            </TouchableOpacity>
-          </ScrollView>
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>지역</Text>
+          <View style={styles.buttonGroup}>
+            {locations.map((loc) => (
+              <TouchableOpacity
+                key={loc}
+                style={[styles.optionBtn, profileData.location === loc && styles.optionBtnSelected]}
+                onPress={() => setProfileData({...profileData, location: loc})}
+              >
+                <Text style={[styles.optionBtnText, profileData.location === loc && styles.optionBtnTextSelected]}>{loc}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
-      </Modal>
 
-      <Modal visible={showConnectorModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>생년월일</Text>
+          <View style={[styles.formInput, {justifyContent: 'center', paddingLeft: 10}]}>
+            <Text style={{color: '#333', fontSize: 16}}>
+              {user?.birth_date || '-'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>키 (cm)</Text>
+          <TextInput
+            style={styles.formInput}
+            placeholder="170"
+            placeholderTextColor="#ddd"
+            keyboardType="number-pad"
+            value={profileData.height}
+            onChangeText={(text) => setProfileData({...profileData, height: text})}
+          />
+        </View>
+
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>직업</Text>
+          <TextInput
+            style={styles.formInput}
+            placeholder="개발자"
+            placeholderTextColor="#ddd"
+            value={profileData.job}
+            onChangeText={(text) => setProfileData({...profileData, job: text})}
+          />
+        </View>
+
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>학력</Text>
+          <View style={styles.buttonGroup}>
+            {educations.map((edu) => (
+              <TouchableOpacity
+                key={edu}
+                style={[styles.optionBtn, profileData.education === edu && styles.optionBtnSelected]}
+                onPress={() => setProfileData({...profileData, education: edu})}
+              >
+                <Text style={[styles.optionBtnText, profileData.education === edu && styles.optionBtnTextSelected]}>{edu}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>종교</Text>
+          <View style={styles.buttonGroup}>
+            {religions.map((rel) => (
+              <TouchableOpacity
+                key={rel}
+                style={[styles.optionBtn, profileData.religion === rel && styles.optionBtnSelected]}
+                onPress={() => setProfileData({...profileData, religion: rel})}
+              >
+                <Text style={[styles.optionBtnText, profileData.religion === rel && styles.optionBtnTextSelected]}>{rel}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>흡연</Text>
+          <View style={styles.buttonGroup}>
+            {smokings.map((smk) => (
+              <TouchableOpacity
+                key={smk}
+                style={[styles.optionBtn, profileData.smoking === smk && styles.optionBtnSelected]}
+                onPress={() => setProfileData({...profileData, smoking: smk})}
+              >
+                <Text style={[styles.optionBtnText, profileData.smoking === smk && styles.optionBtnTextSelected]}>{smk}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>음주</Text>
+          <View style={styles.buttonGroup}>
+            {drinkings.map((drk) => (
+              <TouchableOpacity
+                key={drk}
+                style={[styles.optionBtn, profileData.drinking === drk && styles.optionBtnSelected]}
+                onPress={() => setProfileData({...profileData, drinking: drk})}
+              >
+                <Text style={[styles.optionBtnText, profileData.drinking === drk && styles.optionBtnTextSelected]}>{drk}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>체형</Text>
+          <View style={styles.buttonGroup}>
+            {bodyTypes.map((body) => (
+              <TouchableOpacity
+                key={body}
+                style={[styles.optionBtn, profileData.body_type === body && styles.optionBtnSelected]}
+                onPress={() => setProfileData({...profileData, body_type: body})}
+              >
+                <Text style={[styles.optionBtnText, profileData.body_type === body && styles.optionBtnTextSelected]}>{body}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>자기소개</Text>
+          <TextInput
+            style={[styles.formInput, {minHeight: 100}]}
+            placeholder="자신을 소개해주세요"
+            placeholderTextColor="#ddd"
+            multiline
+            value={profileData.bio}
+            onChangeText={(text) => setProfileData({...profileData, bio: text})}
+          />
+        </View>
+
+        <TouchableOpacity
+          style={[styles.profileSaveBtn, loading && styles.storeSaveBtnDisabled]}
+          onPress={handleProfileSave}
+          disabled={loading}
+        >
+          <Text style={styles.profileSaveBtnText}>{loading ? '저장 중...' : '저장하기'}</Text>
+        </TouchableOpacity>
+      </BottomSheet>
+
+      <BottomSheet
+        visible={showConnectorModal}
+        onClose={() => setShowConnectorModal(false)}
+        title={connectorApplicationStatus === 'pending' ? '심사 중입니다' : '매칭 파트너 신청'}
+      >
             {connectorApplicationStatus === 'pending' ? (
               <>
-                <Text style={styles.modalTitle}>심사 중입니다</Text>
                 <Text style={{ color: '#666', fontSize: 13, marginBottom: 20, lineHeight: 20 }}>
                   매칭 파트너 신청이 접수되었습니다.{'\n'}운영자 승인 후 파트너 화면이 열립니다.
                 </Text>
@@ -772,7 +765,6 @@ export default function ProfileScreen() {
               </>
             ) : (
               <>
-                <Text style={styles.modalTitle}>매칭 파트너 신청</Text>
                 {connectorApplicationStatus === 'rejected' && (
                   <Text style={{ color: '#E53935', fontSize: 12, marginBottom: 10 }}>
                     이전 신청이 반려되었습니다. 다시 신청할 수 있습니다.
@@ -807,426 +799,382 @@ export default function ProfileScreen() {
                 </View>
               </>
             )}
+      </BottomSheet>
+
+      {/* 스토어관리 시트 */}
+      <BottomSheet visible={showStoreModal} onClose={() => setShowStoreModal(false)} title="스토어관리">
+        {/* 회원수 표시 (입력불가) */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>남성 회원</Text>
+            <Text style={styles.statValue}>{storeData.male_count}명</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>여성 회원</Text>
+            <Text style={styles.statValue}>{storeData.female_count}명</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>매칭 성공</Text>
+            <Text style={styles.statValue}>{storeData.matching_count}건</Text>
           </View>
         </View>
-      </Modal>
 
-      {/* 스토어관리 모달 */}
-      <Modal visible={showStoreModal} transparent animationType="slide">
-        <SafeAreaView style={styles.container}>
-          <TouchableOpacity onPress={() => setShowStoreModal(false)} style={styles.modalClose}>
-            <Text style={styles.modalCloseText}>✕</Text>
-          </TouchableOpacity>
+        {/* 주요지역 선택 - 버튼형 (중복 선택 가능) */}
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>주요지역 (중복 선택 가능)</Text>
+          <View style={styles.buttonGroup}>
+            {locations.map((loc) => (
+              <TouchableOpacity
+                key={loc}
+                style={[styles.optionBtn, selectedRegions.includes(loc) && styles.optionBtnSelected]}
+                onPress={() => {
+                  if (selectedRegions.includes(loc)) {
+                    setSelectedRegions(selectedRegions.filter(r => r !== loc));
+                  } else {
+                    setSelectedRegions([...selectedRegions, loc]);
+                  }
+                }}
+              >
+                <Text style={[styles.optionBtnText, selectedRegions.includes(loc) && styles.optionBtnTextSelected]}>
+                  {loc}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {selectedRegions.length > 0 && (
+            <View style={styles.selectedRegionsTag}>
+              <Text style={styles.selectedRegionsText}>선택: {selectedRegions.join(', ')}</Text>
+            </View>
+          )}
+        </View>
 
-          <Text style={styles.profileModalTitle}>스토어관리</Text>
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>회당 금액 (원)</Text>
+          <TextInput
+            style={styles.formInput}
+            placeholder="45000"
+            placeholderTextColor="#ddd"
+            keyboardType="number-pad"
+            value={storeData.fee_per_session}
+            onChangeText={(text) => setStoreData({...storeData, fee_per_session: text})}
+          />
+        </View>
 
-          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-            {/* 회원수 표시 (입력불가) */}
-            <View style={styles.statsContainer}>
-              <View style={styles.statBox}>
-                <Text style={styles.statLabel}>남성 회원</Text>
-                <Text style={styles.statValue}>{storeData.male_count}명</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statLabel}>여성 회원</Text>
-                <Text style={styles.statValue}>{storeData.female_count}명</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statLabel}>매칭 성공</Text>
-                <Text style={styles.statValue}>{storeData.matching_count}건</Text>
-              </View>
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>서비스 설명</Text>
+          <TextInput
+            style={[styles.formInput, {height: 100, textAlignVertical: 'top'}]}
+            placeholder="서비스에 대해 설명해주세요"
+            placeholderTextColor="#ddd"
+            multiline
+            numberOfLines={5}
+            value={storeData.service_description}
+            onChangeText={(text) => setStoreData({...storeData, service_description: text})}
+          />
+        </View>
+
+        <TouchableOpacity
+          style={[styles.storeSaveBtn, loading && styles.storeSaveBtnDisabled]}
+          onPress={handleStoreSave}
+          disabled={loading}
+        >
+          <Text style={styles.storeSaveBtnText}>
+            {loading ? '⏳ 저장 중...' : '✓ 저장하기'}
+          </Text>
+        </TouchableOpacity>
+      </BottomSheet>
+
+      <BottomSheet visible={showCreditsModal} onClose={() => setShowCreditsModal(false)} title="이용권/결제">
+
+        {loadingCredits ? (
+          <Text style={{ color: '#999', paddingVertical: 20 }}>불러오는 중...</Text>
+        ) : (
+          <>
+            <View style={styles.walletBalanceBox}>
+              <Text style={styles.walletBalanceLabel}>충전된 금액</Text>
+              <Text style={styles.walletBalanceValue}>{walletBalance.toLocaleString()}원</Text>
             </View>
 
-            {/* 주요지역 선택 - 버튼형 (중복 선택 가능) */}
-            <View style={styles.profileFormSection}>
-              <Text style={styles.formLabel}>주요지역 (중복 선택 가능)</Text>
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>충전하기</Text>
+
+              <Text style={styles.formLabel}>충전 금액</Text>
               <View style={styles.buttonGroup}>
-                {locations.map((loc) => (
+                {CHARGE_OPTIONS.map((amount) => (
                   <TouchableOpacity
-                    key={loc}
-                    style={[styles.optionBtn, selectedRegions.includes(loc) && styles.optionBtnSelected]}
-                    onPress={() => {
-                      if (selectedRegions.includes(loc)) {
-                        setSelectedRegions(selectedRegions.filter(r => r !== loc));
-                      } else {
-                        setSelectedRegions([...selectedRegions, loc]);
-                      }
-                    }}
+                    key={amount}
+                    style={[styles.optionBtn, chargeAmount === amount && styles.optionBtnSelected]}
+                    onPress={() => setChargeAmount(amount)}
                   >
-                    <Text style={[styles.optionBtnText, selectedRegions.includes(loc) && styles.optionBtnTextSelected]}>
-                      {loc}
+                    <Text style={[styles.optionBtnText, chargeAmount === amount && styles.optionBtnTextSelected]}>
+                      {amount.toLocaleString()}원
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
-              {selectedRegions.length > 0 && (
-                <View style={styles.selectedRegionsTag}>
-                  <Text style={styles.selectedRegionsText}>선택: {selectedRegions.join(', ')}</Text>
-                </View>
+
+              <TouchableOpacity
+                style={[styles.storeSaveBtn, charging && styles.storeSaveBtnDisabled]}
+                onPress={handleCharge}
+                disabled={charging}
+              >
+                <Text style={styles.storeSaveBtnText}>{charging ? '충전 중...' : '충전하기'}</Text>
+              </TouchableOpacity>
+              <Text style={styles.chargeNotice}>카드결제는 추후 지원 예정입니다 (현재는 테스트 충전)</Text>
+            </View>
+
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>이용권 현황</Text>
+              {myConnectorCredits.length === 0 ? (
+                <Text style={{ color: '#999', paddingVertical: 12 }}>아직 구매한 이용권이 없습니다. 파트너 탭에서 승인된 연결자의 이용권을 구매해보세요.</Text>
+              ) : (
+                myConnectorCredits.map((c) => (
+                  <View key={c.connectorId} style={styles.creditCard}>
+                    <View style={styles.creditCardHeader}>
+                      <Text style={styles.creditConnectorName}>{c.connectorName}</Text>
+                      <Text style={styles.creditFee}>{c.feePerSession?.toLocaleString() || '-'}원 / 회</Text>
+                    </View>
+                    <View style={styles.creditRow}>
+                      <View style={styles.creditStat}>
+                        <Text style={styles.creditStatLabel}>구매</Text>
+                        <Text style={styles.creditStatValue}>{c.purchased}회</Text>
+                      </View>
+                      <View style={styles.creditStat}>
+                        <Text style={styles.creditStatLabel}>잔여</Text>
+                        <Text style={styles.creditStatValue}>{c.available}회</Text>
+                      </View>
+                      <View style={styles.creditStat}>
+                        <Text style={styles.creditStatLabel}>사용</Text>
+                        <Text style={styles.creditStatValueMuted}>{c.used}회</Text>
+                      </View>
+                    </View>
+                  </View>
+                ))
               )}
             </View>
+          </>
+        )}
+      </BottomSheet>
 
-            <View style={styles.profileFormSection}>
-              <Text style={styles.formLabel}>회당 금액 (원)</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="45000"
-                placeholderTextColor="#ddd"
-                keyboardType="number-pad"
-                value={storeData.fee_per_session}
-                onChangeText={(text) => setStoreData({...storeData, fee_per_session: text})}
-              />
+      <BottomSheet visible={showSettlementsModal} onClose={() => setShowSettlementsModal(false)} title="정산관리">
+
+        {loadingSettlements ? (
+          <Text style={{ color: '#999', paddingVertical: 20 }}>불러오는 중...</Text>
+        ) : mySettlements.length === 0 ? (
+          <Text style={{ color: '#999', paddingVertical: 20 }}>정산 내역이 없습니다</Text>
+        ) : (
+          <>
+            <View style={styles.statsContainer}>
+              <View style={styles.statBox}>
+                <Text style={styles.statLabel}>총 지급액</Text>
+                <Text style={styles.statValue}>
+                  {mySettlements.reduce((sum, s) => sum + Number(s.connector_payout), 0).toLocaleString()}원
+                </Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statLabel}>지급완료</Text>
+                <Text style={styles.statValue}>
+                  {mySettlements.filter((s) => s.status === 'paid').reduce((sum, s) => sum + Number(s.connector_payout), 0).toLocaleString()}원
+                </Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statLabel}>지급 대기중</Text>
+                <Text style={styles.statValue}>
+                  {mySettlements.filter((s) => s.status === 'pending').reduce((sum, s) => sum + Number(s.connector_payout), 0).toLocaleString()}원
+                </Text>
+              </View>
             </View>
 
-            <View style={styles.profileFormSection}>
-              <Text style={styles.formLabel}>서비스 설명</Text>
-              <TextInput
-                style={[styles.formInput, {height: 100, textAlignVertical: 'top'}]}
-                placeholder="서비스에 대해 설명해주세요"
-                placeholderTextColor="#ddd"
-                multiline
-                numberOfLines={5}
-                value={storeData.service_description}
-                onChangeText={(text) => setStoreData({...storeData, service_description: text})}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[styles.storeSaveBtn, loading && styles.storeSaveBtnDisabled]}
-              onPress={handleStoreSave}
-              disabled={loading}
-            >
-              <Text style={styles.storeSaveBtnText}>
-                {loading ? '⏳ 저장 중...' : '✓ 저장하기'}
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-
-      <Modal visible={showCreditsModal} transparent animationType="slide" onRequestClose={() => setShowCreditsModal(false)}>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity onPress={() => setShowCreditsModal(false)} style={styles.modalClose}>
-            <Text style={styles.modalCloseText}>✕</Text>
-          </TouchableOpacity>
-          <ScrollView style={styles.profileModalContent} showsVerticalScrollIndicator={false}>
-            <Text style={styles.profileModalTitle}>이용권/결제</Text>
-
-            {loadingCredits ? (
-              <Text style={{ color: '#999', paddingVertical: 20 }}>불러오는 중...</Text>
-            ) : (
-              <>
-                <View style={styles.walletBalanceBox}>
-                  <Text style={styles.walletBalanceLabel}>충전된 금액</Text>
-                  <Text style={styles.walletBalanceValue}>{walletBalance.toLocaleString()}원</Text>
-                </View>
-
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>충전하기</Text>
-
-                  <Text style={styles.formLabel}>충전 금액</Text>
-                  <View style={styles.buttonGroup}>
-                    {CHARGE_OPTIONS.map((amount) => (
-                      <TouchableOpacity
-                        key={amount}
-                        style={[styles.optionBtn, chargeAmount === amount && styles.optionBtnSelected]}
-                        onPress={() => setChargeAmount(amount)}
-                      >
-                        <Text style={[styles.optionBtnText, chargeAmount === amount && styles.optionBtnTextSelected]}>
-                          {amount.toLocaleString()}원
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>이용권 사용 내역</Text>
+              {mySettlements.map((s) => (
+                <View key={s.id} style={styles.creditCard}>
+                  <View style={styles.creditCardHeader}>
+                    <Text style={styles.creditConnectorName}>{s.hopefulName}님의 이용권 사용</Text>
+                    <Text style={styles.creditFee}>{new Date(s.created_at).toLocaleDateString('ko-KR')}</Text>
                   </View>
-
-                  <TouchableOpacity
-                    style={[styles.storeSaveBtn, charging && styles.storeSaveBtnDisabled]}
-                    onPress={handleCharge}
-                    disabled={charging}
-                  >
-                    <Text style={styles.storeSaveBtnText}>{charging ? '충전 중...' : '충전하기'}</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.chargeNotice}>카드결제는 추후 지원 예정입니다 (현재는 테스트 충전)</Text>
-                </View>
-
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>이용권 현황</Text>
-                  {myConnectorCredits.length === 0 ? (
-                    <Text style={{ color: '#999', paddingVertical: 12 }}>아직 구매한 이용권이 없습니다. 파트너 탭에서 승인된 연결자의 이용권을 구매해보세요.</Text>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>회당 금액</Text>
+                    <Text style={styles.infoValue}>{Number(s.amount_per_session).toLocaleString()}원</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>플랫폼 수수료 (20%)</Text>
+                    <Text style={styles.infoValue}>-{Number(s.platform_fee).toLocaleString()}원</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>지급액 (80%)</Text>
+                    <Text style={[styles.infoValue, { color: '#5B21FF', fontWeight: '700' }]}>
+                      {Number(s.connector_payout).toLocaleString()}원
+                    </Text>
+                  </View>
+                  {s.status === 'paid' ? (
+                    <View style={styles.paidBadge}>
+                      <Text style={styles.paidBadgeText}>
+                        ✓ {s.settled_at ? new Date(s.settled_at).toLocaleDateString('ko-KR') : ''} 지급 완료
+                      </Text>
+                    </View>
                   ) : (
-                    myConnectorCredits.map((c) => (
-                      <View key={c.connectorId} style={styles.creditCard}>
-                        <View style={styles.creditCardHeader}>
-                          <Text style={styles.creditConnectorName}>{c.connectorName}</Text>
-                          <Text style={styles.creditFee}>{c.feePerSession?.toLocaleString() || '-'}원 / 회</Text>
-                        </View>
-                        <View style={styles.creditRow}>
-                          <View style={styles.creditStat}>
-                            <Text style={styles.creditStatLabel}>구매</Text>
-                            <Text style={styles.creditStatValue}>{c.purchased}회</Text>
-                          </View>
-                          <View style={styles.creditStat}>
-                            <Text style={styles.creditStatLabel}>잔여</Text>
-                            <Text style={styles.creditStatValue}>{c.available}회</Text>
-                          </View>
-                          <View style={styles.creditStat}>
-                            <Text style={styles.creditStatLabel}>사용</Text>
-                            <Text style={styles.creditStatValueMuted}>{c.used}회</Text>
-                          </View>
-                        </View>
-                      </View>
-                    ))
+                    <View style={styles.pendingBadge}>
+                      <Text style={styles.pendingBadgeText}>지급 대기중</Text>
+                    </View>
                   )}
                 </View>
-              </>
-            )}
-          </ScrollView>
-        </View>
-      </Modal>
+              ))}
+            </View>
+          </>
+        )}
+      </BottomSheet>
 
-      <Modal visible={showSettlementsModal} transparent animationType="slide" onRequestClose={() => setShowSettlementsModal(false)}>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity onPress={() => setShowSettlementsModal(false)} style={styles.modalClose}>
-            <Text style={styles.modalCloseText}>✕</Text>
-          </TouchableOpacity>
-          <ScrollView style={styles.profileModalContent} showsVerticalScrollIndicator={false}>
-            <Text style={styles.profileModalTitle}>정산관리</Text>
+      <BottomSheet visible={showCreditScoreModal} onClose={() => setShowCreditScoreModal(false)} title="신뢰지표">
 
-            {loadingSettlements ? (
-              <Text style={{ color: '#999', paddingVertical: 20 }}>불러오는 중...</Text>
-            ) : mySettlements.length === 0 ? (
-              <Text style={{ color: '#999', paddingVertical: 20 }}>정산 내역이 없습니다</Text>
-            ) : (
-              <>
-                <View style={styles.statsContainer}>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statLabel}>총 지급액</Text>
-                    <Text style={styles.statValue}>
-                      {mySettlements.reduce((sum, s) => sum + Number(s.connector_payout), 0).toLocaleString()}원
-                    </Text>
-                  </View>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statLabel}>지급완료</Text>
-                    <Text style={styles.statValue}>
-                      {mySettlements.filter((s) => s.status === 'paid').reduce((sum, s) => sum + Number(s.connector_payout), 0).toLocaleString()}원
-                    </Text>
-                  </View>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statLabel}>지급 대기중</Text>
-                    <Text style={styles.statValue}>
-                      {mySettlements.filter((s) => s.status === 'pending').reduce((sum, s) => sum + Number(s.connector_payout), 0).toLocaleString()}원
-                    </Text>
-                  </View>
-                </View>
+        {loadingCreditScore ? (
+          <ActivityIndicator size="large" color="#5B21FF" style={{ marginTop: 40 }} />
+        ) : !creditScore ? (
+          <Text style={{ color: '#999', paddingVertical: 20 }}>신뢰지표를 불러오지 못했습니다</Text>
+        ) : creditScore.total_proposed === 0 ? (
+          <View style={styles.comingSoonContainer}>
+            <Text style={styles.comingSoonIcon}>⭐</Text>
+            <Text style={styles.comingSoonText}>아직 제안한 매칭이 없습니다</Text>
+            <Text style={styles.comingSoonSub}>매칭을 진행하면 등급이 산정됩니다</Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.gradeBox}>
+              <Text style={styles.gradeBoxLabel}>현재 등급</Text>
+              <Text style={styles.gradeBoxValue}>{creditScore.grade}</Text>
+              <Text style={styles.gradeBoxScore}>종합 점수 {creditScore.overall_score}점</Text>
+            </View>
 
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>이용권 사용 내역</Text>
-                  {mySettlements.map((s) => (
-                    <View key={s.id} style={styles.creditCard}>
-                      <View style={styles.creditCardHeader}>
-                        <Text style={styles.creditConnectorName}>{s.hopefulName}님의 이용권 사용</Text>
-                        <Text style={styles.creditFee}>{new Date(s.created_at).toLocaleDateString('ko-KR')}</Text>
-                      </View>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>회당 금액</Text>
-                        <Text style={styles.infoValue}>{Number(s.amount_per_session).toLocaleString()}원</Text>
-                      </View>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>플랫폼 수수료 (20%)</Text>
-                        <Text style={styles.infoValue}>-{Number(s.platform_fee).toLocaleString()}원</Text>
-                      </View>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>지급액 (80%)</Text>
-                        <Text style={[styles.infoValue, { color: '#5B21FF', fontWeight: '700' }]}>
-                          {Number(s.connector_payout).toLocaleString()}원
-                        </Text>
-                      </View>
-                      {s.status === 'paid' ? (
-                        <View style={styles.paidBadge}>
-                          <Text style={styles.paidBadgeText}>
-                            ✓ {s.settled_at ? new Date(s.settled_at).toLocaleDateString('ko-KR') : ''} 지급 완료
-                          </Text>
-                        </View>
-                      ) : (
-                        <View style={styles.pendingBadge}>
-                          <Text style={styles.pendingBadgeText}>지급 대기중</Text>
-                        </View>
-                      )}
-                    </View>
-                  ))}
-                </View>
-              </>
-            )}
-          </ScrollView>
-        </View>
-      </Modal>
-
-      <Modal visible={showCreditScoreModal} transparent animationType="slide" onRequestClose={() => setShowCreditScoreModal(false)}>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity onPress={() => setShowCreditScoreModal(false)} style={styles.modalClose}>
-            <Text style={styles.modalCloseText}>✕</Text>
-          </TouchableOpacity>
-          <ScrollView style={styles.profileModalContent} showsVerticalScrollIndicator={false}>
-            <Text style={styles.profileModalTitle}>신용지표</Text>
-
-            {loadingCreditScore ? (
-              <ActivityIndicator size="large" color="#5B21FF" style={{ marginTop: 40 }} />
-            ) : !creditScore ? (
-              <Text style={{ color: '#999', paddingVertical: 20 }}>신용지표를 불러오지 못했습니다</Text>
-            ) : creditScore.total_proposed === 0 ? (
-              <View style={styles.comingSoonContainer}>
-                <Text style={styles.comingSoonIcon}>⭐</Text>
-                <Text style={styles.comingSoonText}>아직 제안한 매칭이 없습니다</Text>
-                <Text style={styles.comingSoonSub}>매칭을 진행하면 등급이 산정됩니다</Text>
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>세부 점수</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>매칭 성사율</Text>
+                <Text style={styles.infoValue}>{creditScore.success_score}점</Text>
               </View>
-            ) : (
-              <>
-                <View style={styles.gradeBox}>
-                  <Text style={styles.gradeBoxLabel}>현재 등급</Text>
-                  <Text style={styles.gradeBoxValue}>{creditScore.grade}</Text>
-                  <Text style={styles.gradeBoxScore}>종합 점수 {creditScore.overall_score}점</Text>
-                </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>노쇼·분쟁 없음</Text>
+                <Text style={styles.infoValue}>{creditScore.trust_score}점</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>활동량</Text>
+                <Text style={styles.infoValue}>{creditScore.activity_score}점</Text>
+              </View>
+            </View>
 
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>세부 점수</Text>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>매칭 성사율</Text>
-                    <Text style={styles.infoValue}>{creditScore.success_score}점</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>노쇼·분쟁 없음</Text>
-                    <Text style={styles.infoValue}>{creditScore.trust_score}점</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>활동량</Text>
-                    <Text style={styles.infoValue}>{creditScore.activity_score}점</Text>
-                  </View>
-                </View>
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>근거 데이터</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>제안한 매칭</Text>
+                <Text style={styles.infoValue}>{creditScore.total_proposed}건</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>정산 완료</Text>
+                <Text style={styles.infoValue}>{creditScore.settled_count}건</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>노쇼·분쟁 신고</Text>
+                <Text style={styles.infoValue}>{creditScore.noshow_dispute_count}건</Text>
+              </View>
+            </View>
+          </>
+        )}
+      </BottomSheet>
 
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>근거 데이터</Text>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>제안한 매칭</Text>
-                    <Text style={styles.infoValue}>{creditScore.total_proposed}건</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>정산 완료</Text>
-                    <Text style={styles.infoValue}>{creditScore.settled_count}건</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>노쇼·분쟁 신고</Text>
-                    <Text style={styles.infoValue}>{creditScore.noshow_dispute_count}건</Text>
-                  </View>
-                </View>
-              </>
-            )}
-          </ScrollView>
-        </View>
-      </Modal>
+      <BottomSheet visible={showBankModal} onClose={() => setShowBankModal(false)} title="계좌 정보">
 
-      <Modal visible={showBankModal} transparent animationType="slide" onRequestClose={() => setShowBankModal(false)}>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity onPress={() => setShowBankModal(false)} style={styles.modalClose}>
-            <Text style={styles.modalCloseText}>✕</Text>
-          </TouchableOpacity>
-          <ScrollView style={styles.profileModalContent} showsVerticalScrollIndicator={false}>
-            <Text style={styles.profileModalTitle}>계좌 정보</Text>
+        {loadingBank ? (
+          <ActivityIndicator size="large" color="#5B21FF" style={{ marginTop: 40 }} />
+        ) : (
+          <>
+            <View style={styles.gradeBox}>
+              <Text style={styles.gradeBoxLabel}>출금 가능 금액</Text>
+              <Text style={styles.gradeBoxValue}>{availableBalance.toLocaleString()}원</Text>
+            </View>
 
-            {loadingBank ? (
-              <ActivityIndicator size="large" color="#5B21FF" style={{ marginTop: 40 }} />
-            ) : (
-              <>
-                <View style={styles.gradeBox}>
-                  <Text style={styles.gradeBoxLabel}>출금 가능 금액</Text>
-                  <Text style={styles.gradeBoxValue}>{availableBalance.toLocaleString()}원</Text>
-                </View>
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>출금 계좌</Text>
+              <Text style={styles.modalLabel}>은행명</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="국민은행"
+                placeholderTextColor="#ddd"
+                value={bankName}
+                onChangeText={setBankName}
+                editable={!savingBank}
+              />
+              <Text style={styles.modalLabel}>계좌번호</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="123456-78-901234"
+                placeholderTextColor="#ddd"
+                value={accountNumber}
+                onChangeText={setAccountNumber}
+                editable={!savingBank}
+                keyboardType="number-pad"
+              />
+              <Text style={styles.modalLabel}>예금주</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="홍길동"
+                placeholderTextColor="#ddd"
+                value={accountHolder}
+                onChangeText={setAccountHolder}
+                editable={!savingBank}
+              />
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnConfirm, savingBank && styles.modalBtnDisabled, { marginTop: 12 }]}
+                onPress={handleSaveBankInfo}
+                disabled={savingBank}
+              >
+                <Text style={styles.modalBtnText}>{savingBank ? '저장 중...' : '계좌 저장'}</Text>
+              </TouchableOpacity>
+            </View>
 
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>출금 계좌</Text>
-                  <Text style={styles.modalLabel}>은행명</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="국민은행"
-                    placeholderTextColor="#ddd"
-                    value={bankName}
-                    onChangeText={setBankName}
-                    editable={!savingBank}
-                  />
-                  <Text style={styles.modalLabel}>계좌번호</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="123456-78-901234"
-                    placeholderTextColor="#ddd"
-                    value={accountNumber}
-                    onChangeText={setAccountNumber}
-                    editable={!savingBank}
-                    keyboardType="number-pad"
-                  />
-                  <Text style={styles.modalLabel}>예금주</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="홍길동"
-                    placeholderTextColor="#ddd"
-                    value={accountHolder}
-                    onChangeText={setAccountHolder}
-                    editable={!savingBank}
-                  />
-                  <TouchableOpacity
-                    style={[styles.modalBtn, styles.modalBtnConfirm, savingBank && styles.modalBtnDisabled, { marginTop: 12 }]}
-                    onPress={handleSaveBankInfo}
-                    disabled={savingBank}
-                  >
-                    <Text style={styles.modalBtnText}>{savingBank ? '저장 중...' : '계좌 저장'}</Text>
-                  </TouchableOpacity>
-                </View>
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>출금 신청</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="출금할 금액"
+                placeholderTextColor="#ddd"
+                value={withdrawAmount}
+                onChangeText={setWithdrawAmount}
+                editable={!requestingWithdrawal}
+                keyboardType="number-pad"
+              />
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnConfirm, requestingWithdrawal && styles.modalBtnDisabled, { marginTop: 12 }]}
+                onPress={handleRequestWithdrawal}
+                disabled={requestingWithdrawal}
+              >
+                <Text style={styles.modalBtnText}>{requestingWithdrawal ? '신청 중...' : '출금 신청하기'}</Text>
+              </TouchableOpacity>
+            </View>
 
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>출금 신청</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="출금할 금액"
-                    placeholderTextColor="#ddd"
-                    value={withdrawAmount}
-                    onChangeText={setWithdrawAmount}
-                    editable={!requestingWithdrawal}
-                    keyboardType="number-pad"
-                  />
-                  <TouchableOpacity
-                    style={[styles.modalBtn, styles.modalBtnConfirm, requestingWithdrawal && styles.modalBtnDisabled, { marginTop: 12 }]}
-                    onPress={handleRequestWithdrawal}
-                    disabled={requestingWithdrawal}
-                  >
-                    <Text style={styles.modalBtnText}>{requestingWithdrawal ? '신청 중...' : '출금 신청하기'}</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {myWithdrawals.length > 0 && (
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalSectionTitle}>출금 내역</Text>
-                    {myWithdrawals.map((w) => (
-                      <View key={w.id} style={styles.creditCard}>
-                        <View style={styles.creditCardHeader}>
-                          <Text style={styles.creditConnectorName}>{Number(w.amount).toLocaleString()}원</Text>
-                          <Text style={styles.creditFee}>{new Date(w.requested_at).toLocaleDateString('ko-KR')}</Text>
-                        </View>
-                        {w.status === 'completed' ? (
-                          <View style={styles.paidBadge}>
-                            <Text style={styles.paidBadgeText}>✓ 지급 완료</Text>
-                          </View>
-                        ) : (
-                          <View style={styles.pendingBadge}>
-                            <Text style={styles.pendingBadgeText}>처리 대기중</Text>
-                          </View>
-                        )}
+            {myWithdrawals.length > 0 && (
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>출금 내역</Text>
+                {myWithdrawals.map((w) => (
+                  <View key={w.id} style={styles.creditCard}>
+                    <View style={styles.creditCardHeader}>
+                      <Text style={styles.creditConnectorName}>{Number(w.amount).toLocaleString()}원</Text>
+                      <Text style={styles.creditFee}>{new Date(w.requested_at).toLocaleDateString('ko-KR')}</Text>
+                    </View>
+                    {w.status === 'completed' ? (
+                      <View style={styles.paidBadge}>
+                        <Text style={styles.paidBadgeText}>✓ 지급 완료</Text>
                       </View>
-                    ))}
+                    ) : (
+                      <View style={styles.pendingBadge}>
+                        <Text style={styles.pendingBadgeText}>처리 대기중</Text>
+                      </View>
+                    )}
                   </View>
-                )}
-              </>
+                ))}
+              </View>
             )}
-          </ScrollView>
-        </View>
-      </Modal>
+          </>
+        )}
+      </BottomSheet>
     </SafeAreaView>
   );
 }
