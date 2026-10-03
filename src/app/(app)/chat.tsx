@@ -47,6 +47,53 @@ export default function ChatScreen() {
     }
   }, [user, params.with]);
 
+  // 열린 대화방: 새 메시지를 실시간으로 받는다.
+  // Realtime이 꺼져 있는 환경에서도 대화가 이어지도록 짧은 주기로 한 번씩 다시 불러온다.
+  useEffect(() => {
+    if (!activeThreadId || !user) return;
+    const threadId = activeThreadId;
+
+    const channel = supabase
+      .channel(`chat-thread-${threadId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `thread_id=eq.${threadId}` },
+        (payload) => {
+          const msg = payload.new as any;
+          setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+          if (msg.sender_id !== user.id) markThreadRead(threadId, user.id);
+        }
+      )
+      .subscribe();
+
+    const interval = setInterval(async () => {
+      const msgs = await fetchMessages(threadId);
+      setMessages((prev) => (msgs.length !== prev.length ? msgs : prev));
+    }, 4000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [activeThreadId, user?.id]);
+
+  // 대화 목록: 새 메시지가 오면 미리보기와 안 읽은 수를 갱신한다
+  useEffect(() => {
+    if (!user) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const channel = supabase
+      .channel(`chat-list-${user.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(load, 500);
+      })
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   async function load() {
     if (!user) return;
     const [threadList, op] = await Promise.all([fetchThreads(user.id), findOperator()]);
