@@ -1,0 +1,43 @@
+import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { useColorScheme } from 'react-native';
+
+import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ToastProvider } from '@/contexts/ToastContext';
+
+SplashScreen.preventAutoHideAsync();
+
+function RootLayout() {
+  const colorScheme = useColorScheme();
+  const { user, loading } = useAuth();
+
+  console.log('RootLayout render - user:', user?.id, 'loading:', loading);
+
+  if (loading) {
+    return <AnimatedSplashOverlay />;
+  }
+
+  return (
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <Stack key={user ? 'app' : 'auth'} screenOptions={{ headerShown: false }}>
+        {!user ? (
+          <Stack.Screen name="(auth)" options={{ animationEnabled: false }} />
+        ) : (
+          <Stack.Screen name="(app)" options={{ animationEnabled: false }} />
+        )}
+      </Stack>
+    </ThemeProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <ToastProvider>
+        <RootLayout />
+      </ToastProvider>
+    </AuthProvider>
+  );
+}
