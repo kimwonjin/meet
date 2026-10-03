@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUnreadCount } from '@/lib/chat';
@@ -20,7 +20,12 @@ export default function AppLayout() {
     return () => { cancelled = true; clearInterval(interval); };
   }, [user?.id]);
 
-  if (user?.role === 'operator') {
+  // 로그인 없이 /matching 같은 주소로 바로 들어오면 로그인 화면으로 보낸다
+  if (!user) {
+    return <Redirect href="/" />;
+  }
+
+  if (user.role === 'operator') {
     return (
       <Tabs screenOptions={TAB_OPTIONS}>
         <Tabs.Screen
@@ -46,7 +51,7 @@ export default function AppLayout() {
     );
   }
 
-  if (user?.role === 'connector') {
+  if (user.role === 'connector') {
     return (
       <Tabs screenOptions={TAB_OPTIONS}>
         <Tabs.Screen
