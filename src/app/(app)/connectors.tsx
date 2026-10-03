@@ -537,7 +537,7 @@ export default function ConnectorsScreen() {
             </View>
             <View style={styles.meta}>
               <Text style={styles.price}>{item.fee_per_session ? `${item.fee_per_session.toLocaleString()}원 / 건` : '-'}</Text>
-              <Text style={styles.rating}>⭐ 4.9 · 성사율 82%</Text>
+              {!!item.main_region && <Text style={styles.rating}>{item.main_region}</Text>}
             </View>
           </TouchableOpacity>
         )}
