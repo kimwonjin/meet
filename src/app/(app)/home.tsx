@@ -17,6 +17,7 @@ import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
 import { getMyConnectorCredits } from '@/lib/payments';
 import BottomSheet from '@/components/BottomSheet';
+import { Avatar, PhotoList } from '@/components/ProfilePhoto';
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -596,7 +597,8 @@ export default function HomeScreen() {
 
                   {item.partner && (
                     <TouchableOpacity style={styles.partnerInfo} onPress={() => setProfilePartner(item.partner)}>
-                      <View>
+                      <Avatar photoUrls={item.partner.photo_urls} size={48} />
+                      <View style={{ flex: 1 }}>
                         <Text style={styles.partnerName}>{item.partner.name}</Text>
                         <Text style={styles.partnerDetail}>
                           {[item.partner.age && `${item.partner.age}세`, item.partner.location].filter(Boolean).join(' · ')}
@@ -776,6 +778,7 @@ export default function HomeScreen() {
       <BottomSheet visible={profilePartner !== null} onClose={() => setProfilePartner(null)} title={profilePartner?.name ?? ''}>
         {profilePartner && (
           <View>
+            <PhotoList photoUrls={profilePartner.photo_urls} />
             {[
               ['나이', profilePartner.age ? `${profilePartner.age}세` : null],
               ['지역', profilePartner.location],
@@ -1099,7 +1102,7 @@ const styles = StyleSheet.create({
   partnerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
     marginBottom: 12,
   },
   partnerProfileLink: {

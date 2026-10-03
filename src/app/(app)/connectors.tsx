@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import BottomSheet from '@/components/BottomSheet';
+import { Avatar, PhotoList } from '@/components/ProfilePhoto';
 import { purchasePackage, getCredit, PACKAGE_OPTIONS } from '@/lib/payments';
 import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
@@ -25,6 +26,7 @@ interface Connector {
   birth_date?: string;
   gender?: string;
   age?: number;
+  photo_urls?: string[];
   height?: number;
   location?: string;
   job?: string;
@@ -192,7 +194,7 @@ export default function ConnectorsScreen() {
     const [{ data: members }, { data: allyUsers }] = await Promise.all([
       supabase
         .from('users')
-        .select('id, name, gender, age, height, location, job, education, bio, religion, smoking, drinking, body_type')
+        .select('id, name, gender, age, photo_urls, height, location, job, education, bio, religion, smoking, drinking, body_type')
         .in('id', memberIds),
       supabase.from('users').select('id, name').in('id', allyIds),
     ]);
@@ -411,9 +413,7 @@ export default function ConnectorsScreen() {
               <View style={styles.card}>
                 <TouchableOpacity style={{flex: 1}} onPress={() => setSelectedConnector(item)} activeOpacity={0.7}>
                   <View style={styles.connTop}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>👤</Text>
-                    </View>
+                    <Avatar photoUrls={item.photo_urls} size={44} />
                     <View style={styles.connInfo}>
                       <Text style={styles.name}>{item.business_name}</Text>
                       <Text style={styles.desc}>
@@ -472,11 +472,10 @@ export default function ConnectorsScreen() {
                   {selectedConnector && (
                     <>
                       <View style={styles.modalHeader}>
-                        <View style={styles.modalAvatar}>
-                          <Text style={styles.modalAvatarText}>👤</Text>
-                        </View>
                         <Text style={styles.modalTitle}>{selectedConnector.name}</Text>
                       </View>
+
+                      <PhotoList photoUrls={selectedConnector.photo_urls} />
 
                       <View style={styles.modalSection}>
                         <Text style={styles.modalSectionTitle}>기본 정보</Text>

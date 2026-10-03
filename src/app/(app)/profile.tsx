@@ -7,6 +7,8 @@ import { useToast } from '@/contexts/ToastContext';
 import { getMyConnectorCredits, chargeWallet, getWalletBalance, CHARGE_OPTIONS } from '@/lib/payments';
 import NotificationBell from '@/components/NotificationBell';
 import BottomSheet from '@/components/BottomSheet';
+import PhotoEditor from '@/components/PhotoEditor';
+import { Avatar } from '@/components/ProfilePhoto';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -60,8 +62,16 @@ export default function ProfileScreen() {
     service_description: '',
   });
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
 
   const locations = ['서울', '경기', '인천', '강원', '충청', '전라', '경상', '제주'];
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('users').select('photo_urls').eq('id', user.id).maybeSingle().then(({ data }) => {
+      setPhotoUrls(data?.photo_urls ?? []);
+    });
+  }, [user?.id]);
 
   // 홈의 '남은 이용권'에서 들어오면 이용권 시트를 바로 연다
   const { open } = useLocalSearchParams<{ open?: string }>();
@@ -262,10 +272,11 @@ export default function ProfileScreen() {
   async function loadProfile() {
     const { data, error } = await supabase
       .from('users')
-      .select('location, height, job, education, bio, religion, smoking, drinking, body_type')
+      .select('location, height, job, education, bio, religion, smoking, drinking, body_type, photo_urls')
       .eq('id', user!.id)
       .maybeSingle();
     if (error || !data) return;
+    setPhotoUrls(data.photo_urls ?? []);
     setProfileData({
       location: data.location ?? '',
       height: data.height != null ? String(data.height) : '',
@@ -485,8 +496,8 @@ export default function ProfileScreen() {
         <View style={styles.headerBellWrap}>
           <NotificationBell />
         </View>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>👤</Text>
+        <View style={styles.avatarWrap}>
+          <Avatar photoUrls={photoUrls} size={70} />
         </View>
         <Text style={styles.name}>{user?.name}</Text>
         <Text style={styles.grade}>{user?.grade || 'new'}</Text>
@@ -611,6 +622,10 @@ export default function ProfileScreen() {
       </ScrollView>
 
       <BottomSheet visible={showProfileModal} onClose={() => setShowProfileModal(false)} title="내 프로필 수정">
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>사진</Text>
+          {user && <PhotoEditor userId={user.id} photos={photoUrls} onChange={setPhotoUrls} />}
+        </View>
 
         <View style={styles.profileFormSection}>
           <Text style={styles.formLabel}>지역</Text>
@@ -1207,6 +1222,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 16,
     right: 12,
+  },
+  avatarWrap: {
+    marginBottom: 12,
   },
   avatar: {
     width: 70,
