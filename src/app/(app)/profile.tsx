@@ -40,6 +40,7 @@ export default function ProfileScreen() {
   const [chargeAmount, setChargeAmount] = useState(CHARGE_OPTIONS[0]);
   const [charging, setCharging] = useState(false);
   const [profileData, setProfileData] = useState({
+    location: '',
     height: '',
     job: '',
     education: '',
@@ -77,6 +78,12 @@ export default function ProfileScreen() {
       });
     }
   }, [showCreditScoreModal]);
+
+  useEffect(() => {
+    if (showProfileModal && user) {
+      loadProfile();
+    }
+  }, [showProfileModal]);
 
   useEffect(() => {
     if (showBankModal && user) {
@@ -241,6 +248,26 @@ export default function ProfileScreen() {
   const smokings = ['비흡연', '흡연', '가끔'];
   const drinkings = ['비음주', '가끔', '자주'];
   const bodyTypes = ['마름', '보통', '통통', '근육질'];
+
+  async function loadProfile() {
+    const { data, error } = await supabase
+      .from('users')
+      .select('location, height, job, education, bio, religion, smoking, drinking, body_type')
+      .eq('id', user!.id)
+      .maybeSingle();
+    if (error || !data) return;
+    setProfileData({
+      location: data.location ?? '',
+      height: data.height != null ? String(data.height) : '',
+      job: data.job ?? '',
+      education: data.education ?? '',
+      bio: data.bio ?? '',
+      religion: data.religion ?? '',
+      smoking: data.smoking ?? '',
+      drinking: data.drinking ?? '',
+      body_type: data.body_type ?? '',
+    });
+  }
 
   async function handleProfileSave() {
     setLoading(true);
@@ -717,7 +744,7 @@ export default function ProfileScreen() {
             </View>
 
             <TouchableOpacity
-              style={[styles.profileSaveBtn, loading && styles.buttonDisabled]}
+              style={[styles.profileSaveBtn, loading && styles.storeSaveBtnDisabled]}
               onPress={handleProfileSave}
               disabled={loading}
             >

@@ -13,6 +13,24 @@ interface Connector {
   business_name: string;
   verified: boolean;
   created_at?: string;
+  // hopeful 목록: 승인 여부와 파트너 정보
+  name?: string;
+  is_approved?: boolean;
+  fee_per_session?: number;
+  matching_count?: number;
+  main_region?: string;
+  service_description?: string;
+  // connector가 받은 요청 목록: 회원 프로필 정보
+  birth_date?: string;
+  height?: number;
+  location?: string;
+  job?: string;
+  education?: string;
+  bio?: string;
+  religion?: string;
+  smoking?: string;
+  drinking?: string;
+  body_type?: string;
 }
 
 export default function ConnectorsScreen() {
@@ -1026,6 +1044,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 40,
     alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 14,
+    color: '#999',
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#fff',
   },
   approvedStatusBadge: {
     fontSize: 14,

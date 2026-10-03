@@ -8,6 +8,7 @@ export interface User {
   name: string;
   role: 'hopeful' | 'connector' | 'operator';
   grade: string;
+  birth_date?: string;
 }
 
 interface AuthContextType {

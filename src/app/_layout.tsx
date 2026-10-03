@@ -13,8 +13,6 @@ function RootLayout() {
   const colorScheme = useColorScheme();
   const { user, loading } = useAuth();
 
-  console.log('RootLayout render - user:', user?.id, 'loading:', loading);
-
   if (loading) {
     return <AnimatedSplashOverlay />;
   }
@@ -23,9 +21,9 @@ function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack key={user ? 'app' : 'auth'} screenOptions={{ headerShown: false }}>
         {!user ? (
-          <Stack.Screen name="(auth)" options={{ animationEnabled: false }} />
+          <Stack.Screen name="(auth)" options={{ animation: 'none' }} />
         ) : (
-          <Stack.Screen name="(app)" options={{ animationEnabled: false }} />
+          <Stack.Screen name="(app)" options={{ animation: 'none' }} />
         )}
       </Stack>
     </ThemeProvider>

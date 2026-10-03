@@ -58,11 +58,10 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       const { data, error } = await signUpHopeful(phone, name, birthDate, gender);
-      console.log('Signup response:', { data, error });
 
       if (error) {
         console.error('Signup error:', error);
-        const errorMsg = error.message || '알 수 없는 오류';
+        const errorMsg = (error as Error).message || '알 수 없는 오류';
         if (errorMsg.includes('duplicate')) {
           Alert.alert('오류', '이미 가입된 전화번호입니다.');
         } else {
