@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Modal, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Modal } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -210,7 +210,7 @@ export default function ConnectorsScreen() {
         .maybeSingle();
 
       if (existing) {
-        Alert.alert('알림', '이미 요청을 보냈습니다');
+        toast.show('이미 요청을 보냈습니다', 'info');
         setSelectedConnector(null);
         return;
       }
@@ -234,11 +234,11 @@ export default function ConnectorsScreen() {
         route: '/connectors',
       });
 
-      Alert.alert('성공', '연락을 요청했습니다');
+      toast.show('연락을 요청했습니다', 'success');
       setSelectedConnector(null);
     } catch (error) {
       console.error('Request error:', error);
-      Alert.alert('오류', '요청 실패');
+      toast.show('요청 실패', 'error');
     } finally {
       setRequesting(false);
     }
@@ -263,11 +263,11 @@ export default function ConnectorsScreen() {
         route: '/connectors',
       });
 
-      Alert.alert('성공', '요청을 승인했습니다');
+      toast.show('요청을 승인했습니다', 'success');
       fetchConnectors();
     } catch (error) {
       console.error('Approve error:', error);
-      Alert.alert('오류', '승인 실패');
+      toast.show('승인 실패', 'error');
     } finally {
       setProcessingId(null);
     }
@@ -291,11 +291,11 @@ export default function ConnectorsScreen() {
         route: '/connectors',
       });
 
-      Alert.alert('성공', '요청을 거절했습니다');
+      toast.show('요청을 거절했습니다', 'success');
       fetchConnectors();
     } catch (error) {
       console.error('Reject error:', error);
-      Alert.alert('오류', '거절 실패');
+      toast.show('거절 실패', 'error');
     } finally {
       setProcessingId(null);
     }

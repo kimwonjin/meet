@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { signUpHopeful } from '@/lib/auth';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 
 function formatPhone(value: string) {
   const cleaned = value.replace(/\D/g, '');
@@ -19,6 +20,7 @@ function formatBirthDate(value: string) {
 }
 
 export default function SignupScreen() {
+  const toast = useToast();
   const [step, setStep] = useState<'role' | 'form'>('form');
   const [role, setRole] = useState<'hopeful' | 'connector'>('hopeful');
   const [phone, setPhone] = useState('');
@@ -31,27 +33,25 @@ export default function SignupScreen() {
 
   useEffect(() => {
     if (user) {
-      console.log('User updated, navigating to home');
       router.replace('/(app)/home');
     }
   }, [user]);
 
   async function handleSignup() {
-    console.log('Signup attempt:', { phone, name, birthDate, gender });
 
     if (!phone || !name || !birthDate || !gender) {
-      Alert.alert('오류', '모든 항목을 입력해주세요');
+      toast.show('모든 항목을 입력해주세요', 'error');
       return;
     }
 
     if (birthDate.length !== 10) {
-      Alert.alert('오류', '생년월일을 완전히 입력해주세요 (YYYY-MM-DD)');
+      toast.show('생년월일을 완전히 입력해주세요 (YYYY-MM-DD)', 'error');
       return;
     }
 
     const phoneCleaned = phone.replace(/\D/g, '');
     if (phoneCleaned.length !== 11) {
-      Alert.alert('오류', '올바른 전화번호를 입력해주세요');
+      toast.show('올바른 전화번호를 입력해주세요', 'error');
       return;
     }
 
@@ -63,26 +63,23 @@ export default function SignupScreen() {
         console.error('Signup error:', error);
         const errorMsg = (error as Error).message || '알 수 없는 오류';
         if (errorMsg.includes('duplicate')) {
-          Alert.alert('오류', '이미 가입된 전화번호입니다.');
+          toast.show('이미 가입된 전화번호입니다.', 'error');
         } else {
-          Alert.alert('오류', `가입에 실패했습니다: ${errorMsg}`);
+          toast.show('가입에 실패했습니다. 잠시 후 다시 시도해주세요', 'error');
         }
         return;
       }
 
-      console.log('Starting login...');
       const loginResult = await login(phone);
-      console.log('Login result:', loginResult);
 
       if (loginResult.error) {
-        Alert.alert('오류', '로그인에 실패했습니다');
+        toast.show('로그인에 실패했습니다', 'error');
         return;
       }
 
-      console.log('Login successful, user state updated');
     } catch (err) {
       console.error('Exception:', err);
-      Alert.alert('오류', `오류가 발생했습니다: ${err}`);
+      toast.show('오류가 발생했습니다. 잠시 후 다시 시도해주세요', 'error');
     } finally {
       setLoading(false);
     }

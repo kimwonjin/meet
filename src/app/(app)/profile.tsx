@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -289,11 +289,11 @@ export default function ProfileScreen() {
 
       if (error) throw error;
 
-      Alert.alert('성공', '프로필이 저장되었습니다');
+      toast.show('프로필이 저장되었습니다', 'success');
       setShowProfileModal(false);
     } catch (error) {
       console.error('Profile save error:', error);
-      Alert.alert('오류', '프로필 저장 실패');
+      toast.show('프로필 저장 실패', 'error');
     } finally {
       setLoading(false);
     }
@@ -301,7 +301,7 @@ export default function ProfileScreen() {
 
   async function handleStoreSave() {
     if (selectedRegions.length === 0) {
-      Alert.alert('알림', '주요지역을 선택해주세요');
+      toast.show('주요지역을 선택해주세요', 'info');
       return;
     }
 
@@ -318,11 +318,11 @@ export default function ProfileScreen() {
 
       if (error) throw error;
 
-      Alert.alert('성공', '스토어 정보가 저장되었습니다');
+      toast.show('스토어 정보가 저장되었습니다', 'success');
       setShowStoreModal(false);
     } catch (error) {
       console.error('Store save error:', error);
-      Alert.alert('오류', '저장 실패');
+      toast.show('저장 실패', 'error');
     } finally {
       setLoading(false);
     }
@@ -334,7 +334,7 @@ export default function ProfileScreen() {
       router.replace('/');
     } catch (error) {
       console.error('로그아웃 오류:', error);
-      Alert.alert('오류', '로그아웃 중 오류가 발생했습니다');
+      toast.show('로그아웃 중 오류가 발생했습니다', 'error');
     }
   }
 
@@ -440,7 +440,7 @@ export default function ProfileScreen() {
 
   async function handleConnectorSignup() {
     if (!businessName.trim()) {
-      Alert.alert('오류', '회사명을 입력해주세요');
+      toast.show('회사명을 입력해주세요', 'error');
       return;
     }
 
@@ -463,7 +463,7 @@ export default function ProfileScreen() {
       setBusinessName('');
     } catch (error) {
       console.error('Connector signup error:', error);
-      Alert.alert('오류', `파트너 신청 실패: ${error}`);
+      toast.show('파트너 신청에 실패했습니다. 잠시 후 다시 시도해주세요', 'error');
     } finally {
       setLoading(false);
     }
