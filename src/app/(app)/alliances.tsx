@@ -13,12 +13,14 @@ import BottomSheet from '@/components/BottomSheet';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useConfirm } from '@/contexts/ConfirmContext';
 import { createNotification } from '@/lib/notifications';
 
 export default function AlliancesScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const toast = useToast();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(true);
   const [otherConnectors, setOtherConnectors] = useState<any[]>([]);
   const [alliances, setAlliances] = useState<any[]>([]);
@@ -229,7 +231,9 @@ export default function AlliancesScreen() {
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.rejectBtn, allianceProcessingId === alliance.id && styles.buttonDisabled]}
-                        onPress={() => handleTerminateAlliance(alliance.id)}
+                        onPress={async () => {
+                          if (await confirm({ title: '동맹을 해지할까요?', message: '해지하면 서로의 회원 풀을 더 이상 볼 수 없습니다.', confirmText: '해지', destructive: true })) handleTerminateAlliance(alliance.id);
+                        }}
                         disabled={allianceProcessingId !== null}
                       >
                         <Text style={styles.rejectBtnText}>{allianceProcessingId === alliance.id ? '처리 중...' : '동맹 해지'}</Text>

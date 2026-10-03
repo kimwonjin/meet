@@ -4,6 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUnreadCount } from '@/lib/chat';
 
+// 탭바 활성 색은 앱 강조색 하나로 통일
+const TAB_OPTIONS = { headerShown: false, tabBarActiveTintColor: '#5B21FF' };
+
 export default function AppLayout() {
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -19,7 +22,7 @@ export default function AppLayout() {
 
   if (user?.role === 'operator') {
     return (
-      <Tabs screenOptions={{ headerShown: false }}>
+      <Tabs screenOptions={TAB_OPTIONS}>
         <Tabs.Screen
           name="settlements"
           options={{
@@ -45,7 +48,7 @@ export default function AppLayout() {
 
   if (user?.role === 'connector') {
     return (
-      <Tabs screenOptions={{ headerShown: false }}>
+      <Tabs screenOptions={TAB_OPTIONS}>
         <Tabs.Screen
           name="home"
           options={{
@@ -89,7 +92,7 @@ export default function AppLayout() {
   }
 
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
+    <Tabs screenOptions={TAB_OPTIONS}>
       <Tabs.Screen
         name="home"
         options={{

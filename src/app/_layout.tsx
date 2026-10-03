@@ -6,6 +6,7 @@ import { useColorScheme } from 'react-native';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { ConfirmProvider } from '@/contexts/ConfirmContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -34,7 +35,9 @@ export default function App() {
   return (
     <AuthProvider>
       <ToastProvider>
-        <RootLayout />
+        <ConfirmProvider>
+          <RootLayout />
+        </ConfirmProvider>
       </ToastProvider>
     </AuthProvider>
   );

@@ -3,12 +3,14 @@ import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity }
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
+import { useConfirm } from '@/contexts/ConfirmContext';
 import NotificationBell from '@/components/NotificationBell';
 
 type Segment = 'settlements' | 'approvals' | 'withdrawals';
 
 export default function SettlementsScreen() {
   const toast = useToast();
+  const confirm = useConfirm();
   const [settlements, setSettlements] = useState<any[]>([]);
   const [pendingConnectors, setPendingConnectors] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
@@ -276,7 +278,9 @@ export default function SettlementsScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.rejectBtn, processingId === item.id && styles.buttonDisabled]}
-                    onPress={() => handleRejectConnector(item.id)}
+                    onPress={async () => {
+                      if (await confirm({ title: '파트너 신청을 반려할까요?', confirmText: '반려', destructive: true })) handleRejectConnector(item.id);
+                    }}
                     disabled={processingId !== null}
                   >
                     <Text style={styles.rejectBtnText}>반려</Text>
@@ -322,7 +326,9 @@ export default function SettlementsScreen() {
                 ) : (
                   <TouchableOpacity
                     style={[styles.approveBtn, { marginTop: 10 }, processingId === item.id && styles.buttonDisabled]}
-                    onPress={() => handleCompleteWithdrawal(item.id)}
+                    onPress={async () => {
+                      if (await confirm({ title: '지급 완료로 처리할까요?', message: '실제로 입금을 마친 뒤에 처리해주세요. 처리 후에는 되돌릴 수 없습니다.', confirmText: '지급 완료' })) handleCompleteWithdrawal(item.id);
+                    }}
                     disabled={processingId !== null}
                   >
                     <Text style={styles.approveBtnText}>{processingId === item.id ? '처리 중...' : '지급 완료 처리'}</Text>

@@ -11,6 +11,7 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useConfirm } from '@/contexts/ConfirmContext';
 import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
@@ -19,6 +20,7 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const toast = useToast();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -658,7 +660,9 @@ export default function HomeScreen() {
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.rejectBtn, processingId === item.id && styles.buttonDisabled]}
-                        onPress={() => handleRejectMatch(item.id)}
+                        onPress={async () => {
+                          if (await confirm({ title: '매칭을 거절할까요?', message: '거절하면 되돌릴 수 없습니다.', confirmText: '거절', destructive: true })) handleRejectMatch(item.id);
+                        }}
                         disabled={processingId !== null}
                       >
                         <Text style={styles.rejectBtnText}>
@@ -709,7 +713,9 @@ export default function HomeScreen() {
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[styles.afterCareBtn, styles.afterCareDanger, processingId === item.id && styles.buttonDisabled]}
-                          onPress={() => handleSubmitAfterCare(item.id, '노쇼신고')}
+                          onPress={async () => {
+                            if (await confirm({ title: '노쇼로 신고할까요?', message: '상대가 약속 장소에 나오지 않은 경우에만 신고해주세요. 신고 후에는 취소할 수 없습니다.', confirmText: '신고', destructive: true })) handleSubmitAfterCare(item.id, '노쇼신고');
+                          }}
                           disabled={processingId !== null}
                         >
                           <Text style={styles.afterCareBtnText}>
