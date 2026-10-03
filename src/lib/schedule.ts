@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { createNotification } from './notifications';
 import { formatMeetingDate } from './format';
+import { getOrCreateThread, sendMessage } from './chat';
 
 // 일정은 날짜만 정한다. 시간대 차이로 날짜가 밀리지 않도록 그날 정오로 저장한다.
 export function dateKeyToMeetingAt(dateKey: string) {
@@ -12,6 +13,33 @@ export function earliestCommonDate(a: string[] | null, b: string[] | null): stri
   if (!a?.length || !b?.length) return null;
   const setB = new Set(b);
   return [...a].sort().find((d) => setB.has(d)) ?? null;
+}
+
+// 날짜가 처음 정해지면 각 회원에게 담당 연결자와의 채팅방으로 상대 연락처를 보낸다.
+// 연락처는 화면에 노출하지 않고 이 메시지로만 전달한다.
+export async function sendContactsViaChat(match: {
+  hopeful_1_id: string;
+  hopeful_2_id: string;
+  connector_1_id: string;
+  connector_2_id: string;
+}) {
+  const { data: members } = await supabase
+    .from('users')
+    .select('id, name, phone')
+    .in('id', [match.hopeful_1_id, match.hopeful_2_id]);
+  const find = (id: string) => (members || []).find((u: any) => u.id === id);
+  const deliveries = [
+    { to: match.hopeful_1_id, from: match.connector_1_id, other: find(match.hopeful_2_id) },
+    { to: match.hopeful_2_id, from: match.connector_2_id, other: find(match.hopeful_1_id) },
+  ];
+  await Promise.all(
+    deliveries.map(async ({ to, from, other }) => {
+      if (!other?.phone || !from) return;
+      const threadId = await getOrCreateThread(from, to);
+      if (!threadId) return;
+      await sendMessage(threadId, from, `소개팅 상대 ${other.name}님 연락처: ${other.phone}\n시간과 장소는 서로 연락해 정해주세요.`);
+    })
+  );
 }
 
 type AutoScheduleResult = { status: 'waiting' } | { status: 'scheduled'; at: string } | { status: 'no_overlap' } | { status: 'already' };
@@ -41,17 +69,22 @@ export async function autoScheduleMatch(matchId: string): Promise<AutoScheduleRe
   }
 
   const at = dateKeyToMeetingAt(common);
-  const { error } = await supabase
+  // 두 회원이 거의 동시에 승인해도 한 번만 정해지고 연락처도 한 번만 보내지도록 비어 있을 때만 갱신한다
+  const { data: updated, error } = await supabase
     .from('match_requests')
     .update({ meeting_scheduled_at: at })
     .eq('id', matchId)
-    .is('meeting_scheduled_at', null);
+    .is('meeting_scheduled_at', null)
+    .select('id');
   if (error) throw error;
+  if (!updated?.length) return { status: 'already' };
+
+  await sendContactsViaChat(m);
 
   const when = formatMeetingDate(at);
   await Promise.all([
     ...memberIds.map((id) =>
-      createNotification({ userId: id, type: 'meeting_scheduled', title: `소개팅 날짜가 정해졌어요 · ${when}`, body: '상대 연락처가 공개됐어요. 시간과 장소는 서로 연락해 정해주세요', route: '/home' })
+      createNotification({ userId: id, type: 'meeting_scheduled', title: `소개팅 날짜가 정해졌어요 · ${when}`, body: '상대 연락처를 채팅으로 보내드렸어요. 시간과 장소는 서로 연락해 정해주세요', route: '/home' })
     ),
     ...connectorIds.map((id) =>
       createNotification({ userId: id, type: 'meeting_scheduled', title: '두 회원의 날짜가 맞춰졌어요', body: when, route: '/matching' })

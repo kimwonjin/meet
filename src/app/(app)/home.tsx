@@ -765,14 +765,13 @@ export default function HomeScreen() {
                   {/* 3단계: 소개팅 진행 대기 */}
                   {bothApproved && !noDateOverlap && item.meeting_status !== 'completed' && !item.after_care_hopeful_1 && !item.after_care_hopeful_2 && (
                     item.meeting_scheduled_at ? (
-                      // 날짜가 정해지면 서로 연락처를 공개하고, 시간·장소는 직접 정하게 한다 (소개팅이 끝나면 다시 숨김)
+                      // 연락처는 화면에 보여주지 않고 담당 파트너와의 채팅으로만 전달된다
                       <View style={styles.meetingBox}>
                         <Text style={styles.meetingDate}>📅 {formatMeetingDate(item.meeting_scheduled_at)} 소개팅</Text>
-                        <View style={styles.contactRow}>
-                          <Text style={styles.contactLabel}>{item.partner?.name}님 연락처</Text>
-                          <Text style={styles.contactValue} selectable>{item.partner?.phone || '-'}</Text>
-                        </View>
-                        <Text style={styles.meetingHint}>시간과 장소는 서로 연락해 정해주세요</Text>
+                        <Text style={styles.meetingHint}>상대 연락처를 채팅으로 보내드렸어요. 시간과 장소는 서로 연락해 정해주세요.</Text>
+                        <TouchableOpacity style={styles.openChatBtn} onPress={() => router.push('/chat')}>
+                          <Text style={styles.openChatBtnText}>채팅 확인하기</Text>
+                        </TouchableOpacity>
                       </View>
                     ) : (
                       <View style={styles.waitingMessage}>
@@ -1198,23 +1197,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#5B21FF',
   },
-  contactRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+  openChatBtn: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#5B21FF',
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
-  contactLabel: {
+  openChatBtnText: {
     fontSize: 13,
-    color: '#666',
-  },
-  contactValue: {
-    fontSize: 15,
     fontWeight: '700',
-    color: '#333',
+    color: '#5B21FF',
   },
   meetingHint: {
     fontSize: 12,

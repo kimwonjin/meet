@@ -17,7 +17,7 @@ import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
 import DatePickerSheet from '@/components/DatePickerSheet';
 import { formatMeetingDate } from '@/lib/format';
-import { earliestCommonDate } from '@/lib/schedule';
+import { earliestCommonDate, sendContactsViaChat } from '@/lib/schedule';
 
 type Segment = 'internal' | 'ally' | 'alliance';
 
@@ -353,12 +353,21 @@ export default function MatchingScreen() {
       if (error) throw error;
 
       const match = matchRequests.find((m) => m.id === matchId);
+      // 처음 날짜를 정할 때만 연락처를 보낸다 (날짜 변경 시에는 다시 보내지 않음)
+      if (match && !match.meeting_scheduled_at && match.hopeful_1?.id && match.hopeful_2?.id) {
+        await sendContactsViaChat({
+          hopeful_1_id: match.hopeful_1.id,
+          hopeful_2_id: match.hopeful_2.id,
+          connector_1_id: match.connector_1_id,
+          connector_2_id: match.connector_2_id,
+        });
+      }
       if (match && user) {
         const when = formatMeetingDate(scheduledAt.toISOString());
         const otherConnectorId = match.connector_1_id === user.id ? match.connector_2_id : match.connector_1_id;
         await Promise.all([
           ...[match.hopeful_1?.id, match.hopeful_2?.id].filter(Boolean).map((id: string) =>
-            createNotification({ userId: id, type: 'meeting_scheduled', title: `소개팅 날짜가 정해졌어요 · ${when}`, body: '상대 연락처가 공개됐어요. 시간과 장소는 서로 연락해 정해주세요', route: '/home' })
+            createNotification({ userId: id, type: 'meeting_scheduled', title: `소개팅 날짜가 정해졌어요 · ${when}`, body: '상대 연락처를 채팅으로 보내드렸어요. 시간과 장소는 서로 연락해 정해주세요', route: '/home' })
           ),
           otherConnectorId && otherConnectorId !== user.id
             ? createNotification({
