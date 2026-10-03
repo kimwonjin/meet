@@ -833,7 +833,7 @@ export default function ProfileScreen() {
       </BottomSheet>
 
       {/* 스토어관리 시트 */}
-      <BottomSheet visible={showStoreModal} onClose={() => setShowStoreModal(false)} title="스토어관리">
+      <BottomSheet visible={showStoreModal} onClose={() => setShowStoreModal(false)} title="커리어 프로필">
         {/* 회원수 표시 (입력불가) */}
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
@@ -997,24 +997,26 @@ export default function ProfileScreen() {
           <>
             <View style={styles.statsContainer}>
               <View style={styles.statBox}>
-                <Text style={styles.statLabel}>총 지급액</Text>
+                <Text style={styles.statLabel}>총 정산액</Text>
                 <Text style={styles.statValue}>
                   {mySettlements.reduce((sum, s) => sum + Number(s.connector_payout), 0).toLocaleString()}원
                 </Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={styles.statLabel}>지급완료</Text>
+                <Text style={styles.statLabel}>정산 완료</Text>
                 <Text style={styles.statValue}>
                   {mySettlements.filter((s) => s.status === 'paid').reduce((sum, s) => sum + Number(s.connector_payout), 0).toLocaleString()}원
                 </Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={styles.statLabel}>지급 대기중</Text>
+                <Text style={styles.statLabel}>정산 대기</Text>
                 <Text style={styles.statValue}>
                   {mySettlements.filter((s) => s.status === 'pending').reduce((sum, s) => sum + Number(s.connector_payout), 0).toLocaleString()}원
                 </Text>
               </View>
             </View>
+
+            <Text style={styles.chargeNotice}>정산된 금액은 마이 › 계좌 정보에서 출금 신청할 수 있어요</Text>
 
             <View style={styles.modalSection}>
               <Text style={styles.modalSectionTitle}>이용권 사용 내역</Text>
@@ -1041,12 +1043,12 @@ export default function ProfileScreen() {
                   {s.status === 'paid' ? (
                     <View style={styles.paidBadge}>
                       <Text style={styles.paidBadgeText}>
-                        ✓ {s.settled_at ? new Date(s.settled_at).toLocaleDateString('ko-KR') : ''} 지급 완료
+                        ✓ {s.settled_at ? new Date(s.settled_at).toLocaleDateString('ko-KR') : ''} 정산 완료
                       </Text>
                     </View>
                   ) : (
                     <View style={styles.pendingBadge}>
-                      <Text style={styles.pendingBadgeText}>지급 대기중</Text>
+                      <Text style={styles.pendingBadgeText}>정산 대기중</Text>
                     </View>
                   )}
                 </View>

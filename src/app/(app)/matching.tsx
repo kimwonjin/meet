@@ -649,7 +649,7 @@ export default function MatchingScreen() {
               disabled={processingId !== null}
             >
               <Text style={styles.actionBtnText}>
-                {processingId === item.id ? '처리 중...' : '✓ 승인'}
+                {processingId === item.id ? '처리 중...' : '✓ 이 매칭에 동의하기'}
               </Text>
             </TouchableOpacity>
           ) : (

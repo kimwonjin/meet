@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
 import { supabase } from '@/lib/supabase';
@@ -20,6 +20,7 @@ interface Connector {
   // hopeful 목록: 승인 여부와 파트너 정보
   name?: string;
   is_approved?: boolean;
+  is_pending?: boolean;
   fee_per_session?: number;
   matching_count?: number;
   main_region?: string;
@@ -50,6 +51,7 @@ export default function ConnectorsScreen() {
   const [selectedConnector, setSelectedConnector] = useState<Connector | null>(null);
   const [requesting, setRequesting] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const [tabStatus, setTabStatus] = useState<'pending' | 'approved' | 'ally'>('approved');
   // 동맹 연결자들이 승인한 회원 (동맹 매칭 전에 어떤 회원인지 확인용)
   const [allyMembers, setAllyMembers] = useState<any[]>([]);
@@ -132,14 +134,15 @@ export default function ConnectorsScreen() {
           .select('id, name')
           .in('id', connectorIds);
 
-        // 자신이 승인한 연결자 조회
-        const { data: approvedRequests } = await supabase
+        // 내 요청 상태 (승인됨 / 승인 대기)
+        const { data: myRequests } = await supabase
           .from('hopeful_requests')
-          .select('connector_id')
+          .select('connector_id, status')
           .eq('hopeful_id', user!.id)
-          .eq('status', 'approved');
+          .in('status', ['approved', 'pending']);
 
-        const approvedConnectorIds = (approvedRequests || []).map((req: any) => req.connector_id);
+        const approvedConnectorIds = (myRequests || []).filter((r: any) => r.status === 'approved').map((r: any) => r.connector_id);
+        const pendingConnectorIds = (myRequests || []).filter((r: any) => r.status === 'pending').map((r: any) => r.connector_id);
 
         // 자신 제외 + 승인 여부 표시
         const filtered = (conData || []).map((conn: any) => {
@@ -148,6 +151,7 @@ export default function ConnectorsScreen() {
             ...conn,
             name: connUser?.name,
             is_approved: approvedConnectorIds.includes(conn.id),
+            is_pending: pendingConnectorIds.includes(conn.id),
           };
         }).filter(conn => conn.id !== user?.id);
 
@@ -254,15 +258,17 @@ export default function ConnectorsScreen() {
 
     setRequesting(true);
     try {
-      const { data: existing } = await supabase
+      const { data: existingRows } = await supabase
         .from('hopeful_requests')
-        .select('id')
+        .select('id, status')
         .eq('hopeful_id', user.id)
         .eq('connector_id', selectedConnector.id)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const existing = existingRows?.[0];
 
-      if (existing) {
-        toast.show('이미 요청을 보냈습니다', 'info');
+      if (existing && existing.status !== 'rejected') {
+        toast.show(existing.status === 'pending' ? '이미 요청을 보냈어요. 파트너의 승인을 기다리는 중이에요' : '이미 승인된 파트너입니다', 'info');
         setSelectedConnector(null);
         return;
       }
@@ -541,6 +547,11 @@ export default function ConnectorsScreen() {
     );
   }
 
+  const query = search.trim();
+  const visiblePartners = query
+    ? connectors.filter((c) => [c.business_name, formatRegions(c.main_region), c.service_description].some((v) => v?.includes(query)))
+    : connectors;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -549,24 +560,23 @@ export default function ConnectorsScreen() {
           <NotificationBell />
         </View>
         <View style={styles.searchBar}>
-          <Text style={styles.searchPlaceholder}>🔍 지역, 관심사로 찾기</Text>
-        </View>
-      </View>
-
-      <View style={styles.chipRow}>
-        <View style={styles.chip}>
-          <Text style={styles.chipText}>등급 ▼</Text>
-        </View>
-        <View style={styles.chip}>
-          <Text style={styles.chipText}>지역 ▼</Text>
-        </View>
-        <View style={styles.chip}>
-          <Text style={styles.chipText}>가격 ▼</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="🔍 회사명, 지역, 서비스로 찾기"
+            placeholderTextColor="#999"
+            value={search}
+            onChangeText={setSearch}
+          />
         </View>
       </View>
 
       <FlatList
-        data={connectors}
+        data={visiblePartners}
+        ListEmptyComponent={
+          <View style={styles.emptyTab}>
+            <Text style={styles.placeholderText}>{search ? '찾는 파트너가 없습니다' : '아직 등록된 파트너가 없습니다'}</Text>
+          </View>
+        }
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <TouchableOpacity
@@ -720,11 +730,13 @@ export default function ConnectorsScreen() {
                       </View>
                     ) : (
                       <TouchableOpacity
-                        style={[styles.contactBtn, requesting && styles.buttonDisabled]}
+                        style={[styles.contactBtn, (requesting || selectedConnector.is_pending) && styles.buttonDisabled]}
                         onPress={handleRequest}
-                        disabled={requesting}
+                        disabled={requesting || selectedConnector.is_pending}
                       >
-                        <Text style={styles.contactBtnText}>{requesting ? '요청 중...' : '연락하기'}</Text>
+                        <Text style={styles.contactBtnText}>
+                          {requesting ? '요청 중...' : selectedConnector.is_pending ? '요청 보냄 · 승인을 기다리는 중' : '연락하기'}
+                        </Text>
                       </TouchableOpacity>
                     )}
                   </>
@@ -762,6 +774,11 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 12,
   },
+  searchInput: {
+    fontSize: 14,
+    color: '#333',
+    paddingVertical: 2,
+  },
   searchBar: {
     backgroundColor: '#fff',
     borderWidth: 1,
@@ -769,27 +786,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 11,
-  },
-  searchPlaceholder: {
-    fontSize: 13,
-    color: '#999',
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  chip: {
-    backgroundColor: '#F1ECFF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  chipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#5B21FF',
   },
   list: {
     paddingHorizontal: 20,
