@@ -4,6 +4,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useConfirm } from '@/contexts/ConfirmContext';
 import { getMyConnectorCredits, chargeWallet, getWalletBalance, CHARGE_OPTIONS } from '@/lib/payments';
 import NotificationBell from '@/components/NotificationBell';
 import BottomSheet from '@/components/BottomSheet';
@@ -21,6 +22,7 @@ export default function ProfileScreen() {
     }, [user?.id])
   );
   const toast = useToast();
+  const confirm = useConfirm();
   const [showConnectorModal, setShowConnectorModal] = useState(false);
   const [businessName, setBusinessName] = useState('');
   const [connectorApplicationStatus, setConnectorApplicationStatus] = useState<string | null>(null);
@@ -453,8 +455,25 @@ export default function ProfileScreen() {
     }
   }
 
+  async function handleSwitchToConnector() {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('users').update({ role: 'connector' }).eq('id', user.id);
+      if (error) throw error;
+      setShowConnectorModal(false);
+      await updateUser({ role: 'connector' });
+      toast.show('파트너 화면으로 전환했습니다', 'success');
+    } catch (error) {
+      toast.show('전환 중 오류가 발생했습니다', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSwitchToHopeful() {
     if (!user) return;
+    if (!(await confirm({ title: '회원 화면으로 전환할까요?', message: '프로필 › 매칭 파트너에서 언제든 파트너 화면으로 돌아올 수 있어요.', confirmText: '전환' }))) return;
     try {
       const { error } = await supabase.from('users').update({ role: 'hopeful' }).eq('id', user.id);
       if (error) throw error;
@@ -780,9 +799,22 @@ export default function ProfileScreen() {
       <BottomSheet
         visible={showConnectorModal}
         onClose={() => setShowConnectorModal(false)}
-        title={connectorApplicationStatus === 'pending' ? '심사 중입니다' : '매칭 파트너 신청'}
+        title={connectorApplicationStatus === 'pending' ? '심사 중입니다' : connectorApplicationStatus === 'approved' ? '매칭 파트너' : '매칭 파트너 신청'}
       >
-            {connectorApplicationStatus === 'pending' ? (
+            {connectorApplicationStatus === 'approved' ? (
+              <>
+                <Text style={{ color: '#666', fontSize: 13, marginBottom: 20, lineHeight: 20 }}>
+                  이미 승인된 매칭 파트너입니다.{'\n'}파트너 화면으로 돌아갈 수 있어요.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.modalBtnConfirm, loading && styles.modalBtnDisabled]}
+                  onPress={handleSwitchToConnector}
+                  disabled={loading}
+                >
+                  <Text style={styles.modalBtnText}>{loading ? '전환 중...' : '파트너 화면으로 돌아가기'}</Text>
+                </TouchableOpacity>
+              </>
+            ) : connectorApplicationStatus === 'pending' ? (
               <>
                 <Text style={{ color: '#666', fontSize: 13, marginBottom: 20, lineHeight: 20 }}>
                   매칭 파트너 신청이 접수되었습니다.{'\n'}운영자 승인 후 파트너 화면이 열립니다.

@@ -52,6 +52,7 @@ export default function ConnectorsScreen() {
   const [requesting, setRequesting] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [completedMatchCount, setCompletedMatchCount] = useState<number | null>(null);
   const [tabStatus, setTabStatus] = useState<'pending' | 'approved' | 'ally'>('approved');
   // 동맹 연결자들이 승인한 회원 (동맹 매칭 전에 어떤 회원인지 확인용)
   const [allyMembers, setAllyMembers] = useState<any[]>([]);
@@ -212,6 +213,14 @@ export default function ConnectorsScreen() {
 
   useEffect(() => {
     if (user?.role !== 'connector' && selectedConnector?.id) {
+      // 성사(정산 완료)된 매칭 수
+      setCompletedMatchCount(null);
+      supabase
+        .from('match_requests')
+        .select('id', { count: 'exact', head: true })
+        .or(`connector_1_id.eq.${selectedConnector.id},connector_2_id.eq.${selectedConnector.id}`)
+        .eq('settlement_completed', true)
+        .then(({ count }) => setCompletedMatchCount(count ?? 0));
       setLoadingStats(true);
       setPoolStats(null);
       supabase
@@ -630,7 +639,7 @@ export default function ConnectorsScreen() {
                       </View>
                       <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>매칭수</Text>
-                        <Text style={styles.infoValue}>{selectedConnector.matching_count || 0}건</Text>
+                        <Text style={styles.infoValue}>{completedMatchCount === null ? '-' : `${completedMatchCount}건`}</Text>
                       </View>
                       <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>주요지역</Text>
