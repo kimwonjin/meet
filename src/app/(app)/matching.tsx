@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   FlatList,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -30,6 +30,15 @@ export default function MatchingScreen() {
   // 애프터 응답 요청 알림을 보낸 '매칭id:회원id'
   const [remindedKeys, setRemindedKeys] = useState<string[]>([]);
   const [segment, setSegment] = useState<Segment>('internal');
+  const router = useRouter();
+  // 알림에서 들어오면 해당 칸(예: 동맹매칭)을 바로 연다
+  const params = useLocalSearchParams<{ segment?: Segment }>();
+  useEffect(() => {
+    if (params.segment) {
+      setSegment(params.segment);
+      router.setParams({ segment: undefined });
+    }
+  }, [params.segment]);
 
   const [ownMembers, setOwnMembers] = useState<{ id: string; name: string }[]>([]);
   const [allyConnectors, setAllyConnectors] = useState<{ id: string; name: string }[]>([]);
@@ -235,6 +244,18 @@ export default function MatchingScreen() {
       }]);
       if (error) throw error;
 
+      if (!(connector1Consented && connector2Consented)) {
+        // 상대 연결자의 동의가 필요하다는 것을 알린다
+        await createNotification({
+          userId: connector1Consented ? b.connectorId : a.connectorId,
+          type: 'match_consent_requested',
+          title: '동맹 매칭 동의 요청이 왔습니다',
+          body: `${user.name}님이 회원 매칭을 제안했습니다. 매칭 › 동맹매칭에서 확인해주세요`,
+          route: '/matching',
+          routeParams: { segment: 'ally' },
+        });
+      }
+
       if (connector1Consented && connector2Consented) {
         await Promise.all([
           createNotification({ userId: a.id, type: 'match_proposed', title: '새로운 매칭 제안이 도착했습니다', route: '/home' }),
@@ -280,6 +301,19 @@ export default function MatchingScreen() {
           createNotification({ userId: match.hopeful_1.id, type: 'match_proposed', title: '새로운 매칭 제안이 도착했습니다', route: '/home' }),
           createNotification({ userId: match.hopeful_2.id, type: 'match_proposed', title: '새로운 매칭 제안이 도착했습니다', route: '/home' }),
         ]);
+      }
+
+      // 제안한 상대 연결자에게 동의 사실을 알린다
+      const otherConnectorId = match.connector_1_id === user.id ? match.connector_2_id : match.connector_1_id;
+      if (otherConnectorId && otherConnectorId !== user.id) {
+        await createNotification({
+          userId: otherConnectorId,
+          type: 'match_consent_given',
+          title: '동맹 매칭에 동의했습니다',
+          body: `${user.name}님이 매칭에 동의해 회원들에게 제안이 전달되었습니다`,
+          route: '/matching',
+          routeParams: { segment: 'ally' },
+        });
       }
 
       toast.show('✓ 매칭에 동의했습니다', 'success');
@@ -359,6 +393,11 @@ export default function MatchingScreen() {
   const internalMatches = [...matchRequests]
     .filter((m) => m.connector_1_id === m.connector_2_id)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const pendingConsentCount = matchRequests.filter(
+    (m) =>
+      m.connector_1_id !== m.connector_2_id &&
+      ((m.connector_1_id === user?.id && !m.connector_1_consented) || (m.connector_2_id === user?.id && !m.connector_2_consented))
+  ).length;
   const allyMatches = [...matchRequests]
     .filter((m) => m.connector_1_id !== m.connector_2_id)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -680,7 +719,9 @@ export default function MatchingScreen() {
           { key: 'internal', label: '내부매칭' },
           { key: 'ally', label: '동맹매칭' },
           { key: 'alliance', label: '동맹관리' },
-        ] as { key: Segment; label: string }[]).map((s) => (
+        ] as { key: Segment; label: string }[]).map((s) => {
+          const badge = s.key === 'ally' ? pendingConsentCount : 0;
+          return (
           <TouchableOpacity
             key={s.key}
             style={[styles.segmentBtn, segment === s.key && styles.segmentBtnActive]}
@@ -689,8 +730,14 @@ export default function MatchingScreen() {
             <Text style={[styles.segmentBtnText, segment === s.key && styles.segmentBtnTextActive]}>
               {s.label}
             </Text>
+            {badge > 0 && (
+              <View style={styles.segmentBadge}>
+                <Text style={styles.segmentBadgeText}>{badge}</Text>
+              </View>
+            )}
           </TouchableOpacity>
-        ))}
+          );
+        })}
       </View>
 
       {segment === 'alliance' ? (
@@ -754,9 +801,26 @@ const styles = StyleSheet.create({
   },
   segmentBtn: {
     flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
     paddingVertical: 8,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  segmentBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#E53935',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+    marginLeft: 4,
+  },
+  segmentBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
   },
   segmentBtnActive: {
     backgroundColor: '#fff',
