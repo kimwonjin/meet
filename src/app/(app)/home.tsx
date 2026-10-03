@@ -15,6 +15,7 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
+import { getMyConnectorCredits } from '@/lib/payments';
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ export default function HomeScreen() {
 
   // Hopeful states
   const [receivedMatches, setReceivedMatches] = useState<any[]>([]);
+  const [remainingSessions, setRemainingSessions] = useState<number | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -160,6 +162,9 @@ export default function HomeScreen() {
         });
 
         setReceivedMatches(matches);
+
+        const { data: credits } = await getMyConnectorCredits(user!.id);
+        setRemainingSessions((credits || []).reduce((sum: number, c: any) => sum + c.available, 0));
       }
     } catch (error) {
       console.error('fetchDashboard error:', error);
@@ -548,9 +553,23 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      <TouchableOpacity
+        style={styles.creditRow}
+        onPress={() => router.push({ pathname: '/profile', params: { open: 'credits' } })}
+      >
+        <Text style={styles.creditLabel}>남은 이용권</Text>
+        <Text style={styles.creditValue}>
+          {remainingSessions === null ? '-' : `${remainingSessions}회`} ›
+        </Text>
+      </TouchableOpacity>
+
       {receivedMatches.length === 0 ? (
         <View style={styles.placeholder}>
           <Text style={styles.placeholderText}>받은 매칭이 없습니다</Text>
+          <Text style={styles.placeholderHint}>파트너에게 연락하면 맞는 분을 소개받을 수 있어요</Text>
+          <TouchableOpacity style={styles.findPartnerBtn} onPress={() => router.push('/connectors')}>
+            <Text style={styles.findPartnerBtnText}>파트너 찾아보기</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.section}>
@@ -927,6 +946,43 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: 16,
     color: '#999',
+  },
+  placeholderHint: {
+    fontSize: 13,
+    color: '#bbb',
+    marginTop: 6,
+  },
+  findPartnerBtn: {
+    backgroundColor: '#5B21FF',
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    marginTop: 20,
+  },
+  findPartnerBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  creditRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
+  },
+  creditLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  creditValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#333',
   },
   memberCard: {
     flexDirection: 'row',

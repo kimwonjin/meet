@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -62,6 +62,15 @@ export default function ProfileScreen() {
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
 
   const locations = ['서울', '경기', '인천', '강원', '충청', '전라', '경상', '제주'];
+
+  // 홈의 '남은 이용권'에서 들어오면 이용권 시트를 바로 연다
+  const { open } = useLocalSearchParams<{ open?: string }>();
+  useEffect(() => {
+    if (open === 'credits') {
+      setShowCreditsModal(true);
+      router.setParams({ open: undefined });
+    }
+  }, [open]);
 
   useEffect(() => {
     if (showCreditScoreModal && user) {
