@@ -1,9 +1,12 @@
 import { supabase } from './supabase';
 import { createNotification } from './notifications';
-import { formatMeetingTime } from './format';
+import { formatMeetingDate } from './format';
 
-// 두 회원이 고른 날짜가 겹치면 자동으로 잡는 만남 시각
-export const DEFAULT_MEETING_HOUR = 19;
+// 일정은 날짜만 정한다. 시간대 차이로 날짜가 밀리지 않도록 그날 정오로 저장한다.
+export function dateKeyToMeetingAt(dateKey: string) {
+  const [y, mo, d] = dateKey.split('-').map(Number);
+  return new Date(y, mo - 1, d, 12, 0).toISOString();
+}
 
 export function earliestCommonDate(a: string[] | null, b: string[] | null): string | null {
   if (!a?.length || !b?.length) return null;
@@ -37,8 +40,7 @@ export async function autoScheduleMatch(matchId: string): Promise<AutoScheduleRe
     return { status: 'no_overlap' };
   }
 
-  const [y, mo, d] = common.split('-').map(Number);
-  const at = new Date(y, mo - 1, d, DEFAULT_MEETING_HOUR, 0).toISOString();
+  const at = dateKeyToMeetingAt(common);
   const { error } = await supabase
     .from('match_requests')
     .update({ meeting_scheduled_at: at })
@@ -46,13 +48,13 @@ export async function autoScheduleMatch(matchId: string): Promise<AutoScheduleRe
     .is('meeting_scheduled_at', null);
   if (error) throw error;
 
-  const when = formatMeetingTime(at);
+  const when = formatMeetingDate(at);
   await Promise.all([
     ...memberIds.map((id) =>
-      createNotification({ userId: id, type: 'meeting_scheduled', title: '소개팅 일정이 정해졌어요', body: when, route: '/home' })
+      createNotification({ userId: id, type: 'meeting_scheduled', title: `소개팅 날짜가 정해졌어요 · ${when}`, body: '상대 연락처가 공개됐어요. 시간과 장소는 서로 연락해 정해주세요', route: '/home' })
     ),
     ...connectorIds.map((id) =>
-      createNotification({ userId: id, type: 'meeting_scheduled', title: '두 회원의 일정이 맞춰졌어요', body: when, route: '/matching' })
+      createNotification({ userId: id, type: 'meeting_scheduled', title: '두 회원의 날짜가 맞춰졌어요', body: when, route: '/matching' })
     ),
   ]);
   return { status: 'scheduled', at };

@@ -17,7 +17,7 @@ import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
 import { getMyConnectorCredits } from '@/lib/payments';
 import BottomSheet from '@/components/BottomSheet';
-import { formatMeetingTime } from '@/lib/format';
+import { formatMeetingDate } from '@/lib/format';
 import AvailableDatesSheet from '@/components/AvailableDatesSheet';
 import { autoScheduleMatch, earliestCommonDate } from '@/lib/schedule';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
@@ -186,7 +186,7 @@ export default function HomeScreen() {
   }
 
   function showScheduleResult(result: Awaited<ReturnType<typeof autoScheduleMatch>>) {
-    if (result.status === 'scheduled') toast.show(`📅 ${formatMeetingTime(result.at)}로 소개팅이 잡혔어요`, 'success');
+    if (result.status === 'scheduled') toast.show(`📅 소개팅 날짜가 정해졌어요 · ${formatMeetingDate(result.at)}`, 'success');
     if (result.status === 'no_overlap') toast.show('상대와 겹치는 날짜가 없어요. 날짜를 다시 골라주세요', 'info');
   }
 
@@ -764,13 +764,23 @@ export default function HomeScreen() {
 
                   {/* 3단계: 소개팅 진행 대기 */}
                   {bothApproved && !noDateOverlap && item.meeting_status !== 'completed' && !item.after_care_hopeful_1 && !item.after_care_hopeful_2 && (
-                    <View style={styles.waitingMessage}>
-                      <Text style={styles.waitingText}>
-                        {item.meeting_scheduled_at
-                          ? `📅 ${formatMeetingTime(item.meeting_scheduled_at)} 소개팅이 잡혔어요`
-                          : '🎯 파트너가 소개팅 일정을 정하는 중입니다'}
-                      </Text>
-                    </View>
+                    item.meeting_scheduled_at ? (
+                      // 날짜가 정해지면 서로 연락처를 공개하고, 시간·장소는 직접 정하게 한다 (소개팅이 끝나면 다시 숨김)
+                      <View style={styles.meetingBox}>
+                        <Text style={styles.meetingDate}>📅 {formatMeetingDate(item.meeting_scheduled_at)} 소개팅</Text>
+                        <View style={styles.contactRow}>
+                          <Text style={styles.contactLabel}>{item.partner?.name}님 연락처</Text>
+                          <Text style={styles.contactValue} selectable>{item.partner?.phone || '-'}</Text>
+                        </View>
+                        <Text style={styles.meetingHint}>시간과 장소는 서로 연락해 정해주세요</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.waitingMessage}>
+                        <Text style={styles.waitingText}>
+                          🎯 파트너가 소개팅 날짜를 정하는 중입니다
+                        </Text>
+                      </View>
+                    )
                   )}
 
                   {/* 3단계: 애프터의사 버튼 (소개팅 완료 후, 본인이 아직 선택 안 함) */}
@@ -1176,6 +1186,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginBottom: 12,
+  },
+  meetingBox: {
+    backgroundColor: '#F1ECFF',
+    borderRadius: 10,
+    padding: 14,
+    gap: 8,
+  },
+  meetingDate: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#5B21FF',
+  },
+  contactRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  contactLabel: {
+    fontSize: 13,
+    color: '#666',
+  },
+  contactValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#333',
+  },
+  meetingHint: {
+    fontSize: 12,
+    color: '#666',
   },
   partnerProfileLink: {
     fontSize: 13,

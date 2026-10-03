@@ -15,8 +15,8 @@ import { getCredit } from '@/lib/payments';
 import AlliancesScreen from './alliances';
 import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
-import DateTimePickerSheet from '@/components/DateTimePickerSheet';
-import { formatMeetingTime } from '@/lib/format';
+import DatePickerSheet from '@/components/DatePickerSheet';
+import { formatMeetingDate } from '@/lib/format';
 import { earliestCommonDate } from '@/lib/schedule';
 
 type Segment = 'internal' | 'ally' | 'alliance';
@@ -354,17 +354,17 @@ export default function MatchingScreen() {
 
       const match = matchRequests.find((m) => m.id === matchId);
       if (match && user) {
-        const when = formatMeetingTime(scheduledAt.toISOString());
+        const when = formatMeetingDate(scheduledAt.toISOString());
         const otherConnectorId = match.connector_1_id === user.id ? match.connector_2_id : match.connector_1_id;
         await Promise.all([
           ...[match.hopeful_1?.id, match.hopeful_2?.id].filter(Boolean).map((id: string) =>
-            createNotification({ userId: id, type: 'meeting_scheduled', title: '소개팅 일정이 정해졌어요', body: when, route: '/home' })
+            createNotification({ userId: id, type: 'meeting_scheduled', title: `소개팅 날짜가 정해졌어요 · ${when}`, body: '상대 연락처가 공개됐어요. 시간과 장소는 서로 연락해 정해주세요', route: '/home' })
           ),
           otherConnectorId && otherConnectorId !== user.id
             ? createNotification({
                 userId: otherConnectorId,
                 type: 'meeting_scheduled',
-                title: '동맹 매칭 일정이 정해졌어요',
+                title: '동맹 매칭 날짜가 정해졌어요',
                 body: `${match.hopeful_1?.name} ↔ ${match.hopeful_2?.name} · ${when}`,
                 route: '/matching',
                 routeParams: { segment: 'ally' },
@@ -373,7 +373,7 @@ export default function MatchingScreen() {
         ]);
       }
 
-      toast.show('✓ 만남 일정을 확정했습니다', 'success');
+      toast.show('✓ 만남 날짜를 정했습니다', 'success');
       await fetchMatches();
     } catch (error) {
       console.error('Error:', error);
@@ -671,7 +671,7 @@ export default function MatchingScreen() {
                 )}
                 {item.meeting_scheduled_at ? (
                   <View style={styles.scheduleLine}>
-                    <Text style={styles.scheduleConfirmedText}>📅 {formatMeetingTime(item.meeting_scheduled_at)}</Text>
+                    <Text style={styles.scheduleConfirmedText}>📅 {formatMeetingDate(item.meeting_scheduled_at)}</Text>
                     {isScheduler && item.meeting_status === 'announced' && (
                       <TouchableOpacity onPress={() => setScheduleMatchId(item.id)} disabled={processingId !== null}>
                         <Text style={styles.scheduleChangeText}>변경</Text>
@@ -680,7 +680,7 @@ export default function MatchingScreen() {
                   </View>
                 ) : !isScheduler ? (
                   <View style={styles.statusMessage}>
-                    <Text style={styles.statusMessageText}>{schedulerName}님이 만남 일정을 정하는 중입니다</Text>
+                    <Text style={styles.statusMessageText}>{schedulerName}님이 만남 날짜를 정하는 중입니다</Text>
                   </View>
                 ) : null}
 
@@ -691,7 +691,7 @@ export default function MatchingScreen() {
                     disabled={processingId !== null}
                   >
                     <Text style={styles.actionBtnText}>
-                      {processingId === item.id ? '저장 중...' : '📅 만남 일정 정하기'}
+                      {processingId === item.id ? '저장 중...' : '📅 만남 날짜 정하기'}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -825,7 +825,7 @@ export default function MatchingScreen() {
         />
       )}
 
-      <DateTimePickerSheet
+      <DatePickerSheet
         visible={scheduleMatchId !== null}
         initialDate={(() => {
           const at = matchRequests.find((m) => m.id === scheduleMatchId)?.meeting_scheduled_at;

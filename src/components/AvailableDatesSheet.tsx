@@ -42,7 +42,7 @@ export default function AvailableDatesSheet({ visible, onClose, onConfirm, initi
 
   return (
     <BottomSheet visible={visible} onClose={onClose} title="만날 수 있는 날짜">
-      <Text style={styles.guide}>가능한 날짜를 모두 골라주세요. 상대와 겹치는 날 중 가장 빠른 날로 소개팅이 잡혀요.</Text>
+      <Text style={styles.guide}>가능한 날짜를 모두 골라주세요. 상대와 겹치는 날 중 가장 빠른 날로 소개팅 날짜가 정해지고, 시간과 장소는 서로 연락해 정해요.</Text>
       <CalendarGrid
         minDate={minDate}
         maxDate={maxDate}
