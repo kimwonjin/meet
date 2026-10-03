@@ -215,7 +215,7 @@ export default function AlliancesScreen() {
                     </View>
                     <View style={styles.connInfo}>
                       <Text style={styles.name}>{item.name}</Text>
-                      <Text style={styles.desc}>{isActive ? '동맹 중 · 회원 풀 통계 보기' : '회원 풀 통계 보기'}</Text>
+                      <Text style={styles.desc}>{isActive ? '동맹 중 · ' : ''}프로필 보기 ›</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -291,6 +291,25 @@ export default function AlliancesScreen() {
                   <Text style={styles.modalAvatarText}>💼</Text>
                 </View>
                 <Text style={styles.modalTitle}>{selectedAlly?.name}</Text>
+              </View>
+
+              {/* 연결자 기본 정보: 통계를 불러오지 못해도 항상 보여준다 */}
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>파트너 정보</Text>
+                {[
+                  ['회사명', selectedAlly?.business_name],
+                  ['주요 지역', selectedAlly?.main_region],
+                  ['회당 비용', selectedAlly?.fee_per_session ? `${Number(selectedAlly.fee_per_session).toLocaleString()}원` : null],
+                  ['인증', selectedAlly?.verified ? '✓ 인증됨' : '미인증'],
+                ].map(([label, value]) => (
+                  <View key={label} style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>{label}</Text>
+                    <Text style={styles.infoValue}>{value || '-'}</Text>
+                  </View>
+                ))}
+                {!!selectedAlly?.service_description && (
+                  <Text style={styles.serviceDesc}>{selectedAlly.service_description}</Text>
+                )}
               </View>
 
               {loadingStats ? (
@@ -499,6 +518,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#333',
+  },
+  serviceDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#555',
+    marginTop: 10,
   },
   modalSection: {
     marginBottom: 30,
