@@ -949,14 +949,14 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   statusMessage: {
-    backgroundColor: '#E8F5FF',
+    backgroundColor: '#F1ECFF',
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 8,
   },
   statusMessageText: {
-    color: '#0084FF',
+    color: '#5B21FF',
     fontWeight: '500',
     fontSize: 12,
   },

@@ -468,14 +468,14 @@ const styles = StyleSheet.create({
     color: '#5B21FF',
   },
   paidBadge: {
-    backgroundColor: '#E8F5FF',
+    backgroundColor: '#E8F5E9',
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
     marginTop: 10,
   },
   paidBadgeText: {
-    color: '#0084FF',
+    color: '#2E7D32',
     fontWeight: '500',
     fontSize: 12,
   },

@@ -816,7 +816,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '800',
     color: '#fff',
-    backgroundColor: '#FF3D68',
+    backgroundColor: '#5B21FF',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -833,7 +833,7 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#D81753',
+    color: '#333',
   },
   rating: {
     color: '#999',
@@ -1061,7 +1061,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeSubTab: {
-    borderBottomColor: '#FF3D68',
+    borderBottomColor: '#5B21FF',
   },
   subTabText: {
     fontSize: 11,
@@ -1069,7 +1069,7 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   activeSubTabText: {
-    color: '#FF3D68',
+    color: '#5B21FF',
   },
   approvedCard: {
     backgroundColor: '#F1ECFF',

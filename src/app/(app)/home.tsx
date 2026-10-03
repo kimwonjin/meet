@@ -1089,14 +1089,14 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   waitingMessage: {
-    backgroundColor: '#E8F5FF',
+    backgroundColor: '#F1ECFF',
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 12,
     alignItems: 'center',
   },
   waitingText: {
-    color: '#0084FF',
+    color: '#5B21FF',
     fontSize: 12,
     fontWeight: '500',
   },

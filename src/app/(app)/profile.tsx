@@ -1275,8 +1275,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     backgroundColor: '#FAFAFA',
     borderRadius: 14,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FF3D68',
   },
   logoutBtn: {
     marginHorizontal: 20,
@@ -1295,7 +1293,7 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FF3D68',
+    color: '#E53935',
   },
   modalOverlay: {
     flex: 1,
@@ -1519,14 +1517,14 @@ const styles = StyleSheet.create({
     borderLeftColor: '#5B21FF',
   },
   paidBadge: {
-    backgroundColor: '#E8F5FF',
+    backgroundColor: '#E8F5E9',
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
     marginTop: 10,
   },
   paidBadgeText: {
-    color: '#0084FF',
+    color: '#2E7D32',
     fontWeight: '500',
     fontSize: 12,
   },
