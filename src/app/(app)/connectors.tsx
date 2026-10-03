@@ -220,6 +220,7 @@ export default function ConnectorsScreen() {
         .select('id', { count: 'exact', head: true })
         .or(`connector_1_id.eq.${selectedConnector.id},connector_2_id.eq.${selectedConnector.id}`)
         .eq('settlement_completed', true)
+        .is('closed_reason', null)
         .then(({ count }) => setCompletedMatchCount(count ?? 0));
       setLoadingStats(true);
       setPoolStats(null);

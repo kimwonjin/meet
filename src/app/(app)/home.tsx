@@ -21,6 +21,7 @@ import BottomSheet from '@/components/BottomSheet';
 import { formatMeetingDate } from '@/lib/format';
 import AvailableDatesSheet from '@/components/AvailableDatesSheet';
 import { autoScheduleMatch, earliestCommonDate } from '@/lib/schedule';
+import { afterCareDeadline, expireAfterCareIfDue, formatDeadline } from '@/lib/afterCare';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
 
 export default function HomeScreen() {
@@ -51,7 +52,7 @@ export default function HomeScreen() {
 
   useFocusPolling(() => fetchDashboard(), 15000, !!user);
 
-  async function fetchDashboard() {
+  async function fetchDashboard(retried = false) {
     try {
       if (user?.role === 'connector') {
         // 연결자: 내 회원 조회 (같은 회원에 대해 중복 요청 행이 있을 수 있어 hopeful_id 기준으로 중복 제거)
@@ -158,6 +159,8 @@ export default function HomeScreen() {
             after_care_hopeful_2: r.after_care_hopeful_2,
             meeting_status: r.meeting_status,
             meeting_scheduled_at: r.meeting_scheduled_at,
+            meeting_completed_at: r.meeting_completed_at,
+            closed_reason: r.closed_reason,
             available_dates_1: r.available_dates_1,
             available_dates_2: r.available_dates_2,
             settlement_completed: r.settlement_completed,
@@ -169,6 +172,10 @@ export default function HomeScreen() {
         });
 
         setReceivedMatches(matches);
+
+        // 애프터 응답 기한이 지난 매칭은 자동으로 마무리하고 다시 불러온다
+        const expired = await Promise.all(consentedReqData.map((r: any) => expireAfterCareIfDue(r)));
+        if (expired.some(Boolean) && !retried) return fetchDashboard(true);
 
         const { data: credits } = await getMyConnectorCredits(user!.id);
         setRemainingSessions((credits || []).reduce((sum: number, c: any) => sum + c.available, 0));
@@ -327,12 +334,15 @@ export default function HomeScreen() {
         .eq('id', matchId)
         .single();
 
-      if (freshMatch?.after_care_hopeful_1 && freshMatch?.after_care_hopeful_2) {
+      // 노쇼 신고는 상대 응답을 기다리지 않고 바로 (정산 없이) 종료한다
+      if (afterCareType === '노쇼신고' || (freshMatch?.after_care_hopeful_1 && freshMatch?.after_care_hopeful_2)) {
         const { error: settleError } = await supabase.rpc('fn_settle_match', { p_match_id: matchId });
         if (settleError) {
-          toast.show(settleError.message || '정산 처리 중 문제가 발생했습니다', 'error');
+          toast.show('마무리 처리 중 문제가 발생했습니다. 파트너에게 문의해주세요', 'error');
+        } else if (afterCareType === '노쇼신고') {
+          toast.show('노쇼 신고가 접수되어 매칭이 종료되었어요. 이용권은 차감되지 않아요', 'success');
         } else {
-          toast.show('✓ 정산이 완료되었습니다', 'success');
+          toast.show('매칭이 마무리되었어요', 'success');
         }
       }
 
@@ -783,11 +793,16 @@ export default function HomeScreen() {
                   )}
 
                   {/* 3단계: 애프터의사 버튼 (소개팅 완료 후, 본인이 아직 선택 안 함) */}
-                  {item.meeting_status === 'completed' &&
+                  {item.meeting_status === 'completed' && !item.settlement_completed &&
                   ((item.isHopeful1 && !item.after_care_hopeful_1) ||
                     (!item.isHopeful1 && !item.after_care_hopeful_2)) && (
                     <View style={styles.afterCareSection}>
                       <Text style={styles.afterCareLabel}>소개팅은 어떠셨나요? 상대에게는 알려지지 않아요</Text>
+                      {!!item.meeting_completed_at && (
+                        <Text style={styles.afterCareDeadline}>
+                          {formatDeadline(afterCareDeadline(item.meeting_completed_at))}까지 고르지 않으면 '이번이 마지막이에요'로 처리돼요
+                        </Text>
+                      )}
                       <View style={styles.afterCareButtons}>
                         <TouchableOpacity
                           style={[styles.afterCareBtn, styles.afterCarePrimary, processingId === item.id && styles.buttonDisabled]}
@@ -824,13 +839,16 @@ export default function HomeScreen() {
 
                   {/* 애프터의사 완료 메시지 (본인이 이미 선택했을 때) */}
                   {item.meeting_status === 'completed' &&
-                  ((item.isHopeful1 && item.after_care_hopeful_1) ||
-                    (!item.isHopeful1 && item.after_care_hopeful_2)) && (
+                  (item.settlement_completed || (item.isHopeful1 && item.after_care_hopeful_1) || (!item.isHopeful1 && item.after_care_hopeful_2)) && (
                     <View style={styles.waitingMessage}>
                       <Text style={styles.waitingText}>
                         {item.settlement_completed
-                          ? '✓ 정산이 완료되었습니다. 매칭이 종료되었습니다.'
-                          : '✓ 의사를 전달했어요. 상대방도 응답하면 매칭이 마무리됩니다.'}
+                          ? item.closed_reason === 'no_show'
+                            ? (item.isHopeful1 ? item.after_care_hopeful_1 : item.after_care_hopeful_2) === '노쇼신고'
+                              ? '노쇼 신고가 접수되어 매칭이 종료되었어요. 이용권은 차감되지 않았어요.'
+                              : '매칭이 종료되었어요. 이용권은 차감되지 않았어요.'
+                            : '✓ 매칭이 마무리되었어요.'
+                          : `✓ 의사를 전달했어요. 상대방도 응답하면 매칭이 마무리됩니다.${item.meeting_completed_at ? ` (늦어도 ${formatDeadline(afterCareDeadline(item.meeting_completed_at))})` : ''}`}
                       </Text>
                     </View>
                   )}
@@ -1357,6 +1375,11 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 10,
     fontWeight: '500',
+  },
+  afterCareDeadline: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 8,
   },
   afterCareButtons: {
     gap: 8,

@@ -19,6 +19,7 @@ import { createNotification } from '@/lib/notifications';
 import DatePickerSheet from '@/components/DatePickerSheet';
 import { formatMeetingDate } from '@/lib/format';
 import { earliestCommonDate, sendContactsViaChat } from '@/lib/schedule';
+import { AFTER_CARE_DAYS, afterCareDeadline, expireAfterCareIfDue, formatDeadline } from '@/lib/afterCare';
 
 type Segment = 'internal' | 'ally' | 'alliance';
 
@@ -64,7 +65,7 @@ export default function MatchingScreen() {
     fetchAllyConnectors();
   }, 15000, !!user);
 
-  async function fetchMatches() {
+  async function fetchMatches(retried = false) {
     try {
       if (user?.role === 'connector') {
         // 내가 제안한 매칭 조회 (승인 이상 상태)
@@ -105,6 +106,10 @@ export default function MatchingScreen() {
           const newMatches = allMemberMatches.filter((m: any) => !existingIds.has(m.id));
           matchData = [...matchData, ...newMatches];
         }
+
+        // 애프터 응답 기한이 지난 매칭은 자동으로 마무리하고 다시 불러온다
+        const expired = await Promise.all(matchData.map((m: any) => expireAfterCareIfDue(m)));
+        if (expired.some(Boolean) && !retried) return fetchMatches(true);
 
         // 최신 매칭이 위로 오도록 정렬
         matchData.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -148,6 +153,8 @@ export default function MatchingScreen() {
             connector_1_name: connectorName(m.connector_1_id),
             connector_2_name: connectorName(m.connector_2_id),
             meeting_scheduled_at: m.meeting_scheduled_at,
+            meeting_completed_at: m.meeting_completed_at,
+            closed_reason: m.closed_reason,
             available_dates_1: m.available_dates_1,
             available_dates_2: m.available_dates_2,
           };
@@ -408,10 +415,25 @@ export default function MatchingScreen() {
     try {
       const { error } = await supabase
         .from('match_requests')
-        .update({ meeting_status: newStatus })
+        .update(newStatus === 'completed' ? { meeting_status: newStatus, meeting_completed_at: new Date().toISOString() } : { meeting_status: newStatus })
         .eq('id', matchId);
 
       if (error) throw error;
+
+      if (newStatus === 'completed') {
+        const match = matchRequests.find((m) => m.id === matchId);
+        await Promise.all(
+          [match?.hopeful_1?.id, match?.hopeful_2?.id].filter(Boolean).map((id: string) =>
+            createNotification({
+              userId: id,
+              type: 'after_care_requested',
+              title: '소개팅은 어떠셨나요?',
+              body: `${AFTER_CARE_DAYS}일 안에 홈에서 다음 만남 의사를 알려주세요`,
+              route: '/home',
+            })
+          )
+        );
+      }
 
       const statusMsg = newStatus === 'in_progress' ? '만남 중' : '만남 완료';
       toast.show(`✓ 소개팅이 ${statusMsg}으로 변경되었습니다`, 'success');
@@ -738,7 +760,9 @@ export default function MatchingScreen() {
               <View style={styles.statusMessage}>
                 <Text style={styles.statusMessageText}>
                   ✓ 소개팅 완료
-                  {item.settlement_completed ? ' - 정산 완료' : ' - 정산 처리 중 (이용권 확인 필요)'}
+                  {item.settlement_completed
+                    ? item.closed_reason === 'no_show' ? ' - 노쇼 신고로 정산 없이 종료' : ' - 정산 완료'
+                    : ' - 정산 처리 중 (이용권 확인 필요)'}
                 </Text>
               </View>
             )}
@@ -746,7 +770,10 @@ export default function MatchingScreen() {
             {item.meeting_status === 'completed' && !item.settlement_completed && !(item.after_care_hopeful_1 && item.after_care_hopeful_2) && (
               <View style={styles.afterCareBox}>
                 <Text style={styles.afterCareTitle}>소개팅 완료 · 두 회원의 애프터 의사를 기다리는 중</Text>
-                <Text style={styles.afterCareHint}>두 회원이 각자 홈 화면에서 의사를 선택하면 정산이 자동으로 진행됩니다.</Text>
+                <Text style={styles.afterCareHint}>
+                  두 회원이 각자 홈 화면에서 의사를 선택하면 정산이 자동으로 진행됩니다.
+                  {item.meeting_completed_at ? ` ${formatDeadline(afterCareDeadline(item.meeting_completed_at))}까지 응답이 없으면 '미신청'으로 마무리돼요.` : ''}
+                </Text>
                 {[
                   { member: item.hopeful_1, answered: !!item.after_care_hopeful_1 },
                   { member: item.hopeful_2, answered: !!item.after_care_hopeful_2 },
