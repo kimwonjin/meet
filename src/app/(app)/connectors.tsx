@@ -23,6 +23,8 @@ interface Connector {
   service_description?: string;
   // connector가 받은 요청 목록: 회원 프로필 정보
   birth_date?: string;
+  gender?: string;
+  age?: number;
   height?: number;
   location?: string;
   job?: string;
@@ -44,7 +46,9 @@ export default function ConnectorsScreen() {
   const [selectedConnector, setSelectedConnector] = useState<Connector | null>(null);
   const [requesting, setRequesting] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [tabStatus, setTabStatus] = useState<'pending' | 'approved'>('approved');
+  const [tabStatus, setTabStatus] = useState<'pending' | 'approved' | 'ally'>('approved');
+  // 동맹 연결자들이 승인한 회원 (동맹 매칭 전에 어떤 회원인지 확인용)
+  const [allyMembers, setAllyMembers] = useState<any[]>([]);
   const [myCredit, setMyCredit] = useState(0);
   const [selectedPackage, setSelectedPackage] = useState(PACKAGE_OPTIONS[0]);
   const [purchasing, setPurchasing] = useState(false);
@@ -110,6 +114,7 @@ export default function ConnectorsScreen() {
           };
         });
         setAllRequests(requests);
+        await fetchAllyMembers();
         setConnectors(requests.filter(r => r.request_status === 'pending'));
       } else {
         // hopeful: 다른 connector들 조회 (승인된 연결자만)
@@ -153,6 +158,52 @@ export default function ConnectorsScreen() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function fetchAllyMembers() {
+    if (!user) return;
+    const { data: allianceRows } = await supabase
+      .from('connector_alliances')
+      .select('connector_1_id, connector_2_id')
+      .or(`connector_1_id.eq.${user.id},connector_2_id.eq.${user.id}`)
+      .eq('status', 'ACTIVE');
+    const allyIds = (allianceRows || []).map((a: any) => (a.connector_1_id === user.id ? a.connector_2_id : a.connector_1_id));
+    if (allyIds.length === 0) {
+      setAllyMembers([]);
+      return;
+    }
+
+    const { data: reqRows } = await supabase
+      .from('hopeful_requests')
+      .select('hopeful_id, connector_id')
+      .in('connector_id', allyIds)
+      .eq('status', 'approved');
+    // 같은 회원이 여러 번 요청했을 수 있으므로 회원 기준으로 하나만 남긴다
+    const memberToConnector = new Map<string, string>();
+    (reqRows || []).forEach((r: any) => {
+      if (!memberToConnector.has(r.hopeful_id)) memberToConnector.set(r.hopeful_id, r.connector_id);
+    });
+    const memberIds = [...memberToConnector.keys()];
+    if (memberIds.length === 0) {
+      setAllyMembers([]);
+      return;
+    }
+
+    const [{ data: members }, { data: allyUsers }] = await Promise.all([
+      supabase
+        .from('users')
+        .select('id, name, gender, age, height, location, job, education, bio, religion, smoking, drinking, body_type')
+        .in('id', memberIds),
+      supabase.from('users').select('id, name').in('id', allyIds),
+    ]);
+    setAllyMembers(
+      (members || []).map((m: any) => ({
+        ...m,
+        business_name: m.name,
+        verified: false,
+        ally_connector_name: (allyUsers || []).find((u: any) => u.id === memberToConnector.get(m.id))?.name || '동맹 파트너',
+      }))
+    );
   }
 
   useEffect(() => {
@@ -312,48 +363,45 @@ export default function ConnectorsScreen() {
 
   // connector면 회원 관리 화면
   if (user?.role === 'connector') {
-    const displayRequests = allRequests.filter(r => r.request_status === tabStatus);
+    const displayRequests = tabStatus === 'ally' ? allyMembers : allRequests.filter(r => r.request_status === tabStatus);
+    const emptyText = {
+      approved: '승인한 회원이 없습니다',
+      pending: '대기 중인 요청이 없습니다',
+      ally: '동맹 파트너의 회원이 없습니다.\n매칭 탭 > 동맹관리에서 다른 파트너와 동맹을 맺어보세요.',
+    }[tabStatus];
 
     return (
       <ScrollView style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <Text style={styles.title}>받은 요청</Text>
+            <Text style={styles.title}>회원</Text>
             <NotificationBell />
           </View>
         </View>
 
-        {allRequests.length === 0 ? (
-          <View style={styles.emptyTab}>
-            <Text style={styles.placeholderText}>회원 요청이 없습니다</Text>
-          </View>
-        ) : (
-          <View style={styles.subTabContainer}>
-          <TouchableOpacity
-            style={[styles.subTab, tabStatus === 'approved' && styles.activeSubTab]}
-            onPress={() => setTabStatus('approved')}
-          >
-            <Text style={[styles.subTabText, tabStatus === 'approved' && styles.activeSubTabText]}>
-              승인함 ({allRequests.filter(r => r.request_status === 'approved').length})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.subTab, tabStatus === 'pending' && styles.activeSubTab]}
-            onPress={() => setTabStatus('pending')}
-          >
-            <Text style={[styles.subTabText, tabStatus === 'pending' && styles.activeSubTabText]}>
-              대기중 ({allRequests.filter(r => r.request_status === 'pending').length})
-            </Text>
-          </TouchableOpacity>
-          </View>
+        <View style={styles.subTabContainer}>
+          {([
+            ['approved', `승인함 (${allRequests.filter(r => r.request_status === 'approved').length})`],
+            ['pending', `대기중 (${allRequests.filter(r => r.request_status === 'pending').length})`],
+            ['ally', `동맹 회원 (${allyMembers.length})`],
+          ] as const).map(([key, label]) => (
+            <TouchableOpacity
+              key={key}
+              style={[styles.subTab, tabStatus === key && styles.activeSubTab]}
+              onPress={() => setTabStatus(key)}
+            >
+              <Text style={[styles.subTabText, tabStatus === key && styles.activeSubTabText]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {tabStatus === 'ally' && allyMembers.length > 0 && (
+          <Text style={styles.allyHint}>매칭 탭 › 동맹매칭에서 내 회원과 매칭을 제안할 수 있어요</Text>
         )}
 
-        {allRequests.length > 0 && (
-        displayRequests.length === 0 ? (
+        {displayRequests.length === 0 ? (
           <View style={styles.emptyTab}>
-            <Text style={styles.placeholderText}>
-              {tabStatus === 'pending' ? '대기 중인 요청이 없습니다' : '승인한 요청이 없습니다'}
-            </Text>
+            <Text style={[styles.placeholderText, { textAlign: 'center', lineHeight: 20 }]}>{emptyText}</Text>
           </View>
         ) : (
           <FlatList
@@ -368,11 +416,17 @@ export default function ConnectorsScreen() {
                     </View>
                     <View style={styles.connInfo}>
                       <Text style={styles.name}>{item.business_name}</Text>
-                      <Text style={styles.desc}>회원 요청</Text>
+                      <Text style={styles.desc}>
+                        {tabStatus === 'ally'
+                          ? [item.ally_connector_name + ' 소속', item.gender === 'M' ? '남' : item.gender === 'F' ? '여' : null, item.age && `${item.age}세`, item.location].filter(Boolean).join(' · ')
+                          : '회원 요청'}
+                      </Text>
                     </View>
-                    <View style={styles.creditPill}>
-                      <Text style={styles.creditPillText}>남은 이용권 {item.remaining_credit || 0}회</Text>
-                    </View>
+                    {tabStatus !== 'ally' && (
+                      <View style={styles.creditPill}>
+                        <Text style={styles.creditPillText}>남은 이용권 {item.remaining_credit || 0}회</Text>
+                      </View>
+                    )}
                   </View>
                 </TouchableOpacity>
                 {tabStatus === 'pending' && (
@@ -409,7 +463,7 @@ export default function ConnectorsScreen() {
             scrollEnabled={false}
             contentContainerStyle={styles.list}
           />
-        ))}
+        )}
 
         {/* Connector 바텀시트 */}
         {selectedConnector && user?.role === 'connector' && (
@@ -427,24 +481,30 @@ export default function ConnectorsScreen() {
                       <View style={styles.modalSection}>
                         <Text style={styles.modalSectionTitle}>기본 정보</Text>
                         <View style={styles.infoRow}>
+                          <Text style={styles.infoLabel}>성별 · 나이</Text>
+                          <Text style={styles.infoValue}>
+                            {[selectedConnector.gender === 'M' ? '남' : selectedConnector.gender === 'F' ? '여' : null, selectedConnector.age && `${selectedConnector.age}세`].filter(Boolean).join(' · ') || '-'}
+                          </Text>
+                        </View>
+                        <View style={styles.infoRow}>
                           <Text style={styles.infoLabel}>생년월일</Text>
                           <Text style={styles.infoValue}>{selectedConnector.birth_date || '-'}</Text>
                         </View>
                         <View style={styles.infoRow}>
                           <Text style={styles.infoLabel}>키</Text>
-                          <Text style={styles.infoValue}>{selectedConnector.height}cm</Text>
+                          <Text style={styles.infoValue}>{selectedConnector.height ? `${selectedConnector.height}cm` : '-'}</Text>
                         </View>
                         <View style={styles.infoRow}>
                           <Text style={styles.infoLabel}>지역</Text>
-                          <Text style={styles.infoValue}>{selectedConnector.location}</Text>
+                          <Text style={styles.infoValue}>{selectedConnector.location || '-'}</Text>
                         </View>
                         <View style={styles.infoRow}>
                           <Text style={styles.infoLabel}>직업</Text>
-                          <Text style={styles.infoValue}>{selectedConnector.job}</Text>
+                          <Text style={styles.infoValue}>{selectedConnector.job || '-'}</Text>
                         </View>
                         <View style={styles.infoRow}>
                           <Text style={styles.infoLabel}>학력</Text>
-                          <Text style={styles.infoValue}>{selectedConnector.education}</Text>
+                          <Text style={styles.infoValue}>{selectedConnector.education || '-'}</Text>
                         </View>
                       </View>
 
@@ -1026,6 +1086,12 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     color: '#5B21FF',
+  },
+  allyHint: {
+    fontSize: 12,
+    color: '#888',
+    paddingHorizontal: 20,
+    marginTop: 4,
   },
   emptyTab: {
     paddingHorizontal: 20,
