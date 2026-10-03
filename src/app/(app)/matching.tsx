@@ -17,6 +17,7 @@ import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
 import DateTimePickerSheet from '@/components/DateTimePickerSheet';
 import { formatMeetingTime } from '@/lib/format';
+import { earliestCommonDate } from '@/lib/schedule';
 
 type Segment = 'internal' | 'ally' | 'alliance';
 
@@ -150,6 +151,8 @@ export default function MatchingScreen() {
             connector_1_name: connectorName(m.connector_1_id),
             connector_2_name: connectorName(m.connector_2_id),
             meeting_scheduled_at: m.meeting_scheduled_at,
+            available_dates_1: m.available_dates_1,
+            available_dates_2: m.available_dates_2,
           };
         });
 
@@ -660,6 +663,12 @@ export default function MatchingScreen() {
 
             {item.hopeful_1_approved && item.hopeful_2_approved && item.meeting_status !== 'completed' && (
               <View style={styles.scheduleConfirmedRow}>
+                {!item.meeting_scheduled_at && item.available_dates_1?.length > 0 && item.available_dates_2?.length > 0 &&
+                  !earliestCommonDate(item.available_dates_1, item.available_dates_2) && (
+                  <View style={[styles.statusMessage, { marginBottom: 8 }]}>
+                    <Text style={styles.statusMessageText}>두 회원의 가능한 날짜가 겹치지 않아요 · 회원이 다시 고르는 중</Text>
+                  </View>
+                )}
                 {item.meeting_scheduled_at ? (
                   <View style={styles.scheduleLine}>
                     <Text style={styles.scheduleConfirmedText}>📅 {formatMeetingTime(item.meeting_scheduled_at)}</Text>

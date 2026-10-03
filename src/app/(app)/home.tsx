@@ -18,6 +18,8 @@ import { createNotification } from '@/lib/notifications';
 import { getMyConnectorCredits } from '@/lib/payments';
 import BottomSheet from '@/components/BottomSheet';
 import { formatMeetingTime } from '@/lib/format';
+import AvailableDatesSheet from '@/components/AvailableDatesSheet';
+import { autoScheduleMatch, earliestCommonDate } from '@/lib/schedule';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
 
 export default function HomeScreen() {
@@ -37,6 +39,8 @@ export default function HomeScreen() {
   const [receivedMatches, setReceivedMatches] = useState<any[]>([]);
   const [remainingSessions, setRemainingSessions] = useState<number | null>(null);
   const [profilePartner, setProfilePartner] = useState<any | null>(null);
+  // 날짜 선택 시트: 승인할 때(approve) 또는 날짜가 겹치지 않아 다시 고를 때(reselect)
+  const [datesTarget, setDatesTarget] = useState<{ matchId: string; mode: 'approve' | 'reselect' } | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -159,6 +163,8 @@ export default function HomeScreen() {
             after_care_hopeful_2: r.after_care_hopeful_2,
             meeting_status: r.meeting_status,
             meeting_scheduled_at: r.meeting_scheduled_at,
+            available_dates_1: r.available_dates_1,
+            available_dates_2: r.available_dates_2,
             settlement_completed: r.settlement_completed,
             isHopeful1,
             created_at: r.created_at,
@@ -179,8 +185,14 @@ export default function HomeScreen() {
     }
   }
 
-  async function handleApproveMatch(matchId: string) {
+  function showScheduleResult(result: Awaited<ReturnType<typeof autoScheduleMatch>>) {
+    if (result.status === 'scheduled') toast.show(`📅 ${formatMeetingTime(result.at)}로 소개팅이 잡혔어요`, 'success');
+    if (result.status === 'no_overlap') toast.show('상대와 겹치는 날짜가 없어요. 날짜를 다시 골라주세요', 'info');
+  }
+
+  async function handleApproveMatch(matchId: string, dates: string[]) {
     if (!user) return;
+    setDatesTarget(null);
 
     setProcessingId(matchId);
     try {
@@ -188,8 +200,8 @@ export default function HomeScreen() {
       const isHopeful1 = match?.isHopeful1;
 
       const updateData = isHopeful1
-        ? { hopeful_1_approved: true }
-        : { hopeful_2_approved: true };
+        ? { hopeful_1_approved: true, available_dates_1: dates }
+        : { hopeful_2_approved: true, available_dates_2: dates };
 
       const { error } = await supabase
         .from('match_requests')
@@ -218,12 +230,35 @@ export default function HomeScreen() {
       }
 
       toast.show('✓ 매칭을 승인했습니다', 'success');
+      showScheduleResult(await autoScheduleMatch(matchId));
       setProcessingId(null);
       await fetchDashboard();
     } catch (error) {
       console.error('Error:', error);
       setProcessingId(null);
       toast.show('승인 중 오류가 발생했습니다', 'error');
+    }
+  }
+
+  async function handleReselectDates(matchId: string, dates: string[]) {
+    if (!user) return;
+    setDatesTarget(null);
+    setProcessingId(matchId);
+    try {
+      const match = receivedMatches.find((m) => m.id === matchId);
+      const { error } = await supabase
+        .from('match_requests')
+        .update(match?.isHopeful1 ? { available_dates_1: dates } : { available_dates_2: dates })
+        .eq('id', matchId);
+      if (error) throw error;
+      const result = await autoScheduleMatch(matchId);
+      if (result.status === 'no_overlap') toast.show('아직 겹치는 날짜가 없어요. 상대가 날짜를 고르면 다시 맞춰볼게요', 'info');
+      else showScheduleResult(result);
+      await fetchDashboard();
+    } catch (error) {
+      toast.show('날짜를 저장하지 못했습니다', 'error');
+    } finally {
+      setProcessingId(null);
     }
   }
 
@@ -586,6 +621,8 @@ export default function HomeScreen() {
             renderItem={({ item }) => {
               const myApproved = item.isHopeful1 ? item.hopeful_1_approved : item.hopeful_2_approved;
               const myAfterCare = item.isHopeful1 ? item.after_care_hopeful_1 : item.after_care_hopeful_2;
+              const noDateOverlap = !item.meeting_scheduled_at && item.available_dates_1?.length > 0 && item.available_dates_2?.length > 0 &&
+                !earliestCommonDate(item.available_dates_1, item.available_dates_2);
               const bothApproved = item.hopeful_1_approved && item.hopeful_2_approved;
 
               return (
@@ -683,7 +720,7 @@ export default function HomeScreen() {
                     <View style={styles.requestActions}>
                       <TouchableOpacity
                         style={[styles.approveBtn, processingId === item.id && styles.buttonDisabled]}
-                        onPress={() => handleApproveMatch(item.id)}
+                        onPress={() => setDatesTarget({ matchId: item.id, mode: 'approve' })}
                         disabled={processingId !== null}
                       >
                         <Text style={styles.approveBtnText}>
@@ -711,8 +748,22 @@ export default function HomeScreen() {
                     </View>
                   )}
 
+                  {/* 날짜가 겹치지 않음: 다시 고르기 */}
+                  {bothApproved && noDateOverlap && (
+                    <View style={styles.afterCareSection}>
+                      <Text style={styles.afterCareLabel}>상대와 가능한 날짜가 겹치지 않아요</Text>
+                      <TouchableOpacity
+                        style={[styles.findPartnerBtn, { marginTop: 10, alignSelf: 'stretch', alignItems: 'center' }, processingId === item.id && styles.buttonDisabled]}
+                        onPress={() => setDatesTarget({ matchId: item.id, mode: 'reselect' })}
+                        disabled={processingId !== null}
+                      >
+                        <Text style={styles.findPartnerBtnText}>날짜 다시 고르기</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
                   {/* 3단계: 소개팅 진행 대기 */}
-                  {bothApproved && item.meeting_status !== 'completed' && !item.after_care_hopeful_1 && !item.after_care_hopeful_2 && (
+                  {bothApproved && !noDateOverlap && item.meeting_status !== 'completed' && !item.after_care_hopeful_1 && !item.after_care_hopeful_2 && (
                     <View style={styles.waitingMessage}>
                       <Text style={styles.waitingText}>
                         {item.meeting_scheduled_at
@@ -780,6 +831,21 @@ export default function HomeScreen() {
           />
         </View>
       )}
+
+      <AvailableDatesSheet
+        visible={datesTarget !== null}
+        onClose={() => setDatesTarget(null)}
+        confirmLabel={datesTarget?.mode === 'reselect' ? '다시 맞춰보기' : '승인하기'}
+        initialDates={(() => {
+          const m = receivedMatches.find((x) => x.id === datesTarget?.matchId);
+          return m ? (m.isHopeful1 ? m.available_dates_1 : m.available_dates_2) ?? [] : [];
+        })()}
+        onConfirm={(dates) => {
+          if (!datesTarget) return;
+          if (datesTarget.mode === 'approve') handleApproveMatch(datesTarget.matchId, dates);
+          else handleReselectDates(datesTarget.matchId, dates);
+        }}
+      />
 
       <BottomSheet visible={profilePartner !== null} onClose={() => setProfilePartner(null)} title={profilePartner?.name ?? ''}>
         {profilePartner && (
