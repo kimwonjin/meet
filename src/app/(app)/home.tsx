@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
 import { getMyConnectorCredits } from '@/lib/payments';
+import BottomSheet from '@/components/BottomSheet';
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -33,6 +34,7 @@ export default function HomeScreen() {
   // Hopeful states
   const [receivedMatches, setReceivedMatches] = useState<any[]>([]);
   const [remainingSessions, setRemainingSessions] = useState<number | null>(null);
+  const [profilePartner, setProfilePartner] = useState<any | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -124,7 +126,8 @@ export default function HomeScreen() {
           .from('match_requests')
           .select('*')
           .or(`hopeful_1_id.eq.${user!.id},hopeful_2_id.eq.${user!.id}`)
-          .in('status', ['pending', 'approved', 'completed']);
+          .in('status', ['pending', 'approved', 'completed'])
+          .order('created_at', { ascending: false });
 
         const hopefulUserIds = (reqData || []).flatMap((r: any) => [
           r.hopeful_1_id,
@@ -579,6 +582,7 @@ export default function HomeScreen() {
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => {
               const myApproved = item.isHopeful1 ? item.hopeful_1_approved : item.hopeful_2_approved;
+              const myAfterCare = item.isHopeful1 ? item.after_care_hopeful_1 : item.after_care_hopeful_2;
               const bothApproved = item.hopeful_1_approved && item.hopeful_2_approved;
 
               return (
@@ -591,10 +595,15 @@ export default function HomeScreen() {
                   </View>
 
                   {item.partner && (
-                    <View style={styles.partnerInfo}>
-                      <Text style={styles.partnerName}>{item.partner.name}</Text>
-                      <Text style={styles.partnerDetail}>{item.partner.location}</Text>
-                    </View>
+                    <TouchableOpacity style={styles.partnerInfo} onPress={() => setProfilePartner(item.partner)}>
+                      <View>
+                        <Text style={styles.partnerName}>{item.partner.name}</Text>
+                        <Text style={styles.partnerDetail}>
+                          {[item.partner.age && `${item.partner.age}세`, item.partner.location].filter(Boolean).join(' · ')}
+                        </Text>
+                      </View>
+                      <Text style={styles.partnerProfileLink}>프로필 보기 ›</Text>
+                    </TouchableOpacity>
                   )}
 
                   {/* Timeline */}
@@ -631,13 +640,13 @@ export default function HomeScreen() {
                           styles.timelineCircle,
                           !bothApproved
                             ? styles.timelineDisabled
-                            : item.after_care_hopeful_1 || item.after_care_hopeful_2
+                            : myAfterCare
                               ? styles.timelineComplete
                               : styles.timelinePending,
                         ]}
                       >
                         <Text style={styles.timelineIcon}>
-                          {!bothApproved ? '-' : item.after_care_hopeful_1 ? '✓' : '•'}
+                          {!bothApproved ? '-' : myAfterCare ? '✓' : '•'}
                         </Text>
                       </View>
                       <Text style={styles.timelineLabel}>애프터</Text>
@@ -753,7 +762,7 @@ export default function HomeScreen() {
                       <Text style={styles.waitingText}>
                         {item.settlement_completed
                           ? '✓ 정산이 완료되었습니다. 매칭이 종료되었습니다.'
-                          : '✓ 애프터의사가 저장되었습니다. 상대방의 응답을 기다리는 중입니다.'}
+                          : '✓ 애프터 의사를 보냈습니다. 상대방도 응답하면 매칭이 마무리됩니다.'}
                       </Text>
                     </View>
                   )}
@@ -763,6 +772,35 @@ export default function HomeScreen() {
           />
         </View>
       )}
+
+      <BottomSheet visible={profilePartner !== null} onClose={() => setProfilePartner(null)} title={profilePartner?.name ?? ''}>
+        {profilePartner && (
+          <View>
+            {[
+              ['나이', profilePartner.age ? `${profilePartner.age}세` : null],
+              ['지역', profilePartner.location],
+              ['키', profilePartner.height ? `${profilePartner.height}cm` : null],
+              ['직업', profilePartner.job],
+              ['학력', profilePartner.education],
+              ['종교', profilePartner.religion],
+              ['흡연', profilePartner.smoking],
+              ['음주', profilePartner.drinking],
+              ['체형', profilePartner.body_type],
+            ].map(([label, value]) => (
+              <View key={label} style={styles.profileRow}>
+                <Text style={styles.profileLabel}>{label}</Text>
+                <Text style={styles.profileValue}>{value || '-'}</Text>
+              </View>
+            ))}
+            {!!profilePartner.bio && (
+              <View style={styles.profileBio}>
+                <Text style={styles.profileLabel}>소개</Text>
+                <Text style={styles.profileBioText}>{profilePartner.bio}</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </BottomSheet>
     </ScrollView>
   );
 }
@@ -1059,7 +1097,42 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   partnerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
+  },
+  partnerProfileLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#5B21FF',
+    paddingVertical: 6,
+    paddingLeft: 12,
+  },
+  profileRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  profileLabel: {
+    fontSize: 14,
+    color: '#888',
+  },
+  profileValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  profileBio: {
+    paddingVertical: 12,
+    gap: 6,
+  },
+  profileBioText: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: '#333',
   },
   partnerName: {
     fontSize: 14,

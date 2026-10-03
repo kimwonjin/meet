@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
-  TextInput,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -16,6 +15,7 @@ import { getCredit } from '@/lib/payments';
 import AlliancesScreen from './alliances';
 import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
+import DateTimePickerSheet from '@/components/DateTimePickerSheet';
 
 type Segment = 'internal' | 'ally' | 'alliance';
 
@@ -25,7 +25,10 @@ export default function MatchingScreen() {
   const [matchRequests, setMatchRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [scheduleInputs, setScheduleInputs] = useState<Record<string, string>>({});
+  // 일정 선택 시트를 연 매칭 id
+  const [scheduleMatchId, setScheduleMatchId] = useState<string | null>(null);
+  // 애프터 응답 요청 알림을 보낸 '매칭id:회원id'
+  const [remindedKeys, setRemindedKeys] = useState<string[]>([]);
   const [segment, setSegment] = useState<Segment>('internal');
 
   const [ownMembers, setOwnMembers] = useState<{ id: string; name: string }[]>([]);
@@ -94,6 +97,9 @@ export default function MatchingScreen() {
           const newMatches = allMemberMatches.filter((m: any) => !existingIds.has(m.id));
           matchData = [...matchData, ...newMatches];
         }
+
+        // 최신 매칭이 위로 오도록 정렬
+        matchData.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         // 희望자 정보 조회
         const hopefulUserIds = matchData.flatMap((m: any) => [m.hopeful_1_id, m.hopeful_2_id]);
@@ -286,23 +292,13 @@ export default function MatchingScreen() {
     }
   }
 
-  async function handleSetSchedule(matchId: string) {
-    const raw = (scheduleInputs[matchId] || '').trim();
-    if (!raw) {
-      toast.show('일정을 입력해주세요 (예: 2026-09-15 19:00)', 'error');
-      return;
-    }
-    const parsed = new Date(raw.replace(' ', 'T'));
-    if (isNaN(parsed.getTime())) {
-      toast.show('날짜 형식을 확인해주세요 (예: 2026-09-15 19:00)', 'error');
-      return;
-    }
-
+  async function handleSetSchedule(matchId: string, scheduledAt: Date) {
+    setScheduleMatchId(null);
     setProcessingId(matchId);
     try {
       const { error } = await supabase
         .from('match_requests')
-        .update({ meeting_scheduled_at: parsed.toISOString() })
+        .update({ meeting_scheduled_at: scheduledAt.toISOString() })
         .eq('id', matchId);
 
       if (error) throw error;
@@ -315,6 +311,18 @@ export default function MatchingScreen() {
     } finally {
       setProcessingId(null);
     }
+  }
+
+  async function handleRemindAfterCare(matchId: string, memberId: string) {
+    setRemindedKeys((prev) => [...prev, `${matchId}:${memberId}`]);
+    await createNotification({
+      userId: memberId,
+      type: 'after_care_reminder',
+      title: '소개팅은 어떠셨나요?',
+      body: '홈 화면에서 애프터 의사를 선택해주세요',
+      route: '/home',
+    });
+    toast.show('응답 요청을 보냈습니다', 'success');
   }
 
   async function handleUpdateMeetingStatus(matchId: string, newStatus: 'in_progress' | 'completed') {
@@ -589,22 +597,15 @@ export default function MatchingScreen() {
                   </TouchableOpacity>
                 </View>
               ) : (
-                <View style={styles.scheduleInputRow}>
-                  <TextInput
-                    style={styles.scheduleInput}
-                    placeholder="만남 일정 (예: 2026-09-15 19:00)"
-                    placeholderTextColor="#bbb"
-                    value={scheduleInputs[item.id] || ''}
-                    onChangeText={(text) => setScheduleInputs((prev) => ({ ...prev, [item.id]: text }))}
-                  />
-                  <TouchableOpacity
-                    style={[styles.scheduleConfirmBtn, processingId === item.id && styles.buttonDisabled]}
-                    onPress={() => handleSetSchedule(item.id)}
-                    disabled={processingId !== null}
-                  >
-                    <Text style={styles.scheduleConfirmBtnText}>일정 확정</Text>
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity
+                  style={[styles.actionBtn, processingId === item.id && styles.buttonDisabled]}
+                  onPress={() => setScheduleMatchId(item.id)}
+                  disabled={processingId !== null}
+                >
+                  <Text style={styles.actionBtnText}>
+                    {processingId === item.id ? '저장 중...' : '📅 만남 일정 정하기'}
+                  </Text>
+                </TouchableOpacity>
               )
             )}
 
@@ -620,16 +621,43 @@ export default function MatchingScreen() {
               </TouchableOpacity>
             )}
 
-            {item.meeting_status === 'completed' && (
+            {item.meeting_status === 'completed' && (item.settlement_completed || (item.after_care_hopeful_1 && item.after_care_hopeful_2)) && (
               <View style={styles.statusMessage}>
                 <Text style={styles.statusMessageText}>
                   ✓ 소개팅 완료
-                  {item.settlement_completed
-                    ? ' - 정산 완료'
-                    : item.after_care_hopeful_1 && item.after_care_hopeful_2
-                      ? ' - 정산 처리 중 (이용권 확인 필요)'
-                      : ' - 애프터의사 대기 중'}
+                  {item.settlement_completed ? ' - 정산 완료' : ' - 정산 처리 중 (이용권 확인 필요)'}
                 </Text>
+              </View>
+            )}
+
+            {item.meeting_status === 'completed' && !item.settlement_completed && !(item.after_care_hopeful_1 && item.after_care_hopeful_2) && (
+              <View style={styles.afterCareBox}>
+                <Text style={styles.afterCareTitle}>소개팅 완료 · 두 회원의 애프터 의사를 기다리는 중</Text>
+                <Text style={styles.afterCareHint}>두 회원이 각자 홈 화면에서 의사를 선택하면 정산이 자동으로 진행됩니다.</Text>
+                {[
+                  { member: item.hopeful_1, answered: !!item.after_care_hopeful_1 },
+                  { member: item.hopeful_2, answered: !!item.after_care_hopeful_2 },
+                ].map(({ member, answered }) => {
+                  if (!member) return null;
+                  const key = `${item.id}:${member.id}`;
+                  const reminded = remindedKeys.includes(key);
+                  return (
+                    <View key={member.id} style={styles.afterCareRow}>
+                      <Text style={styles.afterCareName}>{member.name}</Text>
+                      {answered ? (
+                        <Text style={styles.afterCareDone}>응답 완료</Text>
+                      ) : (
+                        <TouchableOpacity
+                          style={[styles.remindBtn, reminded && styles.buttonDisabled]}
+                          disabled={reminded}
+                          onPress={() => handleRemindAfterCare(item.id, member.id)}
+                        >
+                          <Text style={styles.remindBtnText}>{reminded ? '요청 보냄' : '응답 요청 보내기'}</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })}
               </View>
             )}
           </>
@@ -681,6 +709,12 @@ export default function MatchingScreen() {
           contentContainerStyle={styles.list}
         />
       )}
+
+      <DateTimePickerSheet
+        visible={scheduleMatchId !== null}
+        onClose={() => setScheduleMatchId(null)}
+        onConfirm={(date) => scheduleMatchId && handleSetSchedule(scheduleMatchId, date)}
+      />
     </View>
   );
 }
@@ -890,31 +924,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ddd',
     marginBottom: 20,
   },
-  scheduleInputRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-  },
-  scheduleInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 12,
-    color: '#333',
-  },
-  scheduleConfirmBtn: {
-    backgroundColor: '#5B21FF',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-  },
-  scheduleConfirmBtnText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
   scheduleConfirmedRow: {
     marginTop: 8,
   },
@@ -954,6 +963,50 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 8,
+  },
+  afterCareBox: {
+    backgroundColor: '#F9F9F9',
+    borderRadius: 10,
+    padding: 14,
+    marginTop: 8,
+    gap: 8,
+  },
+  afterCareTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#333',
+  },
+  afterCareHint: {
+    fontSize: 12,
+    color: '#888',
+    lineHeight: 17,
+  },
+  afterCareRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  afterCareName: {
+    fontSize: 14,
+    color: '#333',
+  },
+  afterCareDone: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2E7D32',
+  },
+  remindBtn: {
+    borderWidth: 1,
+    borderColor: '#5B21FF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  remindBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#5B21FF',
   },
   statusMessageText: {
     color: '#5B21FF',
