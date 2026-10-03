@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
-  Modal,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import BottomSheet from '@/components/BottomSheet';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -280,13 +280,8 @@ export default function AlliancesScreen() {
       )}
 
       {/* 회원 풀 통계 바텀시트 */}
-      <Modal visible={!!selectedAlly} transparent animationType="slide" onRequestClose={() => setSelectedAlly(null)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <TouchableOpacity onPress={() => setSelectedAlly(null)} style={{ alignSelf: 'flex-end', paddingRight: 20, paddingTop: 10, paddingBottom: 5 }}>
-            <Text style={{ fontSize: 24, color: '#999', fontWeight: '500' }}>✕</Text>
-          </TouchableOpacity>
-          <ScrollView style={styles.bottomSheet} showsVerticalScrollIndicator={false}>
-            <View style={styles.modalContent}>
+      <BottomSheet visible={!!selectedAlly} onClose={() => setSelectedAlly(null)}>
+            <View>
               <View style={styles.modalHeader}>
                 <View style={styles.modalAvatar}>
                   <Text style={styles.modalAvatarText}>💼</Text>
@@ -359,9 +354,7 @@ export default function AlliancesScreen() {
                 </>
               )}
             </View>
-          </ScrollView>
-        </View>
-      </Modal>
+      </BottomSheet>
     </View>
   );
 }
@@ -481,17 +474,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#4CAF50',
-  },
-  bottomSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-    paddingBottom: 20,
-  },
-  modalContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
   },
   modalHeader: {
     alignItems: 'center',

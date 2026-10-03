@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Modal } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import BottomSheet from '@/components/BottomSheet';
 import { purchasePackage, getCredit, PACKAGE_OPTIONS } from '@/lib/payments';
 import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
@@ -412,13 +413,8 @@ export default function ConnectorsScreen() {
 
         {/* Connector 바텀시트 */}
         {selectedConnector && user?.role === 'connector' && (
-          <Modal visible={true} transparent animationType="slide" onRequestClose={() => setSelectedConnector(null)}>
-            <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', flexDirection: 'column'}}>
-              <TouchableOpacity onPress={() => setSelectedConnector(null)} style={{alignSelf: 'flex-end', paddingRight: 20, paddingTop: 10, paddingBottom: 5, zIndex: 10}}>
-                <Text style={{fontSize: 24, color: '#999', fontWeight: '500'}}>✕</Text>
-              </TouchableOpacity>
-              <ScrollView style={{backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%', paddingBottom: 20}} showsVerticalScrollIndicator={false}>
-                <View style={{padding: 20}}>
+          <BottomSheet visible onClose={() => setSelectedConnector(null)}>
+                <View>
                   {selectedConnector && (
                     <>
                       <View style={styles.modalHeader}>
@@ -481,9 +477,7 @@ export default function ConnectorsScreen() {
                     </>
                   )}
                 </View>
-              </ScrollView>
-            </View>
-          </Modal>
+          </BottomSheet>
         )}
 
       </ScrollView>
@@ -545,13 +539,8 @@ export default function ConnectorsScreen() {
         contentContainerStyle={styles.list}
       />
 
-      <Modal visible={selectedConnector !== null} transparent animationType="slide" onRequestClose={() => setSelectedConnector(null)}>
-        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', flexDirection: 'column'}}>
-          <TouchableOpacity onPress={() => setSelectedConnector(null)} style={{alignSelf: 'flex-end', paddingRight: 20, paddingTop: 10, paddingBottom: 5, zIndex: 10}}>
-            <Text style={{fontSize: 24, color: '#999', fontWeight: '500'}}>✕</Text>
-          </TouchableOpacity>
-          <ScrollView style={{backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%', paddingBottom: 20}} showsVerticalScrollIndicator={false}>
-            <View style={{padding: 20}}>
+      <BottomSheet visible={selectedConnector !== null} onClose={() => setSelectedConnector(null)}>
+            <View>
               {selectedConnector && (
                 <>
                   <>
@@ -685,9 +674,7 @@ export default function ConnectorsScreen() {
               </>
             )}
             </View>
-          </ScrollView>
-        </View>
-      </Modal>
+      </BottomSheet>
     </View>
   );
 }
