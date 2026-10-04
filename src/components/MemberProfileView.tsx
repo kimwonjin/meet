@@ -38,9 +38,7 @@ export default function MemberProfileView({ member, showBirthDate = false }: Pro
 
   const facts: [string, string, string | null | undefined][] = [
     ['📏', '키', member.height ? `${member.height}cm` : null],
-    ['💼', '직업', member.job],
     ['🎓', '학력', member.education],
-    ['📍', '지역', member.location],
     ...(showBirthDate ? ([['🎂', '생년월일', member.birth_date]] as [string, string, string | undefined][]) : []),
     ['🧍', '체형', member.body_type],
   ];
