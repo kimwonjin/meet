@@ -8,7 +8,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { formatRegions } from '@/lib/format';
 import { fetchConnectorReviews, fetchReviewSummaries, Review, ReviewSummary } from '@/lib/reviews';
 import ReviewList from '@/components/ReviewList';
-import DistributionBars from '@/components/DistributionBars';
+import StackedBar, { ageColors, regionColor } from '@/components/DistributionBars';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
 import { purchasePackage, getCredit, PACKAGE_OPTIONS } from '@/lib/payments';
@@ -695,9 +695,9 @@ export default function ConnectorsScreen() {
                           {overview.total > 0 && (
                             <View style={styles.distBlock}>
                               <Text style={styles.distLabel}>성별</Text>
-                              <DistributionBars
+                              <StackedBar
                                 total={overview.total}
-                                rows={[{ label: '남성', count: overview.male }, { label: '여성', count: overview.female }]}
+                                rows={[{ label: '남성', count: overview.male, color: '#2a78d6' }, { label: '여성', count: overview.female, color: '#eb6834' }]}
                               />
                             </View>
                           )}
@@ -708,9 +708,9 @@ export default function ConnectorsScreen() {
                               return (
                                 <View key={g} style={styles.distBlock}>
                                   <Text style={styles.distLabel}>{g === 'M' ? '남성 연령대' : '여성 연령대'}</Text>
-                                  <DistributionBars
+                                  <StackedBar
                                     total={g === 'M' ? overview.male : overview.female}
-                                    rows={rows.map((a) => ({ label: a.label, count: a.count }))}
+                                    rows={rows.map((a, i) => ({ label: a.label, count: a.count, color: ageColors(rows.length)[i] }))}
                                   />
                                 </View>
                               );
@@ -719,13 +719,13 @@ export default function ConnectorsScreen() {
                           {overview.regions ? (
                             <View style={styles.distBlock}>
                               <Text style={styles.distLabel}>지역</Text>
-                              <DistributionBars
+                              <StackedBar
                                 total={overview.total}
-                                // 지역을 입력하지 않은 회원은 맨 아래 흐리게
+                                // 많은 순, 지역을 입력하지 않은 회원은 맨 끝에 회색
                                 rows={[
                                   ...(overview.regions as any[]).filter((r) => r.label !== '미입력'),
-                                  ...(overview.regions as any[]).filter((r) => r.label === '미입력').map((r) => ({ ...r, muted: true })),
-                                ]}
+                                  ...(overview.regions as any[]).filter((r) => r.label === '미입력'),
+                                ].map((r) => ({ label: r.label, count: r.count, color: regionColor(r.label) }))}
                               />
                             </View>
                           ) : null}
@@ -989,7 +989,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   distBlock: {
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f2f2f2',
   },
@@ -997,7 +997,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#666',
-    marginBottom: 10,
+    marginBottom: 6,
   },
   distHint: {
     fontSize: 12,
