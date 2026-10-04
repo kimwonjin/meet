@@ -14,7 +14,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { getCredit } from '@/lib/payments';
-import AlliancesScreen from './alliances';
 import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
 import DatePickerSheet from '@/components/DatePickerSheet';
@@ -24,7 +23,6 @@ import BottomSheet from '@/components/BottomSheet';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
 import { AFTER_CARE_DAYS, afterCareDeadline, expireAfterCareIfDue, formatDeadline } from '@/lib/afterCare';
 
-type Segment = 'internal' | 'ally' | 'alliance';
 
 // 매칭 후보로 고를 회원 (사진·나이·지역을 보고 고른다)
 type Member = { id: string; name: string; gender?: string; age?: number; location?: string; photo_urls?: string[] };
@@ -45,21 +43,23 @@ export default function MatchingScreen() {
   const [scheduleMatchId, setScheduleMatchId] = useState<string | null>(null);
   // 애프터 응답 요청 알림을 보낸 '매칭id:회원id'
   const [remindedKeys, setRemindedKeys] = useState<string[]>([]);
-  const [segment, setSegment] = useState<Segment>('internal');
+  // 동맹 파트너 회원까지 후보로 보여줄지
+  const [includeAllies, setIncludeAllies] = useState(false);
   const router = useRouter();
   // 알림에서 들어오면 해당 칸(예: 동맹매칭)을 바로 연다
-  const params = useLocalSearchParams<{ segment?: Segment }>();
+  // 동맹 매칭 알림으로 들어오면 동맹 회원까지 펼쳐서 보여준다
+  const params = useLocalSearchParams<{ segment?: string }>();
   useEffect(() => {
-    if (params.segment) {
-      setSegment(params.segment);
+    if (params.segment === 'ally') {
+      setIncludeAllies(true);
       router.setParams({ segment: undefined });
     }
   }, [params.segment]);
 
   const [ownMembers, setOwnMembers] = useState<Member[]>([]);
   const [allyConnectors, setAllyConnectors] = useState<{ id: string; name: string }[]>([]);
-  const [selectedAllyConnector, setSelectedAllyConnector] = useState<{ id: string; name: string } | null>(null);
-  const [allyConnectorMembers, setAllyConnectorMembers] = useState<Member[]>([]);
+  // 동맹 파트너별 회원 (동맹 회원 포함을 켰을 때 후보)
+  const [allyMembers, setAllyMembers] = useState<{ connector: { id: string; name: string }; members: Member[] }[]>([]);
   // 프로필을 크게 보고 있는 후보 회원
   const [previewMember, setPreviewMember] = useState<{ member: Member; connectorId: string } | null>(null);
   const [selectedForMatch, setSelectedForMatch] = useState<{ id: string; connectorId: string }[]>([]);
@@ -185,27 +185,28 @@ export default function MatchingScreen() {
     );
     if (allyIds.length === 0) {
       setAllyConnectors([]);
+      setAllyMembers([]);
       return;
     }
     const { data: users } = await supabase.from('users').select('id, name').in('id', allyIds);
-    setAllyConnectors((users || []).map((u: any) => ({ id: u.id, name: u.name })));
+    const allies = (users || []).map((u: any) => ({ id: u.id, name: u.name }));
+    setAllyConnectors(allies);
+    await fetchAllyMembers(allies);
   }
 
-  async function selectAllyConnector(conn: { id: string; name: string }) {
-    setSelectedAllyConnector(conn);
-    setSelectedForMatch([]);
-    const { data } = await supabase
-      .from('hopeful_requests')
-      .select('hopeful_id')
-      .eq('connector_id', conn.id)
-      .eq('status', 'approved');
-    const ids = (data || []).map((r: any) => r.hopeful_id);
-    if (ids.length === 0) {
-      setAllyConnectorMembers([]);
-      return;
-    }
-    const { data: users } = await supabase.from('users').select(MEMBER_FIELDS).in('id', ids);
-    setAllyConnectorMembers((users || []) as Member[]);
+  async function fetchAllyMembers(allies: { id: string; name: string }[]) {
+    const groups = await Promise.all(allies.map(async (conn) => {
+      const { data } = await supabase
+        .from('hopeful_requests')
+        .select('hopeful_id')
+        .eq('connector_id', conn.id)
+        .eq('status', 'approved');
+      const ids = (data || []).map((r: any) => r.hopeful_id);
+      if (ids.length === 0) return { connector: conn, members: [] as Member[] };
+      const { data: users } = await supabase.from('users').select(MEMBER_FIELDS).in('id', ids);
+      return { connector: conn, members: (users || []) as Member[] };
+    }));
+    setAllyMembers(groups);
   }
 
   function toggleSelectForMatch(memberId: string, connectorId: string) {
@@ -216,12 +217,17 @@ export default function MatchingScreen() {
         toast.show('최대 2명까지 선택할 수 있습니다', 'error');
         return prev;
       }
+      // 동맹 회원끼리는 매칭할 수 없다 (내 회원이 한 명은 있어야 한다)
+      if (prev.length === 1 && connectorId !== user?.id && prev[0].connectorId !== user?.id) {
+        toast.show('동맹 회원끼리는 매칭할 수 없어요. 내 회원을 한 명 포함해주세요', 'error');
+        return prev;
+      }
       return [...prev, { id: memberId, connectorId }];
     });
   }
 
   function memberName(id: string) {
-    return [...ownMembers, ...allyConnectorMembers].find((m) => m.id === id)?.name ?? '회원';
+    return [...ownMembers, ...allyMembers.flatMap((g) => g.members)].find((m) => m.id === id)?.name ?? '회원';
   }
 
   async function handleProposeMatch() {
@@ -271,7 +277,6 @@ export default function MatchingScreen() {
 
       toast.show('✓ 매칭을 제안했습니다', 'success');
       setSelectedForMatch([]);
-      setSelectedAllyConnector(null);
       fetchMatches();
     } catch (error: any) {
       console.error('propose error:', error);
@@ -565,17 +570,15 @@ export default function MatchingScreen() {
     );
   }
 
-  const internalMatches = [...matchRequests]
-    .filter((m) => m.connector_1_id === m.connector_2_id)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  const pendingConsentCount = matchRequests.filter(
-    (m) =>
-      m.connector_1_id !== m.connector_2_id &&
-      ((m.connector_1_id === user?.id && !m.connector_1_consented) || (m.connector_2_id === user?.id && !m.connector_2_consented))
-  ).length;
-  const allyMatches = [...matchRequests]
-    .filter((m) => m.connector_1_id !== m.connector_2_id)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  // 내 동의가 필요한 동맹 매칭을 맨 위로, 나머지는 최신순
+  const needsMyConsent = (m: any) =>
+    m.connector_1_id !== m.connector_2_id &&
+    ((m.connector_1_id === user?.id && !m.connector_1_consented) || (m.connector_2_id === user?.id && !m.connector_2_consented));
+  const sortedMatches = [...matchRequests].sort((a, b) => {
+    const pa = needsMyConsent(a) ? 1 : 0, pb = needsMyConsent(b) ? 1 : 0;
+    if (pa !== pb) return pb - pa;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 
   // 회원 후보 목록: 줄을 누르면 선택, 사진을 누르면 프로필 크게 보기
   function renderMemberChips(members: Member[], connectorId: string) {
@@ -615,55 +618,46 @@ export default function MatchingScreen() {
     </TouchableOpacity>
   );
 
-  const internalCreateSection = (
+  const createSection = (
     <View style={styles.createSection}>
-      <Text style={styles.createTitle}>회원 2명을 선택해 매칭을 제안하세요</Text>
+      <View style={styles.createHeader}>
+        <Text style={styles.createTitle}>회원 2명을 선택해 매칭을 제안하세요</Text>
+      </View>
+      <TouchableOpacity
+        style={styles.allyToggle}
+        onPress={() => {
+          // 끄면 고르던 동맹 회원 선택도 비운다
+          if (includeAllies) setSelectedForMatch((prev) => prev.filter((p) => p.connectorId === user?.id));
+          setIncludeAllies(!includeAllies);
+        }}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: includeAllies }}
+      >
+        <View style={[styles.memberCheck, includeAllies && styles.memberCheckOn]}>
+          {includeAllies && <Text style={styles.memberCheckMark}>✓</Text>}
+        </View>
+        <Text style={styles.allyToggleText}>동맹 회원 포함</Text>
+        {allyConnectors.length === 0 && <Text style={styles.allyToggleHint}>(마이 › 동맹 관리에서 동맹을 맺을 수 있어요)</Text>}
+      </TouchableOpacity>
+
+      <Text style={styles.groupTitle}>내 회원</Text>
       {ownMembers.length === 0 ? (
         <Text style={styles.emptyCreateText}>승인된 회원이 없습니다</Text>
       ) : (
         renderMemberChips(ownMembers, user!.id)
       )}
-      {proposeBtn}
-    </View>
-  );
 
-  const allyCreateSection = (
-    <View style={styles.createSection}>
-      {!selectedAllyConnector ? (
-        <>
-          <Text style={styles.createTitle}>동맹 파트너를 선택하세요</Text>
-          {allyConnectors.length === 0 ? (
-            <Text style={styles.emptyCreateText}>활성화된 동맹이 없습니다</Text>
-          ) : (
-            <View style={styles.memberChipWrap}>
-              {allyConnectors.map((c) => (
-                <TouchableOpacity key={c.id} style={styles.memberChip} onPress={() => selectAllyConnector(c)}>
-                  <Text style={styles.memberChipText}>{c.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </>
-      ) : (
-        <>
-          <TouchableOpacity onPress={() => { setSelectedAllyConnector(null); setSelectedForMatch([]); }}>
-            <Text style={styles.backLink}>‹ 동맹 파트너 다시 선택</Text>
-          </TouchableOpacity>
-          <Text style={styles.createTitle}>내 회원 선택</Text>
-          {ownMembers.length === 0 ? (
+      {includeAllies && allyMembers.map((g) => (
+        <View key={g.connector.id}>
+          <Text style={styles.groupTitle}>{g.connector.name}님 회원 (동맹)</Text>
+          {g.members.length === 0 ? (
             <Text style={styles.emptyCreateText}>승인된 회원이 없습니다</Text>
           ) : (
-            renderMemberChips(ownMembers, user!.id)
+            renderMemberChips(g.members, g.connector.id)
           )}
-          <Text style={styles.createTitle}>{selectedAllyConnector.name}의 회원 선택</Text>
-          {allyConnectorMembers.length === 0 ? (
-            <Text style={styles.emptyCreateText}>승인된 회원이 없습니다</Text>
-          ) : (
-            renderMemberChips(allyConnectorMembers, selectedAllyConnector.id)
-          )}
-          {proposeBtn}
-        </>
-      )}
+        </View>
+      ))}
+      {proposeBtn}
     </View>
   );
 
@@ -958,44 +952,10 @@ export default function MatchingScreen() {
         </View>
       </View>
 
-      <View style={styles.segmentRow}>
-        {([
-          { key: 'internal', label: '내부매칭' },
-          { key: 'ally', label: '동맹매칭' },
-          { key: 'alliance', label: '동맹관리' },
-        ] as { key: Segment; label: string }[]).map((s) => {
-          const badge = s.key === 'ally' ? pendingConsentCount : 0;
-          return (
-          <TouchableOpacity
-            key={s.key}
-            style={[styles.segmentBtn, segment === s.key && styles.segmentBtnActive]}
-            onPress={() => {
-              // 칸을 바꾸면 고르던 회원 선택을 비운다 (다른 칸의 선택으로 제안되지 않도록)
-              setSegment(s.key);
-              setSelectedForMatch([]);
-              setSelectedAllyConnector(null);
-            }}
-          >
-            <Text style={[styles.segmentBtnText, segment === s.key && styles.segmentBtnTextActive]}>
-              {s.label}
-            </Text>
-            {badge > 0 && (
-              <View style={styles.segmentBadge}>
-                <Text style={styles.segmentBadgeText}>{badge}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {segment === 'alliance' ? (
-        <AlliancesScreen />
-      ) : (
-        <FlatList
-          data={segment === 'internal' ? internalMatches : allyMatches}
+      <FlatList
+          data={sortedMatches}
           keyExtractor={(item) => item.id}
-          ListHeaderComponent={segment === 'internal' ? internalCreateSection : allyCreateSection}
+          ListHeaderComponent={createSection}
           ListEmptyComponent={
             <View style={styles.placeholder}>
               <Text style={styles.placeholderText}>진행 중인 매칭이 없습니다</Text>
@@ -1004,7 +964,6 @@ export default function MatchingScreen() {
           renderItem={({ item }) => renderMatchCard(item)}
           contentContainerStyle={styles.list}
         />
-      )}
 
       <DatePickerSheet
         visible={scheduleMatchId !== null}
@@ -1066,53 +1025,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#333',
   },
-  segmentRow: {
-    flexDirection: 'row',
-    marginHorizontal: 20,
-    marginBottom: 16,
-    backgroundColor: '#F5F5F7',
-    borderRadius: 10,
-    padding: 4,
-  },
-  segmentBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  segmentBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#E53935',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 5,
-    marginLeft: 4,
-  },
-  segmentBadgeText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  segmentBtnActive: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  segmentBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#999',
-  },
-  segmentBtnTextActive: {
-    color: '#5B21FF',
-  },
   createSection: {
     paddingHorizontal: 20,
     paddingBottom: 20,
@@ -1136,6 +1048,33 @@ const styles = StyleSheet.create({
     color: '#5B21FF',
     fontWeight: '600',
     marginTop: 4,
+  },
+  createHeader: {
+    marginBottom: 4,
+  },
+  allyToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingVertical: 8,
+    marginBottom: 4,
+  },
+  allyToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  allyToggleHint: {
+    fontSize: 12,
+    color: '#999',
+  },
+  groupTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 12,
+    marginBottom: 8,
   },
   memberList: {
     gap: 8,

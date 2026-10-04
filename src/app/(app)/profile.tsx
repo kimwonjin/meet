@@ -717,6 +717,15 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/alliances')}>
+            <Text style={styles.menuIcon}>🤝</Text>
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>동맹 관리</Text>
+              <Text style={styles.menuSub}>다른 파트너와 동맹 맺기·해지</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowCreditScoreModal(true)}>
             <Text style={styles.menuIcon}>⭐</Text>
             <View style={styles.menuContent}>

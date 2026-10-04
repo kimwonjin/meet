@@ -85,7 +85,7 @@ export default function AlliancesScreen() {
         type: 'alliance_requested',
         title: '새로운 동맹 요청이 도착했습니다',
         body: `${user.name}님이 동맹을 요청했습니다`,
-        route: '/matching',
+        route: '/alliances',
       });
 
       toast.show('✓ 동맹을 요청했습니다', 'success');
@@ -122,7 +122,7 @@ export default function AlliancesScreen() {
           type: 'alliance_accepted',
           title: '동맹 요청이 수락되었습니다',
           body: `${user?.name}님이 동맹 요청을 수락했습니다`,
-          route: '/matching',
+          route: '/alliances',
         });
       }
 
@@ -156,7 +156,7 @@ export default function AlliancesScreen() {
           type: 'alliance_terminated',
           title: '동맹이 해지되었습니다',
           body: `${user?.name}님과의 동맹이 해지되었어요. 진행 중이던 동맹 매칭은 끝까지 진행돼요`,
-          route: '/matching',
+          route: '/alliances',
         });
       }
 
@@ -166,7 +166,7 @@ export default function AlliancesScreen() {
           type: 'alliance_rejected',
           title: '동맹 요청이 거절되었습니다',
           body: `${user?.name}님이 동맹 요청을 거절했습니다`,
-          route: '/matching',
+          route: '/alliances',
         });
       }
 
@@ -208,8 +208,11 @@ export default function AlliancesScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>동맹관리</Text>
+      <View style={[styles.header, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+        <TouchableOpacity onPress={() => router.replace('/profile')} accessibilityLabel="마이로 돌아가기" style={{ paddingRight: 8, paddingVertical: 4 }}>
+          <Text style={{ fontSize: 24, color: '#333' }}>‹</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>동맹 관리</Text>
       </View>
 
       {otherConnectors.length === 0 ? (
