@@ -474,7 +474,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.summaryCard}
-              onPress={() => router.push('/matching')}
+              onPress={() => router.push({ pathname: '/matching', params: { view: 'history' } })}
             >
               <Text style={styles.summaryCardValue}>{pendingMatchApprovalCount}건</Text>
               <Text style={styles.summaryCardLabel}>매칭 승인대기</Text>
@@ -547,7 +547,8 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   key={item.id}
                   style={styles.activeMatchRow}
-                  onPress={() => router.push(cross ? { pathname: '/matching', params: { segment: 'ally' } } : '/matching')}
+                  // 매칭 탭의 매칭내역에서 이 매칭 카드로 바로 이동
+                  onPress={() => router.push({ pathname: '/matching', params: { view: 'history', focus: item.id } })}
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={styles.activeMatchNames}>

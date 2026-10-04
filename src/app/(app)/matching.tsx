@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -54,14 +54,29 @@ export default function MatchingScreen() {
   const router = useRouter();
   // 알림에서 들어오면 해당 칸(예: 동맹매칭)을 바로 연다
   // 동맹 매칭 알림으로 들어오면 동맹 회원까지 펼쳐서 보여준다
-  const params = useLocalSearchParams<{ segment?: string; view?: string }>();
+  const params = useLocalSearchParams<{ segment?: string; view?: string; focus?: string }>();
+  // 홈 카드에서 들어오면 그 매칭 카드로 스크롤하고 잠깐 강조한다
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const listRef = useRef<FlatList>(null);
+  const historyOrderRef = useRef<string[]>([]);
+  // 강조할 매칭이 목록에 나타나면 그 위치로 스크롤하고, 잠시 뒤 강조를 끈다
   useEffect(() => {
-    if (params.segment === 'ally' || params.view === 'history') {
+    if (!focusId || view !== 'history') return;
+    const index = historyOrderRef.current.indexOf(focusId);
+    if (index < 0) return;
+    const t1 = setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.1 }), 300);
+    const t2 = setTimeout(() => setFocusId(null), 3000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [focusId, view, matchRequests.length]);
+
+  useEffect(() => {
+    if (params.segment === 'ally' || params.view === 'history' || params.focus) {
       // 매칭 관련 알림(동의 요청, 승인, 일정 등)은 매칭내역에서 확인한다
       setView('history');
-      router.setParams({ segment: undefined, view: undefined });
+      if (params.focus) setFocusId(params.focus);
+      router.setParams({ segment: undefined, view: undefined, focus: undefined });
     }
-  }, [params.segment, params.view]);
+  }, [params.segment, params.view, params.focus]);
 
   const [ownMembers, setOwnMembers] = useState<Member[]>([]);
   const [allyConnectors, setAllyConnectors] = useState<{ id: string; name: string }[]>([]);
@@ -679,6 +694,9 @@ export default function MatchingScreen() {
     </View>
   );
 
+  // 매칭내역에 보이는 순서 (아래 강조 스크롤에서 위치를 찾을 때 쓴다)
+  historyOrderRef.current = [...sortedMatches, ...historyMatches].map((m) => m.id);
+
   function renderMatchCard(item: any) {
     const crossConnector = item.connector_1_id !== item.connector_2_id;
     const consentDone = !crossConnector || (item.connector_1_consented && item.connector_2_consented);
@@ -692,7 +710,7 @@ export default function MatchingScreen() {
     );
 
     return (
-      <View style={styles.matchCard}>
+      <View style={[styles.matchCard, item.id === focusId && styles.matchCardFocus]}>
         <View style={styles.matchHeader}>
           <Text style={styles.matchTitle}>
             {item.hopeful_1?.name} ↔ {item.hopeful_2?.name}
@@ -979,6 +997,8 @@ export default function MatchingScreen() {
       </View>
 
       <FlatList
+          ref={listRef}
+          onScrollToIndexFailed={({ index }) => setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true }), 300)}
           // 매칭: 제안만 / 매칭내역: 진행 중(동의 필요 먼저) → 마무리된 매칭
           data={view === 'active' ? [] : [...sortedMatches, ...historyMatches]}
           keyExtractor={(item) => item.id}
@@ -1076,6 +1096,11 @@ const styles = StyleSheet.create({
     color: '#5B21FF',
     fontWeight: '600',
     marginTop: 4,
+  },
+  matchCardFocus: {
+    borderWidth: 2,
+    borderColor: '#5B21FF',
+    backgroundColor: '#F7F4FF',
   },
   viewRow: {
     flexDirection: 'row',
