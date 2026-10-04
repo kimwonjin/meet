@@ -594,7 +594,7 @@ export default function ProfileScreen() {
 
   async function handleSwitchToHopeful() {
     if (!user) return;
-    if (!(await confirm({ title: '회원 화면으로 전환할까요?', message: '프로필 › 매칭 파트너에서 언제든 파트너 화면으로 돌아올 수 있어요.', confirmText: '전환' }))) return;
+    if (!(await confirm({ title: '회원 화면으로 전환할까요?', message: '마이 › 매칭 파트너에서 언제든 파트너 화면으로 돌아올 수 있어요.', confirmText: '전환' }))) return;
     try {
       const { error } = await supabase.from('users').update({ role: 'hopeful' }).eq('id', user.id);
       if (error) throw error;

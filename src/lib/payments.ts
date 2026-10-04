@@ -63,7 +63,7 @@ export async function getCredit(hopefulId: string, connectorId: string) {
   return { credit: Number(data) || 0, error: null };
 }
 
-// 회원이 결제한 이력이 있는 파트너별로 이용가능/사용 수량을 묶어서 보여준다 (프로필 > 이용권/결제 화면용)
+// 회원이 결제한 이력이 있는 파트너별로 이용가능/사용 수량을 묶어서 보여준다 (마이 > 이용권/결제 화면용)
 export async function getMyConnectorCredits(hopefulId: string) {
   const { data: payments, error } = await supabase
     .from('payments')

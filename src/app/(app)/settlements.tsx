@@ -228,7 +228,7 @@ export default function SettlementsScreen() {
         userId: connectorId,
         type: 'connector_rejected',
         title: '매칭 파트너 신청이 반려되었습니다',
-        body: '프로필 › 매칭 파트너에서 다시 신청할 수 있어요',
+        body: '마이 › 매칭 파트너에서 다시 신청할 수 있어요',
         route: '/profile',
       });
       toast.show('매칭 파트너 신청을 반려했습니다', 'info');
