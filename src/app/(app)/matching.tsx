@@ -154,6 +154,8 @@ export default function MatchingScreen() {
             connector_2_name: connectorName(m.connector_2_id),
             meeting_scheduled_at: m.meeting_scheduled_at,
             meeting_completed_at: m.meeting_completed_at,
+            meeting_done_connector_1: m.meeting_done_connector_1,
+            meeting_done_connector_2: m.meeting_done_connector_2,
             closed_reason: m.closed_reason,
             available_dates_1: m.available_dates_1,
             available_dates_2: m.available_dates_2,
@@ -408,41 +410,66 @@ export default function MatchingScreen() {
     toast.show('응답 요청을 보냈습니다', 'success');
   }
 
-  async function handleUpdateMeetingStatus(matchId: string, newStatus: 'in_progress' | 'completed') {
+  // 만남 완료: 두 연결자가 모두 눌러야 완료된다 (내부 매칭은 한 번에 양쪽 처리)
+  async function handleMeetingDone(matchId: string) {
     if (!user) return;
+    const match = matchRequests.find((m) => m.id === matchId);
+    if (!match) return;
 
     setProcessingId(matchId);
     try {
-      const { error } = await supabase
-        .from('match_requests')
-        .update(newStatus === 'completed' ? { meeting_status: newStatus, meeting_completed_at: new Date().toISOString() } : { meeting_status: newStatus })
-        .eq('id', matchId);
-
+      const mine: Record<string, boolean> = {};
+      if (match.connector_1_id === user.id) mine.meeting_done_connector_1 = true;
+      if (match.connector_2_id === user.id) mine.meeting_done_connector_2 = true;
+      const { error } = await supabase.from('match_requests').update(mine).eq('id', matchId);
       if (error) throw error;
 
-      if (newStatus === 'completed') {
-        const match = matchRequests.find((m) => m.id === matchId);
-        await Promise.all(
-          [match?.hopeful_1?.id, match?.hopeful_2?.id].filter(Boolean).map((id: string) =>
-            createNotification({
-              userId: id,
-              type: 'after_care_requested',
-              title: '소개팅은 어떠셨나요?',
-              body: `${AFTER_CARE_DAYS}일 안에 홈에서 다음 만남 의사를 알려주세요`,
-              route: '/home',
-            })
-          )
-        );
-      }
+      // 저장된 최신 값으로 양쪽 확인 여부를 판단하고, 완료 처리는 한 번만 일어나게 한다
+      const { data: fresh } = await supabase
+        .from('match_requests')
+        .select('meeting_done_connector_1, meeting_done_connector_2')
+        .eq('id', matchId)
+        .single();
 
-      const statusMsg = newStatus === 'in_progress' ? '만남 중' : '만남 완료';
-      toast.show(`✓ 소개팅이 ${statusMsg}으로 변경되었습니다`, 'success');
-      setProcessingId(null);
+      if (fresh?.meeting_done_connector_1 && fresh?.meeting_done_connector_2) {
+        const { data: completed } = await supabase
+          .from('match_requests')
+          .update({ meeting_status: 'completed', meeting_completed_at: new Date().toISOString() })
+          .eq('id', matchId)
+          .neq('meeting_status', 'completed')
+          .select('id');
+        if (completed?.length) {
+          await Promise.all(
+            [match.hopeful_1?.id, match.hopeful_2?.id].filter(Boolean).map((id: string) =>
+              createNotification({
+                userId: id,
+                type: 'after_care_requested',
+                title: '소개팅은 어떠셨나요?',
+                body: `${AFTER_CARE_DAYS}일 안에 홈에서 다음 만남 의사를 알려주세요`,
+                route: '/home',
+              })
+            )
+          );
+        }
+        toast.show('만남 완료! 회원들에게 애프터 의사를 물어볼게요', 'success');
+      } else {
+        const otherId = match.connector_1_id === user.id ? match.connector_2_id : match.connector_1_id;
+        await createNotification({
+          userId: otherId,
+          type: 'meeting_done_requested',
+          title: '만남 완료 확인을 기다리고 있어요',
+          body: `${user.name}님이 ${match.hopeful_1?.name} ↔ ${match.hopeful_2?.name} 만남 완료를 눌렀어요`,
+          route: '/matching',
+          routeParams: { segment: 'ally' },
+        });
+        toast.show('만남 완료를 눌렀어요. 상대 파트너도 누르면 다음 단계로 넘어가요', 'success');
+      }
       await fetchMatches();
     } catch (error) {
       console.error('Error:', error);
+      toast.show('처리 중 오류가 발생했습니다', 'error');
+    } finally {
       setProcessingId(null);
-      toast.show('상태 업데이트 중 오류가 발생했습니다', 'error');
     }
   }
 
@@ -630,14 +657,14 @@ export default function MatchingScreen() {
           {/* 3단계: 소개팅 (반으로 쪼개기) */}
           <View style={styles.timelineStep}>
             <View style={styles.splitCircleContainer}>
-              <View style={[styles.halfCircle, item.meeting_status === 'completed' ? styles.timelineComplete : styles.timelinePending]}>
+              <View style={[styles.halfCircle, item.meeting_status === 'completed' || item.meeting_done_connector_1 ? styles.timelineComplete : styles.timelinePending]}>
                 <Text style={styles.timelineIcon}>
-                  {item.meeting_status === 'completed' ? '✓' : '•'}
+                  {item.meeting_status === 'completed' || item.meeting_done_connector_1 ? '✓' : '•'}
                 </Text>
               </View>
-              <View style={[styles.halfCircle, item.meeting_status === 'completed' ? styles.timelineComplete : styles.timelinePending]}>
+              <View style={[styles.halfCircle, item.meeting_status === 'completed' || item.meeting_done_connector_2 ? styles.timelineComplete : styles.timelinePending]}>
                 <Text style={styles.timelineIcon}>
-                  {item.meeting_status === 'completed' ? '✓' : '•'}
+                  {item.meeting_status === 'completed' || item.meeting_done_connector_2 ? '✓' : '•'}
                 </Text>
               </View>
             </View>
@@ -700,7 +727,7 @@ export default function MatchingScreen() {
                 {item.meeting_scheduled_at ? (
                   <View style={styles.scheduleLine}>
                     <Text style={styles.scheduleConfirmedText}>📅 {formatMeetingDate(item.meeting_scheduled_at)}</Text>
-                    {isScheduler && item.meeting_status === 'announced' && (
+                    {isScheduler && !item.meeting_done_connector_1 && !item.meeting_done_connector_2 && (
                       <TouchableOpacity onPress={() => setScheduleMatchId(item.id)} disabled={processingId !== null}>
                         <Text style={styles.scheduleChangeText}>변경</Text>
                       </TouchableOpacity>
@@ -724,39 +751,40 @@ export default function MatchingScreen() {
                   </TouchableOpacity>
                 )}
 
-                {isScheduler && item.meeting_scheduled_at && item.meeting_status === 'announced' && (
-                  <TouchableOpacity
-                    style={[styles.actionBtn, processingId === item.id && styles.buttonDisabled]}
-                    onPress={() => handleUpdateMeetingStatus(item.id, 'in_progress')}
-                    disabled={processingId !== null}
-                  >
-                    <Text style={styles.actionBtnText}>
-                      {processingId === item.id ? '처리 중...' : '🎯 만남중으로 변경'}
-                    </Text>
-                  </TouchableOpacity>
+                {!isScheduler && item.meeting_scheduled_at && (
+                  <Text style={styles.schedulerNote}>날짜 변경은 {schedulerName}님(제안 파트너)이 관리해요</Text>
                 )}
 
-                {isScheduler && item.meeting_status === 'in_progress' && (
-                  <TouchableOpacity
-                    style={[styles.actionBtn, styles.completeBtn, processingId === item.id && styles.buttonDisabled]}
-                    onPress={() => handleUpdateMeetingStatus(item.id, 'completed')}
-                    disabled={processingId !== null}
-                  >
-                    <Text style={styles.completeBtnText}>
-                      {processingId === item.id ? '처리 중...' : '✓ 만남 완료'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                {!isScheduler && item.meeting_scheduled_at && item.meeting_status === 'announced' && (
-                  <Text style={styles.schedulerNote}>날짜 변경과 만남 진행은 {schedulerName}님(제안 파트너)이 관리해요</Text>
-                )}
-
-                {!isScheduler && item.meeting_status === 'in_progress' && (
-                  <View style={styles.statusMessage}>
-                    <Text style={styles.statusMessageText}>만남이 진행 중입니다</Text>
-                  </View>
-                )}
+                {item.meeting_scheduled_at && (() => {
+                  const iAmC1 = item.connector_1_id === user?.id;
+                  const myDone = iAmC1 ? item.meeting_done_connector_1 : item.meeting_done_connector_2;
+                  const otherName = iAmC1 ? item.connector_2_name : item.connector_1_name;
+                  const meetingDay = new Date(item.meeting_scheduled_at);
+                  meetingDay.setHours(0, 0, 0, 0);
+                  const beforeDay = Date.now() < meetingDay.getTime();
+                  if (myDone) {
+                    return (
+                      <View style={styles.statusMessage}>
+                        <Text style={styles.statusMessageText}>✓ 만남 완료를 눌렀어요 · {otherName}님 확인 대기</Text>
+                      </View>
+                    );
+                  }
+                  return (
+                    <TouchableOpacity
+                      style={[styles.actionBtn, styles.completeBtn, (processingId === item.id || beforeDay) && styles.buttonDisabled]}
+                      onPress={() => handleMeetingDone(item.id)}
+                      disabled={processingId !== null || beforeDay}
+                    >
+                      <Text style={styles.completeBtnText}>
+                        {processingId === item.id
+                          ? '처리 중...'
+                          : beforeDay
+                            ? `${formatMeetingDate(item.meeting_scheduled_at)} 당일부터 누를 수 있어요`
+                            : '✓ 만남 완료'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })()}
               </View>
             )}
 
