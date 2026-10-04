@@ -3,6 +3,9 @@
 -- 2) 회원 구성은 그때그때 실제 회원 기준으로 계산 (예전 통계표는 수동 갱신이라 오래된 값이 보였다)
 --    연령대는 성별별 5살 단위(초반/후반), 지역은 전체 분포. 개인이 드러나지 않도록 회원이 일정 수 이상일 때만 분포를 보여준다.
 
+-- 회원 구성 분포를 보여주는 최소 회원 수 (초기에는 파트너별 회원이 적어 10명 → 5명으로 낮춤)
+CREATE OR REPLACE FUNCTION fn_min_pool_size_for_stats() RETURNS INT AS $$ SELECT 5; $$ LANGUAGE sql IMMUTABLE;
+
 ALTER TABLE connectors ADD COLUMN IF NOT EXISTS intro TEXT;
 ALTER TABLE connectors ADD COLUMN IF NOT EXISTS career TEXT;
 
