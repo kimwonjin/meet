@@ -8,6 +8,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { formatRegions } from '@/lib/format';
 import { fetchConnectorReviews, fetchReviewSummaries, Review, ReviewSummary } from '@/lib/reviews';
 import ReviewList from '@/components/ReviewList';
+import DistributionBars from '@/components/DistributionBars';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
 import { purchasePackage, getCredit, PACKAGE_OPTIONS } from '@/lib/payments';
@@ -689,26 +690,43 @@ export default function ConnectorsScreen() {
                         <>
                           <View style={styles.infoRow}>
                             <Text style={styles.infoLabel}>전체 회원</Text>
-                            <Text style={styles.infoValue}>{overview.total}명 (남 {overview.male} · 여 {overview.female})</Text>
+                            <Text style={styles.infoValue}>{overview.total}명</Text>
                           </View>
+                          {overview.total > 0 && (
+                            <View style={styles.distBlock}>
+                              <Text style={styles.distLabel}>성별</Text>
+                              <DistributionBars
+                                total={overview.total}
+                                rows={[{ label: '남성', count: overview.male }, { label: '여성', count: overview.female }]}
+                              />
+                            </View>
+                          )}
                           {overview.ages ? (
                             (['M', 'F'] as const).map((g) => {
                               const rows = (overview.ages as any[]).filter((a) => a.gender === g);
                               if (!rows.length) return null;
                               return (
-                                <View key={g} style={styles.distRow}>
+                                <View key={g} style={styles.distBlock}>
                                   <Text style={styles.distLabel}>{g === 'M' ? '남성 연령대' : '여성 연령대'}</Text>
-                                  <Text style={styles.distValue}>{rows.map((a) => `${a.label} ${a.count}명`).join(' · ')}</Text>
+                                  <DistributionBars
+                                    total={g === 'M' ? overview.male : overview.female}
+                                    rows={rows.map((a) => ({ label: a.label, count: a.count }))}
+                                  />
                                 </View>
                               );
                             })
                           ) : null}
                           {overview.regions ? (
-                            <View style={styles.distRow}>
+                            <View style={styles.distBlock}>
                               <Text style={styles.distLabel}>지역</Text>
-                              <Text style={styles.distValue}>
-                                {(overview.regions as any[]).map((r) => `${r.label} ${r.count}명 (${Math.round((r.count / overview.total) * 100)}%)`).join(' · ')}
-                              </Text>
+                              <DistributionBars
+                                total={overview.total}
+                                // 지역을 입력하지 않은 회원은 맨 아래 흐리게
+                                rows={[
+                                  ...(overview.regions as any[]).filter((r) => r.label !== '미입력'),
+                                  ...(overview.regions as any[]).filter((r) => r.label === '미입력').map((r) => ({ ...r, muted: true })),
+                                ]}
+                              />
                             </View>
                           ) : null}
                           {!overview.ages && (
@@ -970,20 +988,16 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 6,
   },
-  distRow: {
-    paddingVertical: 10,
+  distBlock: {
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f2f2f2',
   },
   distLabel: {
     fontSize: 13,
-    color: '#888',
-    marginBottom: 4,
-  },
-  distValue: {
-    fontSize: 14,
-    color: '#222',
-    lineHeight: 21,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 10,
   },
   distHint: {
     fontSize: 12,
