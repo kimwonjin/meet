@@ -13,6 +13,7 @@ import { Avatar } from '@/components/ProfilePhoto';
 import ReviewList from '@/components/ReviewList';
 import TermsSheet from '@/components/TermsSheet';
 import BlockListSheet from '@/components/BlockListSheet';
+import InviteSheet from '@/components/InviteSheet';
 import ConsentChecklist, { ConsentItem } from '@/components/ConsentChecklist';
 import { recordConsents, TermsDocKey } from '@/lib/terms';
 import { getPendingRefund, getRefundable, Refundable, requestRefund, withdrawAccount } from '@/lib/refunds';
@@ -37,6 +38,7 @@ export default function ProfileScreen() {
   const [businessName, setBusinessName] = useState('');
   const [partnerConsents, setPartnerConsents] = useState<string[]>([]);
   const [showBlocks, setShowBlocks] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
   // 프로필을 다 불러오기 전에 저장하면 빈 값으로 덮어쓰므로, 불러온 뒤에만 저장할 수 있다
   const [profileLoaded, setProfileLoaded] = useState(false);
   // 마이 하단에서 여는 약관 전문
@@ -699,6 +701,19 @@ export default function ProfileScreen() {
         )}
         {user?.role === 'connector' && (
           <>
+          {/* 새 기능: 회원을 늘리는 가장 빠른 방법이라 맨 위에 강조해서 둔다 */}
+          <TouchableOpacity style={[styles.menuItem, styles.inviteItem]} onPress={() => setShowInvite(true)}>
+            <Text style={styles.menuIcon}>💌</Text>
+            <View style={styles.menuContent}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.menuTitle}>초대장 보내기</Text>
+                <View style={styles.newBadge}><Text style={styles.newBadgeText}>NEW</Text></View>
+              </View>
+              <Text style={styles.menuSub}>나에게 바로 연결되는 가입 링크 보내기</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowSettlementsModal(true)}>
             <Text style={styles.menuIcon}>💰</Text>
             <View style={styles.menuContent}>
@@ -834,6 +849,9 @@ export default function ProfileScreen() {
       </BottomSheet>
 
       <BlockListSheet visible={showBlocks} onClose={() => setShowBlocks(false)} />
+      {user?.role === 'connector' && (
+        <InviteSheet visible={showInvite} onClose={() => setShowInvite(false)} partnerName={user.name} />
+      )}
 
       <BottomSheet visible={showProfileModal} onClose={() => setShowProfileModal(false)} title="내 프로필 수정">
         <View style={styles.profileFormSection}>
@@ -1602,6 +1620,9 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     paddingHorizontal: 20,
   },
+  inviteItem: { backgroundColor: '#F1ECFF' },
+  newBadge: { backgroundColor: '#5B21FF', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',

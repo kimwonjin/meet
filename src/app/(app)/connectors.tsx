@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, TextInput } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -82,6 +82,15 @@ export default function ConnectorsScreen() {
   }, []);
 
   useFocusPolling(() => fetchConnectors(), 15000, !!user);
+
+  // 초대 링크로 들어온 회원: 초대한 파트너 정보를 바로 열어 준다
+  const params = useLocalSearchParams<{ open?: string }>();
+  useEffect(() => {
+    if (!params.open || user?.role !== 'hopeful' || loading) return;
+    const target = connectors.find((c) => c.id === params.open);
+    if (target) setSelectedConnector(target);
+    router.setParams({ open: undefined });
+  }, [params.open, loading, connectors]);
 
   async function fetchConnectors() {
     try {

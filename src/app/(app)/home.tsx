@@ -26,6 +26,7 @@ import { afterCareDeadline, expireAfterCareIfDue, formatDeadline, notifyAfterCar
 import { Avatar } from '@/components/ProfilePhoto';
 import MemberProfileView from '@/components/MemberProfileView';
 import SafetyActions from '@/components/SafetyActions';
+import InviteSheet from '@/components/InviteSheet';
 import ReviewSheet from '@/components/ReviewSheet';
 import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
 
@@ -45,6 +46,8 @@ export default function HomeScreen() {
   const [receivedMatches, setReceivedMatches] = useState<any[]>([]);
   const [remainingSessions, setRemainingSessions] = useState<number | null>(null);
   const [profilePartner, setProfilePartner] = useState<any | null>(null);
+  const [approvedMemberCount, setApprovedMemberCount] = useState(0);
+  const [showInvite, setShowInvite] = useState(false);
   // 후기를 남긴 매칭 / 후기 작성 중인 매칭
   const [reviewedMatchIds, setReviewedMatchIds] = useState<string[]>([]);
   const [reviewTarget, setReviewTarget] = useState<{ matchId: string; connectorId: string } | null>(null);
@@ -76,6 +79,12 @@ export default function HomeScreen() {
           .eq('connector_id', user!.id)
           .eq('status', 'pending');
         setPendingSignupCount(pendingCount || 0);
+        const { count: memberCount } = await supabase
+          .from('hopeful_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('connector_id', user!.id)
+          .eq('status', 'approved');
+        setApprovedMemberCount(memberCount || 0);
 
         // 연결자: 내가 제안한 매칭들 조회
         const { data: matchData } = await supabase
@@ -534,12 +543,25 @@ export default function HomeScreen() {
 
         {/* 진행 중인 매칭 섹션 */}
         {matchingRequests.length === 0 ? (
+          approvedMemberCount < 2 ? (
+            // 회원이 모자라면 매칭 제안 대신 회원을 모으는 방법을 먼저 안내한다
+            <View style={styles.placeholder}>
+              <Text style={styles.placeholderText}>
+                {approvedMemberCount === 0 ? '아직 내 회원이 없어요' : '매칭하려면 회원이 2명 이상 필요해요'}
+              </Text>
+              <Text style={[styles.placeholderHint, { textAlign: 'center', paddingHorizontal: 24, marginBottom: 4 }]}>초대장을 보내면 받은 사람이 가입할 때 나에게 바로 연결돼요</Text>
+              <TouchableOpacity style={styles.findPartnerBtn} onPress={() => setShowInvite(true)}>
+                <Text style={styles.findPartnerBtnText}>💌 초대장 보내기</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
           <View style={styles.placeholder}>
             <Text style={styles.placeholderText}>진행 중인 매칭이 없습니다</Text>
             <TouchableOpacity style={styles.findPartnerBtn} onPress={() => router.push({ pathname: '/matching', params: { view: 'active' } })}>
               <Text style={styles.findPartnerBtnText}>매칭 제안하기</Text>
             </TouchableOpacity>
           </View>
+          )
         ) : (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>진행 중인 매칭 ({matchingRequests.length})</Text>
@@ -565,11 +587,12 @@ export default function HomeScreen() {
             })}
           </View>
         )}
+        <InviteSheet visible={showInvite} onClose={() => setShowInvite(false)} partnerName={user.name} />
       </ScrollView>
     );
   }
 
-  // 희望자 화면
+  // 회원 화면
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>

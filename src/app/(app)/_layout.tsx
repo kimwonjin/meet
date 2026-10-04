@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUnreadCount } from '@/lib/chat';
+import { takePendingInvite } from '@/lib/invite';
 
 // 탭바 활성 색은 앱 강조색 하나로 통일
 const TAB_OPTIONS = { headerShown: false, tabBarActiveTintColor: '#5B21FF' };
@@ -10,6 +11,15 @@ const TAB_OPTIONS = { headerShown: false, tabBarActiveTintColor: '#5B21FF' };
 export default function AppLayout() {
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const router = useRouter();
+
+  // 초대 링크로 들어와 가입·로그인한 회원은 초대한 파트너 정보로 바로 보낸다
+  useEffect(() => {
+    if (user?.role !== 'hopeful') return;
+    takePendingInvite().then((id) => {
+      if (id) setTimeout(() => router.push({ pathname: '/connectors', params: { open: id } }), 300);
+    });
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user) return;
