@@ -1121,11 +1121,13 @@ export default function ProfileScreen() {
           <ActivityIndicator size="large" color="#5B21FF" style={{ marginTop: 40 }} />
         ) : !creditScore ? (
           <Text style={{ color: '#999', paddingVertical: 20 }}>신뢰지표를 불러오지 못했습니다</Text>
-        ) : creditScore.total_proposed === 0 ? (
+        ) : (creditScore.finished_count ?? creditScore.total_proposed) === 0 ? (
           <View style={styles.comingSoonContainer}>
             <Text style={styles.comingSoonIcon}>⭐</Text>
-            <Text style={styles.comingSoonText}>아직 제안한 매칭이 없습니다</Text>
-            <Text style={styles.comingSoonSub}>매칭을 진행하면 등급이 산정됩니다</Text>
+            <Text style={styles.comingSoonText}>아직 끝난 매칭이 없습니다</Text>
+            <Text style={styles.comingSoonSub}>
+              {creditScore.in_progress_count ? `진행 중 ${creditScore.in_progress_count}건 · ` : ''}첫 매칭이 마무리되면 등급이 산정됩니다
+            </Text>
           </View>
         ) : (
           <>
@@ -1137,34 +1139,24 @@ export default function ProfileScreen() {
 
             <View style={styles.modalSection}>
               <Text style={styles.modalSectionTitle}>세부 점수</Text>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>매칭 성사율</Text>
-                <Text style={styles.infoValue}>{creditScore.success_score}점</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>노쇼·분쟁 없음</Text>
-                <Text style={styles.infoValue}>{creditScore.trust_score}점</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>활동량</Text>
-                <Text style={styles.infoValue}>{creditScore.activity_score}점</Text>
-              </View>
-            </View>
-
-            <View style={styles.modalSection}>
-              <Text style={styles.modalSectionTitle}>근거 데이터</Text>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>제안한 매칭</Text>
-                <Text style={styles.infoValue}>{creditScore.total_proposed}건</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>정산 완료</Text>
-                <Text style={styles.infoValue}>{creditScore.settled_count}건</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>노쇼·분쟁 신고</Text>
-                <Text style={styles.infoValue}>{creditScore.noshow_dispute_count}건</Text>
-              </View>
+              {[
+                { label: '매칭 성사율', score: creditScore.success_score, basis: `끝난 매칭 ${creditScore.finished_count ?? 0}건 중 ${creditScore.settled_count}건 성사` },
+                { label: '애프터 성사율', score: creditScore.mutual_score, basis: `두 회원 모두 다시 만나길 원한 매칭 ${creditScore.mutual_count ?? 0}건` },
+                { label: '회원 만족도', score: creditScore.review_score, basis: creditScore.review_count ? `후기 ${creditScore.review_count}개 · 평균 ★ ${Number(creditScore.review_avg).toFixed(1)}` : '아직 후기가 없어요' },
+                { label: '노쇼 없음', score: creditScore.trust_score, basis: `노쇼 신고 ${creditScore.noshow_dispute_count}건` },
+                { label: '활동량', score: creditScore.activity_score, basis: `성사 ${creditScore.settled_count}건 (10건이면 만점)` },
+              ].map((row) => (
+                <View key={row.label} style={styles.scoreRow}>
+                  <View style={styles.scoreRowText}>
+                    <Text style={styles.infoLabel}>{row.label}</Text>
+                    <Text style={styles.scoreBasis}>{row.basis}</Text>
+                  </View>
+                  <Text style={styles.infoValue}>{row.score === null || row.score === undefined ? '-' : `${row.score}점`}</Text>
+                </View>
+              ))}
+              <Text style={styles.scoreHint}>
+                진행 중인 매칭{creditScore.in_progress_count ? ` ${creditScore.in_progress_count}건` : ''}은 끝난 뒤에 반영돼요. '-' 항목은 종합 점수에서 빠져요.
+              </Text>
             </View>
           </>
         )}
@@ -1310,6 +1302,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#333',
     marginBottom: 0,
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f2f2f2',
+  },
+  scoreRowText: {
+    flex: 1,
+    marginRight: 12,
+  },
+  scoreBasis: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  scoreHint: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 10,
+    lineHeight: 18,
   },
   grade: {
     fontSize: 1,
