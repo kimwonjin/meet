@@ -33,7 +33,6 @@ export default function HomeScreen() {
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   // Connector states
-  const [myMembers, setMyMembers] = useState<any[]>([]);
   const [matchingRequests, setMatchingRequests] = useState<any[]>([]);
   const [pendingSignupCount, setPendingSignupCount] = useState(0);
 
@@ -55,29 +54,6 @@ export default function HomeScreen() {
   async function fetchDashboard(retried = false) {
     try {
       if (user?.role === 'connector') {
-        // 연결자: 내 회원 조회 (같은 회원에 대해 중복 요청 행이 있을 수 있어 hopeful_id 기준으로 중복 제거)
-        const { data: myDataRaw } = await supabase
-          .from('hopeful_requests')
-          .select('*')
-          .eq('connector_id', user!.id)
-          .eq('status', 'approved');
-
-        const myData = (myDataRaw || []).filter(
-          (req: any, index: number, arr: any[]) => arr.findIndex((r: any) => r.hopeful_id === req.hopeful_id) === index
-        );
-
-        const hopefulIds = (myData || []).map((req: any) => req.hopeful_id);
-        const { data: myHopefuls } = await supabase
-          .from('users')
-          .select('*')
-          .in('id', hopefulIds);
-
-        const members = (myData || []).map((req: any) => {
-          const hopeful = (myHopefuls || []).find((h: any) => h.id === req.hopeful_id);
-          return { ...hopeful, request_id: req.id };
-        });
-        setMyMembers(members);
-
         // 처리 대기 요약: 가입 대기 건수
         const { count: pendingCount } = await supabase
           .from('hopeful_requests')
@@ -118,10 +94,19 @@ export default function HomeScreen() {
             created_at: m.created_at,
             meeting_scheduled_at: m.meeting_scheduled_at,
             status: m.status,
+            connector_1_id: m.connector_1_id,
+            connector_2_id: m.connector_2_id,
+            connector_1_consented: m.connector_1_consented,
+            connector_2_consented: m.connector_2_consented,
           };
         });
 
-        setMatchingRequests(matches);
+        // 홈에는 진행 중인 매칭만 (완료·거절된 매칭 제외), 최신순
+        setMatchingRequests(
+          matches
+            .filter((m: any) => !m.settlement_completed && m.status !== 'rejected')
+            .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        );
       } else {
         // 희望자: 받은 매칭 제안 조회
         const { data: reqData } = await supabase
@@ -369,6 +354,18 @@ export default function HomeScreen() {
   }
 
   // 연결자 화면
+  // 연결자 홈: 매칭의 현재 단계를 한 줄로
+  function matchStatusText(m: any) {
+    const cross = m.connector_1_id !== m.connector_2_id;
+    if (cross && !(m.connector_1_consented && m.connector_2_consented)) return '파트너 동의 대기';
+    if (!(m.hopeful_1_approved && m.hopeful_2_approved)) {
+      return `회원 승인 대기 (${[m.hopeful_1_approved, m.hopeful_2_approved].filter(Boolean).length}/2)`;
+    }
+    if (!m.meeting_scheduled_at) return '만남 날짜 조율 중';
+    if (m.meeting_status !== 'completed') return `📅 ${formatMeetingDate(m.meeting_scheduled_at)} 만남 예정`;
+    return `애프터 응답 대기 (${[m.after_care_hopeful_1, m.after_care_hopeful_2].filter(Boolean).length}/2)`;
+  }
+
   if (user?.role === 'connector') {
     const pendingMatchApprovalCount = matchingRequests.filter(
       (m) => m.status !== 'rejected' && !(m.hopeful_1_approved && m.hopeful_2_approved)
@@ -432,9 +429,7 @@ export default function HomeScreen() {
           ) : (
             todayMatches.map((m) => (
               <View key={m.id} style={styles.scheduleCard}>
-                <Text style={styles.scheduleCardTime}>
-                  {new Date(m.meeting_scheduled_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-                </Text>
+                <Text style={styles.scheduleCardTime}>오늘</Text>
                 <Text style={styles.scheduleCardNames}>{m.hopeful_1?.name} ↔ {m.hopeful_2?.name}</Text>
               </View>
             ))
@@ -460,11 +455,10 @@ export default function HomeScreen() {
               {scheduledMatches.map((m) => (
                 <View key={m.id} style={styles.scheduleListRow}>
                   <Text style={styles.scheduleListDate}>
-                    {new Date(m.meeting_scheduled_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}{' '}
-                    {new Date(m.meeting_scheduled_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                    {formatMeetingDate(m.meeting_scheduled_at)}
                   </Text>
                   <Text style={styles.scheduleListNames}>{m.hopeful_1?.name} ↔ {m.hopeful_2?.name}</Text>
-                  {new Date(m.meeting_scheduled_at) < now && m.meeting_status !== 'completed' && (
+                  {new Date(m.meeting_scheduled_at).setHours(0, 0, 0, 0) < new Date(now).setHours(0, 0, 0, 0) && m.meeting_status !== 'completed' && (
                     <Text style={styles.scheduleOverdueBadge}>일정 경과</Text>
                   )}
                 </View>
@@ -473,118 +467,36 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* 내 회원 섹션 (조회 전용 - 매칭 제안은 회원관리 탭에서) */}
-        {myMembers.length === 0 ? (
+        {/* 진행 중인 매칭 섹션 */}
+        {matchingRequests.length === 0 ? (
           <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>승인된 회원이 없습니다</Text>
+            <Text style={styles.placeholderText}>진행 중인 매칭이 없습니다</Text>
+            <TouchableOpacity style={styles.findPartnerBtn} onPress={() => router.push('/matching')}>
+              <Text style={styles.findPartnerBtnText}>매칭 제안하기</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>내 회원 ({myMembers.length})</Text>
-            </View>
-
-            <FlatList
-              data={myMembers}
-              scrollEnabled={false}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <View style={styles.memberCard}>
-                  <View style={styles.memberInfo}>
-                    <Text style={styles.memberName}>{item.name}</Text>
-                    <Text style={styles.memberAge}>{item.location}</Text>
-                  </View>
-                </View>
-              )}
-            />
-          </View>
-        )}
-
-        {/* 진행 중인 매칭 섹션 */}
-        {matchingRequests.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>진행 중인 매칭</Text>
-            <FlatList
-              data={matchingRequests}
-              scrollEnabled={false}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <View style={styles.matchCard}>
-                  <View style={styles.matchHeader}>
-                    <Text style={styles.matchTitle}>
+            <Text style={styles.sectionTitle}>진행 중인 매칭 ({matchingRequests.length})</Text>
+            {matchingRequests.map((item) => {
+              const cross = item.connector_1_id !== item.connector_2_id;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.activeMatchRow}
+                  onPress={() => router.push(cross ? { pathname: '/matching', params: { segment: 'ally' } } : '/matching')}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.activeMatchNames}>
                       {item.hopeful_1?.name} ↔ {item.hopeful_2?.name}
+                      {cross ? '  · 동맹' : ''}
                     </Text>
-                    <Text style={styles.matchDate}>
-                      {new Date(item.created_at).toLocaleDateString('ko-KR')}
-                    </Text>
+                    <Text style={styles.activeMatchStatus}>{matchStatusText(item)}</Text>
                   </View>
-
-                  {/* Timeline */}
-                  <View style={styles.timeline}>
-                    {/* 1단계: 매칭 */}
-                    <View style={styles.timelineStep}>
-                      <View style={[styles.timelineCircle, styles.timelineComplete]}>
-                        <Text style={styles.timelineIcon}>✓</Text>
-                      </View>
-                      <Text style={styles.timelineLabel}>매칭</Text>
-                    </View>
-
-                    <View style={styles.timelineLine} />
-
-                    {/* 2단계: 회원1 승인 */}
-                    <View style={styles.timelineStep}>
-                      <View
-                        style={[
-                          styles.timelineCircle,
-                          item.hopeful_1_approved ? styles.timelineComplete : styles.timelinePending,
-                        ]}
-                      >
-                        <Text style={styles.timelineIcon}>
-                          {item.hopeful_1_approved ? '✓' : '•'}
-                        </Text>
-                      </View>
-                      <Text style={styles.timelineLabel}>{item.hopeful_1?.name || '회원1'}</Text>
-                    </View>
-
-                    <View style={styles.timelineLine} />
-
-                    {/* 3단계: 회원2 승인 */}
-                    <View style={styles.timelineStep}>
-                      <View
-                        style={[
-                          styles.timelineCircle,
-                          item.hopeful_2_approved ? styles.timelineComplete : styles.timelinePending,
-                        ]}
-                      >
-                        <Text style={styles.timelineIcon}>
-                          {item.hopeful_2_approved ? '✓' : '•'}
-                        </Text>
-                      </View>
-                      <Text style={styles.timelineLabel}>{item.hopeful_2?.name || '회원2'}</Text>
-                    </View>
-
-                    <View style={styles.timelineLine} />
-
-                    {/* 4단계: 완료 */}
-                    <View style={styles.timelineStep}>
-                      <View
-                        style={[
-                          styles.timelineCircle,
-                          item.hopeful_1_approved && item.hopeful_2_approved
-                            ? styles.timelineComplete
-                            : styles.timelinePending,
-                        ]}
-                      >
-                        <Text style={styles.timelineIcon}>
-                          {item.hopeful_1_approved && item.hopeful_2_approved ? '✓' : '•'}
-                        </Text>
-                      </View>
-                      <Text style={styles.timelineLabel}>완료</Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-            />
+                  <Text style={styles.activeMatchArrow}>›</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -1124,32 +1036,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#333',
   },
-  memberCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-  },
   selectedCard: {
     backgroundColor: '#F0E8FF',
     borderWidth: 2,
     borderColor: '#5B21FF',
-  },
-  memberInfo: {
-    flex: 1,
-  },
-  memberName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  memberAge: {
-    fontSize: 12,
-    color: '#999',
   },
   checkmark: {
     fontSize: 20,
@@ -1375,6 +1265,30 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 10,
     fontWeight: '500',
+  },
+  activeMatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 8,
+  },
+  activeMatchNames: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#333',
+  },
+  activeMatchStatus: {
+    fontSize: 13,
+    color: '#5B21FF',
+    marginTop: 4,
+  },
+  activeMatchArrow: {
+    fontSize: 22,
+    color: '#bbb',
+    marginLeft: 8,
   },
   afterCareDeadline: {
     fontSize: 12,
