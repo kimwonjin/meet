@@ -27,6 +27,9 @@ interface Connector {
   matching_count?: number;
   main_region?: string;
   service_description?: string;
+  intro?: string;
+  career?: string;
+  partner_photo_urls?: string[];
   // connector가 받은 요청 목록: 회원 프로필 정보
   birth_date?: string;
   gender?: string;
@@ -55,7 +58,8 @@ export default function ConnectorsScreen() {
   const purchasingRef = useRef(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [completedMatchCount, setCompletedMatchCount] = useState<number | null>(null);
+  // 회원이 보는 파트너 정보 (회원 구성·실적)
+  const [overview, setOverview] = useState<any | null>(null);
   // 파트너 후기: 목록용 평균 별점 / 선택한 파트너의 후기 목록
   const [reviewSummaries, setReviewSummaries] = useState<Record<string, ReviewSummary>>({});
   const [reviews, setReviews] = useState<Review[] | null>(null);
@@ -65,8 +69,6 @@ export default function ConnectorsScreen() {
   const [myCredit, setMyCredit] = useState(0);
   const [selectedPackage, setSelectedPackage] = useState(PACKAGE_OPTIONS[0]);
   const [purchasing, setPurchasing] = useState(false);
-  const [poolStats, setPoolStats] = useState<any | null>(null);
-  const [loadingStats, setLoadingStats] = useState(false);
 
   useEffect(() => {
     fetchConnectors();
@@ -138,7 +140,7 @@ export default function ConnectorsScreen() {
         const connectorIds = (conData || []).map((c: any) => c.id);
         const { data: connUsers } = await supabase
           .from('users')
-          .select('id, name, withdrawn_at')
+          .select('id, name, withdrawn_at, photo_urls')
           .in('id', connectorIds);
 
         // 내 요청 상태 (승인됨 / 승인 대기)
@@ -157,6 +159,7 @@ export default function ConnectorsScreen() {
           return {
             ...conn,
             name: connUser?.name,
+            partner_photo_urls: connUser?.photo_urls ?? [],
             is_approved: approvedConnectorIds.includes(conn.id),
             is_pending: pendingConnectorIds.includes(conn.id),
           };
@@ -222,29 +225,15 @@ export default function ConnectorsScreen() {
 
   useEffect(() => {
     if (user?.role !== 'connector' && selectedConnector?.id) {
-      // 성사(정산 완료)된 매칭 수
-      setCompletedMatchCount(null);
       setReviews(null);
       fetchConnectorReviews(selectedConnector.id).then(setReviews);
+      // 회원 구성·실적: 지금 실제 회원 기준으로 서버에서 계산
+      setOverview(null);
       supabase
-        .from('match_requests')
-        .select('id', { count: 'exact', head: true })
-        .or(`connector_1_id.eq.${selectedConnector.id},connector_2_id.eq.${selectedConnector.id}`)
-        .eq('settlement_completed', true)
-        .is('closed_reason', null)
-        .then(({ count }) => setCompletedMatchCount(count ?? 0));
-      setLoadingStats(true);
-      setPoolStats(null);
-      supabase
-        .rpc('fn_get_pool_stats', { p_target_connector_id: selectedConnector.id, p_requester_id: user!.id })
+        .rpc('fn_partner_overview', { p_connector_id: selectedConnector.id })
         .then(({ data, error }) => {
-          if (error) {
-            console.error('Pool stats error:', error);
-            setPoolStats({ available: false });
-          } else {
-            setPoolStats(data);
-          }
-          setLoadingStats(false);
+          if (error) console.error('partner overview error:', error);
+          setOverview(error ? { error: true } : data);
         });
     }
 
@@ -650,69 +639,86 @@ export default function ConnectorsScreen() {
                 <>
                   <>
                     <View style={styles.modalHeader}>
-                      <View style={styles.modalAvatar}>
-                        <Text style={styles.modalAvatarText}>💼</Text>
-                      </View>
+                      <Avatar photoUrls={selectedConnector.partner_photo_urls} size={80} />
                       <Text style={styles.modalTitle}>{selectedConnector.business_name}</Text>
+                      <Text style={styles.partnerSub}>
+                        {selectedConnector.name ? `${selectedConnector.name} 파트너` : '파트너'}
+                        {selectedConnector.verified ? ' · ✓ 인증' : ''}
+                      </Text>
+                    </View>
+
+                    <View style={styles.modalSection}>
+                      <Text style={styles.modalSectionTitle}>파트너 소개</Text>
+                      {selectedConnector.career || selectedConnector.intro ? (
+                        <>
+                          {!!selectedConnector.career && <Text style={styles.careerText}>경력 · {selectedConnector.career}</Text>}
+                          {!!selectedConnector.intro && <Text style={styles.bioText}>{selectedConnector.intro}</Text>}
+                        </>
+                      ) : (
+                        <Text style={styles.bioText}>아직 소개를 작성하지 않았어요. 궁금한 점은 채팅으로 물어보세요.</Text>
+                      )}
                     </View>
 
                     <View style={styles.modalSection}>
                       <Text style={styles.modalSectionTitle}>기본정보</Text>
                       <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>회원수</Text>
-                        <Text style={styles.infoValue}>
-                          {loadingStats
-                            ? '조회 중...'
-                            : `👨 ${poolStats?.male_count ?? 0}명 · 👩 ${poolStats?.female_count ?? 0}명`}
-                        </Text>
+                        <Text style={styles.infoLabel}>소개 지역</Text>
+                        <Text style={styles.infoValue}>{formatRegions(selectedConnector.main_region) || '-'}</Text>
                       </View>
                       <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>매칭수</Text>
-                        <Text style={styles.infoValue}>{completedMatchCount === null ? '-' : `${completedMatchCount}건`}</Text>
+                        <Text style={styles.infoLabel}>1회 소개 비용</Text>
+                        <Text style={styles.infoValue}>{selectedConnector.fee_per_session ? `${selectedConnector.fee_per_session.toLocaleString()}원` : '-'}</Text>
                       </View>
                       <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>주요지역</Text>
-                        <Text style={styles.infoValue}>
-                          {selectedConnector.main_region
-                            ? (() => {
-                                try {
-                                  const regions = JSON.parse(selectedConnector.main_region);
-                                  return Array.isArray(regions) ? regions.join(', ') : selectedConnector.main_region;
-                                } catch {
-                                  return selectedConnector.main_region;
-                                }
-                              })()
-                            : '-'
-                          }
-                        </Text>
+                        <Text style={styles.infoLabel}>성사된 만남</Text>
+                        <Text style={styles.infoValue}>{overview && !overview.error ? `${overview.settled}건` : '-'}</Text>
                       </View>
                       <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>회당 비용</Text>
-                        <Text style={styles.infoValue}>{selectedConnector.fee_per_session?.toLocaleString() || '-'}원</Text>
-                      </View>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>인증</Text>
-                        <Text style={styles.infoValue}>{selectedConnector.verified ? '✓ 인증됨' : '미인증'}</Text>
+                        <Text style={styles.infoLabel}>애프터로 이어진 만남</Text>
+                        <Text style={styles.infoValue}>{overview && !overview.error ? `${overview.mutual}건` : '-'}</Text>
                       </View>
                     </View>
 
-                    {!loadingStats && poolStats?.available && poolStats.meets_min_pool && (
-                      <View style={styles.modalSection}>
-                        <Text style={styles.modalSectionTitle}>회원 구성 참고</Text>
-                        {poolStats.top_age_bucket && (
+                    <View style={styles.modalSection}>
+                      <Text style={styles.modalSectionTitle}>회원 구성</Text>
+                      {overview === null ? (
+                        <ActivityIndicator color="#5B21FF" />
+                      ) : overview.error ? (
+                        <Text style={styles.bioText}>회원 구성을 불러오지 못했어요</Text>
+                      ) : (
+                        <>
                           <View style={styles.infoRow}>
-                            <Text style={styles.infoLabel}>주요 연령대</Text>
-                            <Text style={styles.infoValue}>{poolStats.top_age_bucket.label} {poolStats.top_age_bucket.pct}%</Text>
+                            <Text style={styles.infoLabel}>전체 회원</Text>
+                            <Text style={styles.infoValue}>{overview.total}명 (남 {overview.male} · 여 {overview.female})</Text>
                           </View>
-                        )}
-                        {poolStats.top_region && (
-                          <View style={styles.infoRow}>
-                            <Text style={styles.infoLabel}>주요 지역</Text>
-                            <Text style={styles.infoValue}>{poolStats.top_region.label} {poolStats.top_region.pct}%</Text>
-                          </View>
-                        )}
-                      </View>
-                    )}
+                          {overview.ages ? (
+                            (['M', 'F'] as const).map((g) => {
+                              const rows = (overview.ages as any[]).filter((a) => a.gender === g);
+                              if (!rows.length) return null;
+                              return (
+                                <View key={g} style={styles.distRow}>
+                                  <Text style={styles.distLabel}>{g === 'M' ? '남성 연령대' : '여성 연령대'}</Text>
+                                  <Text style={styles.distValue}>{rows.map((a) => `${a.label} ${a.count}명`).join(' · ')}</Text>
+                                </View>
+                              );
+                            })
+                          ) : null}
+                          {overview.regions ? (
+                            <View style={styles.distRow}>
+                              <Text style={styles.distLabel}>지역</Text>
+                              <Text style={styles.distValue}>
+                                {(overview.regions as any[]).map((r) => `${r.label} ${r.count}명 (${Math.round((r.count / overview.total) * 100)}%)`).join(' · ')}
+                              </Text>
+                            </View>
+                          ) : null}
+                          {!overview.ages && (
+                            <Text style={styles.distHint}>
+                              회원이 {overview.min_for_detail}명 이상이 되면 연령대와 지역 분포를 보여드려요 (회원 개인정보 보호)
+                            </Text>
+                          )}
+                        </>
+                      )}
+                    </View>
 
                     {selectedConnector.service_description && (
                       <View style={styles.modalSection}>
@@ -953,6 +959,38 @@ const styles = StyleSheet.create({
   rating: {
     color: '#999',
   },
+  partnerSub: {
+    fontSize: 13,
+    color: '#888',
+    marginTop: 4,
+  },
+  careerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 6,
+  },
+  distRow: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f2f2f2',
+  },
+  distLabel: {
+    fontSize: 13,
+    color: '#888',
+    marginBottom: 4,
+  },
+  distValue: {
+    fontSize: 14,
+    color: '#222',
+    lineHeight: 21,
+  },
+  distHint: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 8,
+    lineHeight: 18,
+  },
   reviewScore: {
     color: '#333',
     fontWeight: '600',
@@ -981,22 +1019,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 30,
   },
-  modalAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F1ECFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  modalAvatarText: {
-    fontSize: 40,
-  },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#333',
+    marginTop: 12,
   },
   modalSection: {
     marginBottom: 30,

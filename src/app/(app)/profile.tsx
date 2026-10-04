@@ -93,6 +93,8 @@ export default function ProfileScreen() {
     main_region: '',
     fee_per_session: '',
     service_description: '',
+    intro: '',
+    career: '',
   });
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
@@ -247,9 +249,12 @@ export default function ProfileScreen() {
       // 저장된 지역 로드
       const { data: connectorData } = await supabase
         .from('connectors')
-        .select('main_region, fee_per_session, service_description')
+        .select('main_region, fee_per_session, service_description, intro, career')
         .eq('id', user.id)
         .single();
+      // 회원에게 보이는 대표 사진
+      const { data: me } = await supabase.from('users').select('photo_urls').eq('id', user.id).maybeSingle();
+      setPhotoUrls(me?.photo_urls ?? []);
 
       if (connectorData) {
         try {
@@ -263,6 +268,8 @@ export default function ProfileScreen() {
           main_region: connectorData.main_region || '',
           fee_per_session: connectorData.fee_per_session || '',
           service_description: connectorData.service_description || '',
+          intro: connectorData.intro || '',
+          career: connectorData.career || '',
         }));
       }
 
@@ -374,6 +381,8 @@ export default function ProfileScreen() {
           main_region: JSON.stringify(selectedRegions),
           fee_per_session: parseInt(storeData.fee_per_session) || null,
           service_description: storeData.service_description,
+          intro: storeData.intro.trim() || null,
+          career: storeData.career.trim() || null,
         })
         .eq('id', user!.id);
 
@@ -1037,6 +1046,39 @@ export default function ProfileScreen() {
             <Text style={styles.statLabel}>매칭 성공</Text>
             <Text style={styles.statValue}>{storeData.matching_count}건</Text>
           </View>
+        </View>
+
+        {/* 회원이 파트너를 고를 때 보는 소개 (파트너 탭 › 파트너 상세) */}
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>대표 사진</Text>
+          {user && <PhotoEditor userId={user.id} photos={photoUrls} onChange={setPhotoUrls} />}
+        </View>
+
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>경력</Text>
+          <TextInput
+            style={styles.formInput}
+            placeholder="예: 결혼정보회사 커플매니저 5년"
+            placeholderTextColor="#ddd"
+            value={storeData.career}
+            onChangeText={(text) => setStoreData({ ...storeData, career: text })}
+            maxLength={60}
+          />
+        </View>
+
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>파트너 소개</Text>
+          <TextInput
+            style={[styles.formInput, { height: 100, textAlignVertical: 'top' }]}
+            placeholder="어떤 분들을 주로 소개하는지, 소개 방식, 회원에게 하고 싶은 말을 적어주세요"
+            placeholderTextColor="#ddd"
+            multiline
+            numberOfLines={5}
+            value={storeData.intro}
+            onChangeText={(text) => setStoreData({ ...storeData, intro: text })}
+            maxLength={500}
+          />
+          <Text style={styles.formHint}>회원이 파트너 정보에서 가입 여부를 정할 때 보는 내용이에요</Text>
         </View>
 
         {/* 주요지역 선택 - 버튼형 (중복 선택 가능) */}
@@ -1726,6 +1768,11 @@ const styles = StyleSheet.create({
   },
   profileFormSection: {
     marginBottom: 16,
+  },
+  formHint: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 6,
   },
   formLabel: {
     fontSize: 12,
