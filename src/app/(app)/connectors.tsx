@@ -8,7 +8,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { formatRegions } from '@/lib/format';
 import { fetchConnectorReviews, fetchReviewSummaries, Review, ReviewSummary } from '@/lib/reviews';
 import ReviewList from '@/components/ReviewList';
-import StackedBar, { ageColors, regionColor } from '@/components/DistributionBars';
+import StackedBar, { SplitBar, ageColors, regionColor } from '@/components/DistributionBars';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
 import { purchasePackage, getCredit, PACKAGE_OPTIONS } from '@/lib/payments';
@@ -695,9 +695,10 @@ export default function ConnectorsScreen() {
                           {overview.total > 0 && (
                             <View style={styles.distBlock}>
                               <Text style={styles.distLabel}>성별</Text>
-                              <StackedBar
+                              <SplitBar
                                 total={overview.total}
-                                rows={[{ label: '남성', count: overview.male, color: '#2a78d6' }, { label: '여성', count: overview.female, color: '#eb6834' }]}
+                                left={{ label: '남', count: overview.male, color: '#2a78d6' }}
+                                right={{ label: '여', count: overview.female, color: '#eb6834' }}
                               />
                             </View>
                           )}

@@ -61,6 +61,26 @@ export default function StackedBar({ rows, total }: { rows: DistributionRow[]; t
   );
 }
 
+// 두 항목 비교(예: 남·여): 막대 하나 안에 왼쪽·오른쪽으로 이름과 인원을 바로 적는다
+export function SplitBar({ left, right, total }: { left: DistributionRow; right: DistributionRow; total: number }) {
+  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+  const label = (r: DistributionRow) => `${r.label} ${r.count}명 (${pct(r.count)}%)`;
+  return (
+    <View style={styles.splitBar} accessible accessibilityLabel={`${label(left)}, ${label(right)}`}>
+      {left.count > 0 && (
+        <View style={[styles.splitSeg, { flex: left.count, backgroundColor: left.color }, styles.first, right.count === 0 && styles.last]}>
+          <Text style={styles.splitText} numberOfLines={1}>{label(left)}</Text>
+        </View>
+      )}
+      {right.count > 0 && (
+        <View style={[styles.splitSeg, styles.splitRight, { flex: right.count, backgroundColor: right.color }, styles.last, left.count > 0 ? styles.gap : styles.first]}>
+          <Text style={styles.splitText} numberOfLines={1}>{label(right)}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   bar: { flexDirection: 'row', height: 14, borderRadius: 4, overflow: 'hidden', backgroundColor: '#F1F1F4' },
   segment: { height: 14 },
@@ -72,4 +92,8 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 12, color: '#333' },
   pct: { color: '#999' },
+  splitBar: { flexDirection: 'row', height: 28, borderRadius: 6, overflow: 'hidden', backgroundColor: '#F1F1F4' },
+  splitSeg: { height: 28, justifyContent: 'center', paddingHorizontal: 8, minWidth: 0 },
+  splitRight: { alignItems: 'flex-end' },
+  splitText: { fontSize: 12, fontWeight: '700', color: '#fff' },
 });
