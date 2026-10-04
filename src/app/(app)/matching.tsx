@@ -748,6 +748,10 @@ export default function MatchingScreen() {
                   </TouchableOpacity>
                 )}
 
+                {!isScheduler && item.meeting_scheduled_at && item.meeting_status === 'announced' && (
+                  <Text style={styles.schedulerNote}>날짜 변경과 만남 진행은 {schedulerName}님(제안 파트너)이 관리해요</Text>
+                )}
+
                 {!isScheduler && item.meeting_status === 'in_progress' && (
                   <View style={styles.statusMessage}>
                     <Text style={styles.statusMessageText}>만남이 진행 중입니다</Text>
@@ -1107,6 +1111,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#5B21FF',
+    textAlign: 'center',
+  },
+  schedulerNote: {
+    fontSize: 12,
+    color: '#888',
     textAlign: 'center',
   },
   scheduleChangeText: {
