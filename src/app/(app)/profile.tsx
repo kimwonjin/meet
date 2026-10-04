@@ -1896,7 +1896,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   pendingBadge: {
-    backgroundColor: '#FFF4E5',
+    backgroundColor: '#F3F3F5',
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
