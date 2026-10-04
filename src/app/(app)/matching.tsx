@@ -19,9 +19,19 @@ import { createNotification } from '@/lib/notifications';
 import DatePickerSheet from '@/components/DatePickerSheet';
 import { formatMeetingDate } from '@/lib/format';
 import { earliestCommonDate, sendContactsViaChat } from '@/lib/schedule';
+import BottomSheet from '@/components/BottomSheet';
+import { Avatar, PhotoList } from '@/components/ProfilePhoto';
 import { AFTER_CARE_DAYS, afterCareDeadline, expireAfterCareIfDue, formatDeadline } from '@/lib/afterCare';
 
 type Segment = 'internal' | 'ally' | 'alliance';
+
+// 매칭 후보로 고를 회원 (사진·나이·지역을 보고 고른다)
+type Member = { id: string; name: string; gender?: string; age?: number; location?: string; photo_urls?: string[] };
+const MEMBER_FIELDS = 'id, name, gender, age, location, photo_urls, height, job';
+
+function memberSummary(m: Member) {
+  return [m.gender === 'M' ? '남' : m.gender === 'F' ? '여' : null, m.age && `${m.age}세`, m.location].filter(Boolean).join(' · ');
+}
 
 export default function MatchingScreen() {
   const { user } = useAuth();
@@ -44,10 +54,12 @@ export default function MatchingScreen() {
     }
   }, [params.segment]);
 
-  const [ownMembers, setOwnMembers] = useState<{ id: string; name: string }[]>([]);
+  const [ownMembers, setOwnMembers] = useState<Member[]>([]);
   const [allyConnectors, setAllyConnectors] = useState<{ id: string; name: string }[]>([]);
   const [selectedAllyConnector, setSelectedAllyConnector] = useState<{ id: string; name: string } | null>(null);
-  const [allyConnectorMembers, setAllyConnectorMembers] = useState<{ id: string; name: string }[]>([]);
+  const [allyConnectorMembers, setAllyConnectorMembers] = useState<Member[]>([]);
+  // 프로필을 크게 보고 있는 후보 회원
+  const [previewMember, setPreviewMember] = useState<{ member: Member; connectorId: string } | null>(null);
   const [selectedForMatch, setSelectedForMatch] = useState<{ id: string; connectorId: string }[]>([]);
   const [proposing, setProposing] = useState(false);
 
@@ -183,8 +195,8 @@ export default function MatchingScreen() {
       setOwnMembers([]);
       return;
     }
-    const { data: users } = await supabase.from('users').select('id, name').in('id', ids);
-    setOwnMembers((users || []).map((u: any) => ({ id: u.id, name: u.name })));
+    const { data: users } = await supabase.from('users').select(MEMBER_FIELDS).in('id', ids);
+    setOwnMembers((users || []) as Member[]);
   }
 
   async function fetchAllyConnectors() {
@@ -218,8 +230,8 @@ export default function MatchingScreen() {
       setAllyConnectorMembers([]);
       return;
     }
-    const { data: users } = await supabase.from('users').select('id, name').in('id', ids);
-    setAllyConnectorMembers((users || []).map((u: any) => ({ id: u.id, name: u.name })));
+    const { data: users } = await supabase.from('users').select(MEMBER_FIELDS).in('id', ids);
+    setAllyConnectorMembers((users || []) as Member[]);
   }
 
   function toggleSelectForMatch(memberId: string, connectorId: string) {
@@ -493,24 +505,28 @@ export default function MatchingScreen() {
     .filter((m) => m.connector_1_id !== m.connector_2_id)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  function renderMemberChips(
-    members: { id: string; name: string }[],
-    connectorId: string
-  ) {
+  // 회원 후보 목록: 줄을 누르면 선택, 사진을 누르면 프로필 크게 보기
+  function renderMemberChips(members: Member[], connectorId: string) {
     return (
-      <View style={styles.memberChipWrap}>
+      <View style={styles.memberList}>
         {members.map((m) => {
           const isSelected = selectedForMatch.some((s) => s.id === m.id);
+          const summary = memberSummary(m);
           return (
-            <TouchableOpacity
-              key={m.id}
-              style={[styles.memberChip, isSelected && styles.memberChipSelected]}
-              onPress={() => toggleSelectForMatch(m.id, connectorId)}
-            >
-              <Text style={[styles.memberChipText, isSelected && styles.memberChipTextSelected]}>
-                {isSelected ? '✓ ' : ''}{m.name}
-              </Text>
-            </TouchableOpacity>
+            <View key={m.id} style={[styles.memberRow, isSelected && styles.memberRowSelected]}>
+              <TouchableOpacity onPress={() => setPreviewMember({ member: m, connectorId })} accessibilityLabel={`${m.name} 프로필 보기`}>
+                <Avatar photoUrls={m.photo_urls} size={48} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.memberRowBody} onPress={() => toggleSelectForMatch(m.id, connectorId)}>
+                <View style={styles.memberRowText}>
+                  <Text style={styles.memberRowName}>{m.name}</Text>
+                  {!!summary && <Text style={styles.memberRowSub}>{summary}</Text>}
+                </View>
+                <View style={[styles.memberCheck, isSelected && styles.memberCheckOn]}>
+                  {isSelected && <Text style={styles.memberCheckMark}>✓</Text>}
+                </View>
+              </TouchableOpacity>
+            </View>
           );
         })}
       </View>
@@ -796,6 +812,9 @@ export default function MatchingScreen() {
                     ? item.closed_reason === 'no_show' ? ' - 노쇼 신고로 정산 없이 종료' : ' - 정산 완료'
                     : ' - 정산 처리 중 (이용권 확인 필요)'}
                 </Text>
+                {item.after_care_hopeful_1 === '신청' && item.after_care_hopeful_2 === '신청' && (
+                  <Text style={styles.mutualText}>💞 두 회원 모두 다시 만나고 싶어해요</Text>
+                )}
               </View>
             )}
 
@@ -899,6 +918,28 @@ export default function MatchingScreen() {
         onClose={() => setScheduleMatchId(null)}
         onConfirm={(date) => scheduleMatchId && handleSetSchedule(scheduleMatchId, date)}
       />
+
+      <BottomSheet visible={previewMember !== null} onClose={() => setPreviewMember(null)} title={previewMember?.member.name ?? ''}>
+        {previewMember && (() => {
+          const { member, connectorId } = previewMember;
+          const isSelected = selectedForMatch.some((s) => s.id === member.id);
+          return (
+            <>
+              <PhotoList photoUrls={member.photo_urls} />
+              <Text style={styles.previewInfo}>{memberSummary(member) || '등록된 정보가 없습니다'}</Text>
+              <TouchableOpacity
+                style={styles.proposeBtn}
+                onPress={() => {
+                  toggleSelectForMatch(member.id, connectorId);
+                  setPreviewMember(null);
+                }}
+              >
+                <Text style={styles.proposeBtnText}>{isSelected ? '선택 해제' : '이 회원 선택'}</Text>
+              </TouchableOpacity>
+            </>
+          );
+        })()}
+      </BottomSheet>
     </View>
   );
 }
@@ -998,6 +1039,71 @@ const styles = StyleSheet.create({
     color: '#5B21FF',
     fontWeight: '600',
     marginTop: 4,
+  },
+  memberList: {
+    gap: 8,
+  },
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 12,
+    padding: 10,
+  },
+  memberRowSelected: {
+    borderColor: '#5B21FF',
+    backgroundColor: '#F7F4FF',
+  },
+  memberRowBody: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 48,
+  },
+  memberRowText: {
+    flex: 1,
+  },
+  memberRowName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#222',
+  },
+  memberRowSub: {
+    fontSize: 13,
+    color: '#888',
+    marginTop: 2,
+  },
+  memberCheck: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#ccc',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberCheckOn: {
+    backgroundColor: '#5B21FF',
+    borderColor: '#5B21FF',
+  },
+  memberCheckMark: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  mutualText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#5B21FF',
+    marginTop: 6,
+  },
+  previewInfo: {
+    fontSize: 14,
+    color: '#555',
+    marginTop: 12,
+    marginBottom: 16,
   },
   memberChipWrap: {
     flexDirection: 'row',

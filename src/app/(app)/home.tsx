@@ -23,6 +23,8 @@ import AvailableDatesSheet from '@/components/AvailableDatesSheet';
 import { autoScheduleMatch, earliestCommonDate } from '@/lib/schedule';
 import { afterCareDeadline, expireAfterCareIfDue, formatDeadline } from '@/lib/afterCare';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
+import ReviewSheet from '@/components/ReviewSheet';
+import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -40,6 +42,9 @@ export default function HomeScreen() {
   const [receivedMatches, setReceivedMatches] = useState<any[]>([]);
   const [remainingSessions, setRemainingSessions] = useState<number | null>(null);
   const [profilePartner, setProfilePartner] = useState<any | null>(null);
+  // 후기를 남긴 매칭 / 후기 작성 중인 매칭
+  const [reviewedMatchIds, setReviewedMatchIds] = useState<string[]>([]);
+  const [reviewTarget, setReviewTarget] = useState<{ matchId: string; connectorId: string } | null>(null);
   // 날짜 선택 시트: 승인할 때(approve) 또는 날짜가 겹치지 않아 다시 고를 때(reselect)
   const [datesTarget, setDatesTarget] = useState<{ matchId: string; mode: 'approve' | 'reselect' } | null>(null);
 
@@ -157,6 +162,7 @@ export default function HomeScreen() {
         });
 
         setReceivedMatches(matches);
+        setReviewedMatchIds(await fetchMyReviewedMatchIds(user!.id));
 
         // 애프터 응답 기한이 지난 매칭은 자동으로 마무리하고 다시 불러온다
         const expired = await Promise.all(consentedReqData.map((r: any) => expireAfterCareIfDue(r)));
@@ -315,7 +321,7 @@ export default function HomeScreen() {
       // (두 회원이 서로 다른 기기에서 시차를 두고 제출하면 내 화면의 match는 상대방 제출 사실을 모를 수 있다)
       const { data: freshMatch } = await supabase
         .from('match_requests')
-        .select('after_care_hopeful_1, after_care_hopeful_2')
+        .select('after_care_hopeful_1, after_care_hopeful_2, connector_1_id, connector_2_id')
         .eq('id', matchId)
         .single();
 
@@ -328,6 +334,18 @@ export default function HomeScreen() {
           toast.show('노쇼 신고가 접수되어 매칭이 종료되었어요. 이용권은 차감되지 않아요', 'success');
         } else {
           toast.show('매칭이 마무리되었어요', 'success');
+          // 두 회원 모두 다시 만나고 싶어하면 양쪽 파트너에게 알린다 (한쪽만 원할 때는 알리지 않는다)
+          if (freshMatch?.after_care_hopeful_1 === '신청' && freshMatch?.after_care_hopeful_2 === '신청') {
+            const connectorIds = [...new Set([freshMatch.connector_1_id, freshMatch.connector_2_id])];
+            await Promise.all(connectorIds.map((id) => createNotification({
+              userId: id,
+              type: 'after_care_mutual',
+              title: '💞 두 회원 모두 다시 만나고 싶어해요',
+              body: '소개한 두 회원이 모두 애프터를 원했습니다',
+              route: '/matching',
+              routeParams: connectorIds.length > 1 ? { segment: 'ally' } : undefined,
+            })));
+          }
         }
       }
 
@@ -764,12 +782,42 @@ export default function HomeScreen() {
                       </Text>
                     </View>
                   )}
+
+                  {/* 파트너 후기: 내 애프터 의사를 낸 뒤 한 번 남길 수 있다 */}
+                  {item.meeting_status === 'completed' && !!myAfterCare && (
+                    reviewedMatchIds.includes(item.id) ? (
+                      <Text style={styles.reviewDoneText}>✓ 파트너 후기를 남겼어요</Text>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.reviewBtn}
+                        onPress={() => setReviewTarget({ matchId: item.id, connectorId: item.isHopeful1 ? item.connector_1_id : item.connector_2_id })}
+                      >
+                        <Text style={styles.reviewBtnText}>파트너 후기 남기기</Text>
+                      </TouchableOpacity>
+                    )
+                  )}
                 </View>
               );
             }}
           />
         </View>
       )}
+
+      <ReviewSheet
+        visible={reviewTarget !== null}
+        onClose={() => setReviewTarget(null)}
+        onSubmit={async (rating, content) => {
+          if (!reviewTarget || !user) return;
+          const { error } = await submitReview({ ...reviewTarget, hopefulId: user.id, rating, content });
+          if (error) {
+            toast.show('후기 등록 중 오류가 발생했습니다', 'error');
+            return;
+          }
+          setReviewedMatchIds((prev) => [...prev, reviewTarget.matchId]);
+          setReviewTarget(null);
+          toast.show('후기를 남겼어요. 감사합니다', 'success');
+        }}
+      />
 
       <AvailableDatesSheet
         visible={datesTarget !== null}
@@ -1254,6 +1302,25 @@ const styles = StyleSheet.create({
     color: '#5B21FF',
     fontSize: 12,
     fontWeight: '500',
+  },
+  reviewBtn: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#5B21FF',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  reviewBtnText: {
+    color: '#5B21FF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  reviewDoneText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#888',
+    textAlign: 'center',
   },
   afterCareSection: {
     backgroundColor: '#F9F0FF',

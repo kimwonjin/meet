@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatRegions } from '@/lib/format';
+import { fetchConnectorReviews, fetchReviewSummaries, formatStars, Review, ReviewSummary } from '@/lib/reviews';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
 import { purchasePackage, getCredit, PACKAGE_OPTIONS } from '@/lib/payments';
@@ -53,6 +54,10 @@ export default function ConnectorsScreen() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [completedMatchCount, setCompletedMatchCount] = useState<number | null>(null);
+  // 파트너 후기: 목록용 평균 별점 / 선택한 파트너의 후기 목록
+  const [reviewSummaries, setReviewSummaries] = useState<Record<string, ReviewSummary>>({});
+  const [reviews, setReviews] = useState<Review[] | null>(null);
+  const [showAllReviews, setShowAllReviews] = useState(false);
   const [tabStatus, setTabStatus] = useState<'pending' | 'approved' | 'ally'>('approved');
   // 동맹 연결자들이 승인한 회원 (동맹 매칭 전에 어떤 회원인지 확인용)
   const [allyMembers, setAllyMembers] = useState<any[]>([]);
@@ -157,6 +162,7 @@ export default function ConnectorsScreen() {
         }).filter(conn => conn.id !== user?.id);
 
         setConnectors(filtered);
+        setReviewSummaries(await fetchReviewSummaries(filtered.map((c: any) => c.id)));
       }
     } catch (error) {
       console.error('Connectors error:', error);
@@ -215,6 +221,9 @@ export default function ConnectorsScreen() {
     if (user?.role !== 'connector' && selectedConnector?.id) {
       // 성사(정산 완료)된 매칭 수
       setCompletedMatchCount(null);
+      setReviews(null);
+      setShowAllReviews(false);
+      fetchConnectorReviews(selectedConnector.id).then(setReviews);
       supabase
         .from('match_requests')
         .select('id', { count: 'exact', head: true })
@@ -608,6 +617,9 @@ export default function ConnectorsScreen() {
             </View>
             <View style={styles.meta}>
               <Text style={styles.price}>{item.fee_per_session ? `${item.fee_per_session.toLocaleString()}원 / 건` : '-'}</Text>
+              {!!reviewSummaries[item.id] && (
+                <Text style={styles.reviewScore}>★ {reviewSummaries[item.id].avg.toFixed(1)} ({reviewSummaries[item.id].count})</Text>
+              )}
               {!!item.main_region && <Text style={styles.rating}>{formatRegions(item.main_region)}</Text>}
             </View>
           </TouchableOpacity>
@@ -692,6 +704,34 @@ export default function ConnectorsScreen() {
                         <Text style={styles.bioText}>{selectedConnector.service_description}</Text>
                       </View>
                     )}
+
+                    <View style={styles.modalSection}>
+                      <Text style={styles.modalSectionTitle}>
+                        후기{reviews && reviews.length > 0 ? ` ${reviews.length}개 · ★ ${(reviews.reduce((a, r) => a + r.rating, 0) / reviews.length).toFixed(1)}` : ''}
+                      </Text>
+                      {reviews === null ? (
+                        <ActivityIndicator color="#5B21FF" />
+                      ) : reviews.length === 0 ? (
+                        <Text style={styles.bioText}>아직 후기가 없어요</Text>
+                      ) : (
+                        <>
+                          {(showAllReviews ? reviews : reviews.slice(0, 3)).map((r) => (
+                            <View key={r.id} style={styles.reviewItem}>
+                              <View style={styles.reviewHead}>
+                                <Text style={styles.reviewStars}>{formatStars(r.rating)}</Text>
+                                <Text style={styles.reviewMeta}>{r.writerName} · {new Date(r.created_at).toLocaleDateString('ko-KR')}</Text>
+                              </View>
+                              {!!r.content && <Text style={styles.bioText}>{r.content}</Text>}
+                            </View>
+                          ))}
+                          {!showAllReviews && reviews.length > 3 && (
+                            <TouchableOpacity onPress={() => setShowAllReviews(true)} style={styles.moreReviews}>
+                              <Text style={styles.moreReviewsText}>후기 {reviews.length - 3}개 더 보기</Text>
+                            </TouchableOpacity>
+                          )}
+                        </>
+                      )}
+                    </View>
 
                     {selectedConnector.is_approved ? (
                       <View style={styles.modalSection}>
@@ -900,6 +940,38 @@ const styles = StyleSheet.create({
   },
   rating: {
     color: '#999',
+  },
+  reviewScore: {
+    color: '#333',
+    fontWeight: '600',
+  },
+  reviewItem: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f2f2f2',
+  },
+  reviewHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  reviewStars: {
+    color: '#5B21FF',
+    fontSize: 13,
+  },
+  reviewMeta: {
+    color: '#999',
+    fontSize: 12,
+  },
+  moreReviews: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  moreReviewsText: {
+    color: '#5B21FF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   bottomSheet: {
     backgroundColor: '#fff',
