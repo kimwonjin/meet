@@ -61,6 +61,7 @@ export default function ConnectorsScreen() {
   const [search, setSearch] = useState('');
   // 회원이 보는 파트너 정보 (회원 구성·실적)
   const [overview, setOverview] = useState<any | null>(null);
+  const [networkOverview, setNetworkOverview] = useState<any | null>(null);
   // 파트너 후기: 목록용 평균 별점 / 선택한 파트너의 후기 목록
   const [reviewSummaries, setReviewSummaries] = useState<Record<string, ReviewSummary>>({});
   const [reviews, setReviews] = useState<Review[] | null>(null);
@@ -230,12 +231,16 @@ export default function ConnectorsScreen() {
       fetchConnectorReviews(selectedConnector.id).then(setReviews);
       // 회원 구성·실적: 지금 실제 회원 기준으로 서버에서 계산
       setOverview(null);
+      setNetworkOverview(null);
       supabase
-        .rpc('fn_partner_overview', { p_connector_id: selectedConnector.id })
+        .rpc('fn_partner_overview', { p_connector_id: selectedConnector.id, p_include_allies: false })
         .then(({ data, error }) => {
           if (error) console.error('partner overview error:', error);
           setOverview(error ? { error: true } : data);
         });
+      supabase
+        .rpc('fn_partner_overview', { p_connector_id: selectedConnector.id, p_include_allies: true })
+        .then(({ data, error }) => setNetworkOverview(error ? { error: true } : data));
     }
 
     if (user?.role !== 'connector' && selectedConnector?.is_approved) {
@@ -572,6 +577,61 @@ export default function ConnectorsScreen() {
     );
   }
 
+  // 회원 구성 그래프 (내 회원 / 동맹 포함 공용)
+  function renderComposition(ov: any) {
+    return (
+      <>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>전체 회원</Text>
+          <Text style={styles.infoValue}>{ov.total}명</Text>
+        </View>
+        {ov.total > 0 && (
+          <View style={styles.distBlock}>
+            <Text style={styles.distLabel}>성별</Text>
+            <SplitBar
+              total={ov.total}
+              left={{ label: '남', count: ov.male, color: '#2a78d6' }}
+              right={{ label: '여', count: ov.female, color: '#eb6834' }}
+            />
+          </View>
+        )}
+        {ov.ages ? (
+          (['M', 'F'] as const).map((g) => {
+            const rows = (ov.ages as any[]).filter((a) => a.gender === g);
+            if (!rows.length) return null;
+            return (
+              <View key={g} style={styles.distBlock}>
+                <Text style={styles.distLabel}>{g === 'M' ? '남성 연령대' : '여성 연령대'}</Text>
+                <StackedBar
+                  total={g === 'M' ? ov.male : ov.female}
+                  rows={rows.map((a, i) => ({ label: a.label, count: a.count, color: ageColors(rows.length)[i] }))}
+                />
+              </View>
+            );
+          })
+        ) : null}
+        {ov.regions ? (
+          <View style={styles.distBlock}>
+            <Text style={styles.distLabel}>지역</Text>
+            <StackedBar
+              total={ov.total}
+              // 많은 순, 지역을 입력하지 않은 회원은 맨 끝에 회색
+              rows={[
+                ...(ov.regions as any[]).filter((r) => r.label !== '미입력'),
+                ...(ov.regions as any[]).filter((r) => r.label === '미입력'),
+              ].map((r) => ({ label: r.label, count: r.count, color: regionColor(r.label) }))}
+            />
+          </View>
+        ) : null}
+        {!ov.ages && (
+          <Text style={styles.distHint}>
+            회원이 {ov.min_for_detail}명 이상이 되면 연령대와 지역 분포를 보여드려요 (회원 개인정보 보호)
+          </Text>
+        )}
+      </>
+    );
+  }
+
   const query = search.trim();
   const visiblePartners = query
     ? connectors.filter((c) => [c.business_name, formatRegions(c.main_region), c.service_description].some((v) => v?.includes(query)))
@@ -687,57 +747,20 @@ export default function ConnectorsScreen() {
                       ) : overview.error ? (
                         <Text style={styles.bioText}>회원 구성을 불러오지 못했어요</Text>
                       ) : (
-                        <>
-                          <View style={styles.infoRow}>
-                            <Text style={styles.infoLabel}>전체 회원</Text>
-                            <Text style={styles.infoValue}>{overview.total}명</Text>
-                          </View>
-                          {overview.total > 0 && (
-                            <View style={styles.distBlock}>
-                              <Text style={styles.distLabel}>성별</Text>
-                              <SplitBar
-                                total={overview.total}
-                                left={{ label: '남', count: overview.male, color: '#2a78d6' }}
-                                right={{ label: '여', count: overview.female, color: '#eb6834' }}
-                              />
-                            </View>
-                          )}
-                          {overview.ages ? (
-                            (['M', 'F'] as const).map((g) => {
-                              const rows = (overview.ages as any[]).filter((a) => a.gender === g);
-                              if (!rows.length) return null;
-                              return (
-                                <View key={g} style={styles.distBlock}>
-                                  <Text style={styles.distLabel}>{g === 'M' ? '남성 연령대' : '여성 연령대'}</Text>
-                                  <StackedBar
-                                    total={g === 'M' ? overview.male : overview.female}
-                                    rows={rows.map((a, i) => ({ label: a.label, count: a.count, color: ageColors(rows.length)[i] }))}
-                                  />
-                                </View>
-                              );
-                            })
-                          ) : null}
-                          {overview.regions ? (
-                            <View style={styles.distBlock}>
-                              <Text style={styles.distLabel}>지역</Text>
-                              <StackedBar
-                                total={overview.total}
-                                // 많은 순, 지역을 입력하지 않은 회원은 맨 끝에 회색
-                                rows={[
-                                  ...(overview.regions as any[]).filter((r) => r.label !== '미입력'),
-                                  ...(overview.regions as any[]).filter((r) => r.label === '미입력'),
-                                ].map((r) => ({ label: r.label, count: r.count, color: regionColor(r.label) }))}
-                              />
-                            </View>
-                          ) : null}
-                          {!overview.ages && (
-                            <Text style={styles.distHint}>
-                              회원이 {overview.min_for_detail}명 이상이 되면 연령대와 지역 분포를 보여드려요 (회원 개인정보 보호)
-                            </Text>
-                          )}
-                        </>
+                        renderComposition(overview)
                       )}
                     </View>
+
+                    {/* 동맹 매칭으로 동맹 파트너의 회원과도 만날 수 있다 */}
+                    {networkOverview && !networkOverview.error && networkOverview.ally_count > 0 && (
+                      <View style={styles.modalSection}>
+                        <Text style={styles.modalSectionTitle}>동맹 포함 회원 구성</Text>
+                        <Text style={styles.distHint}>
+                          동맹 파트너 {networkOverview.ally_count}곳의 회원까지 포함해요. 동맹 매칭으로 이 회원들과도 만날 수 있어요.
+                        </Text>
+                        {renderComposition(networkOverview)}
+                      </View>
+                    )}
 
                     {selectedConnector.service_description && (
                       <View style={styles.modalSection}>
