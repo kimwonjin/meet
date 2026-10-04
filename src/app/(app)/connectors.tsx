@@ -8,6 +8,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { formatRegions } from '@/lib/format';
 import { fetchConnectorReviews, fetchReviewSummaries, Review, ReviewSummary } from '@/lib/reviews';
 import ReviewList from '@/components/ReviewList';
+import MemberProfileView from '@/components/MemberProfileView';
 import { useMemberFilter } from '@/components/MemberFilter';
 import StackedBar, { SplitBar, ageColors, regionColor } from '@/components/DistributionBars';
 import BottomSheet from '@/components/BottomSheet';
@@ -511,72 +512,7 @@ export default function ConnectorsScreen() {
         {selectedConnector && user?.role === 'connector' && (
           <BottomSheet visible onClose={() => setSelectedConnector(null)}>
                 <View>
-                  {selectedConnector && (
-                    <>
-                      <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>{selectedConnector.name}</Text>
-                      </View>
-
-                      <PhotoList photoUrls={selectedConnector.photo_urls} />
-
-                      <View style={styles.modalSection}>
-                        <Text style={styles.modalSectionTitle}>기본 정보</Text>
-                        <View style={styles.infoRow}>
-                          <Text style={styles.infoLabel}>성별 · 나이</Text>
-                          <Text style={styles.infoValue}>
-                            {[selectedConnector.gender === 'M' ? '남' : selectedConnector.gender === 'F' ? '여' : null, selectedConnector.age && `${selectedConnector.age}세`].filter(Boolean).join(' · ') || '-'}
-                          </Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                          <Text style={styles.infoLabel}>생년월일</Text>
-                          <Text style={styles.infoValue}>{selectedConnector.birth_date || '-'}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                          <Text style={styles.infoLabel}>키</Text>
-                          <Text style={styles.infoValue}>{selectedConnector.height ? `${selectedConnector.height}cm` : '-'}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                          <Text style={styles.infoLabel}>지역</Text>
-                          <Text style={styles.infoValue}>{selectedConnector.location || '-'}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                          <Text style={styles.infoLabel}>직업</Text>
-                          <Text style={styles.infoValue}>{selectedConnector.job || '-'}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                          <Text style={styles.infoLabel}>학력</Text>
-                          <Text style={styles.infoValue}>{selectedConnector.education || '-'}</Text>
-                        </View>
-                      </View>
-
-                      {selectedConnector.bio && (
-                        <View style={styles.modalSection}>
-                          <Text style={styles.modalSectionTitle}>자기소개</Text>
-                          <Text style={styles.bioText}>{selectedConnector.bio}</Text>
-                        </View>
-                      )}
-
-                      <View style={styles.modalSection}>
-                        <Text style={styles.modalSectionTitle}>생활습관</Text>
-                        <View style={styles.infoRow}>
-                          <Text style={styles.infoLabel}>종교</Text>
-                          <Text style={styles.infoValue}>{selectedConnector.religion || '-'}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                          <Text style={styles.infoLabel}>흡연</Text>
-                          <Text style={styles.infoValue}>{selectedConnector.smoking || '-'}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                          <Text style={styles.infoLabel}>음주</Text>
-                          <Text style={styles.infoValue}>{selectedConnector.drinking || '-'}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                          <Text style={styles.infoLabel}>체형</Text>
-                          <Text style={styles.infoValue}>{selectedConnector.body_type || '-'}</Text>
-                        </View>
-                      </View>
-                    </>
-                  )}
+                  {selectedConnector && <MemberProfileView member={selectedConnector} />}
                 </View>
           </BottomSheet>
         )}

@@ -18,16 +18,17 @@ import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
 import DatePickerSheet from '@/components/DatePickerSheet';
 import { useMemberFilter } from '@/components/MemberFilter';
+import MemberProfileView, { MemberProfile } from '@/components/MemberProfileView';
 import { formatMeetingDate } from '@/lib/format';
 import { earliestCommonDate, sendContactsViaChat } from '@/lib/schedule';
 import BottomSheet from '@/components/BottomSheet';
-import { Avatar, PhotoList } from '@/components/ProfilePhoto';
+import { Avatar } from '@/components/ProfilePhoto';
 import { AFTER_CARE_DAYS, afterCareDeadline, expireAfterCareIfDue, formatDeadline } from '@/lib/afterCare';
 
 
 // 매칭 후보로 고를 회원 (사진·나이·지역을 보고 고른다)
-type Member = { id: string; name: string; gender?: string; age?: number; location?: string; photo_urls?: string[] };
-const MEMBER_FIELDS = 'id, name, gender, age, location, photo_urls, height, job';
+type Member = MemberProfile & { id: string; name: string };
+const MEMBER_FIELDS = 'id, name, gender, age, birth_date, location, photo_urls, height, job, education, bio, religion, smoking, drinking, body_type';
 
 function memberSummary(m: Member) {
   return [m.gender === 'M' ? '남' : m.gender === 'F' ? '여' : null, m.age && `${m.age}세`, m.location].filter(Boolean).join(' · ');
@@ -1003,14 +1004,13 @@ export default function MatchingScreen() {
         onConfirm={(date) => scheduleMatchId && handleSetSchedule(scheduleMatchId, date)}
       />
 
-      <BottomSheet visible={previewMember !== null} onClose={() => setPreviewMember(null)} title={previewMember?.member.name ?? ''}>
+      <BottomSheet visible={previewMember !== null} onClose={() => setPreviewMember(null)} title="">
         {previewMember && (() => {
           const { member, connectorId } = previewMember;
           const isSelected = selectedForMatch.some((s) => s.id === member.id);
           return (
             <>
-              <PhotoList photoUrls={member.photo_urls} />
-              <Text style={styles.previewInfo}>{memberSummary(member) || '등록된 정보가 없습니다'}</Text>
+              <MemberProfileView member={member} />
               <TouchableOpacity
                 style={styles.proposeBtn}
                 onPress={() => {
@@ -1198,12 +1198,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#5B21FF',
     marginTop: 6,
-  },
-  previewInfo: {
-    fontSize: 14,
-    color: '#555',
-    marginTop: 12,
-    marginBottom: 16,
   },
   memberChipWrap: {
     flexDirection: 'row',
