@@ -229,31 +229,38 @@ export default function ConnectorsScreen() {
     );
   }
 
+  // 파트너를 새로 열 때만 다시 불러온다 (같은 파트너의 요금만 바뀐 경우 고른 회차를 유지)
+  const openedPartnerRef = useRef<string | null>(null);
   useEffect(() => {
-    if (user?.role !== 'connector' && selectedConnector?.id) {
+    const id = selectedConnector?.id ?? null;
+    openedPartnerRef.current = id;
+    if (user?.role !== 'connector' && id) {
+      // 늦게 도착한 이전 파트너의 응답이 지금 파트너 정보를 덮어쓰지 않도록 확인한다
+      const stillOpen = () => openedPartnerRef.current === id;
       setReviews(null);
-      fetchConnectorReviews(selectedConnector.id).then(setReviews);
+      fetchConnectorReviews(id).then((r) => stillOpen() && setReviews(r));
       // 회원 구성·실적: 지금 실제 회원 기준으로 서버에서 계산
       setOverview(null);
       setNetworkOverview(null);
       supabase
-        .rpc('fn_partner_overview', { p_connector_id: selectedConnector.id, p_include_allies: false })
+        .rpc('fn_partner_overview', { p_connector_id: id, p_include_allies: false })
         .then(({ data, error }) => {
           if (error) console.error('partner overview error:', error);
-          setOverview(error ? { error: true } : data);
+          if (stillOpen()) setOverview(error ? { error: true } : data);
         });
       supabase
-        .rpc('fn_partner_overview', { p_connector_id: selectedConnector.id, p_include_allies: true })
-        .then(({ data, error }) => setNetworkOverview(error ? { error: true } : data));
+        .rpc('fn_partner_overview', { p_connector_id: id, p_include_allies: true })
+        .then(({ data, error }) => stillOpen() && setNetworkOverview(error ? { error: true } : data));
     }
 
-    if (user?.role !== 'connector' && selectedConnector?.is_approved) {
+    if (user?.role !== 'connector' && id && selectedConnector?.is_approved) {
       setSelectedPackage(PACKAGE_OPTIONS[0]);
-      getCredit(user!.id, selectedConnector.id).then(({ credit }) => setMyCredit(credit));
+      getCredit(user!.id, id).then(({ credit }) => stillOpenCredit(id) && setMyCredit(credit));
     } else {
       setMyCredit(0);
     }
-  }, [selectedConnector]);
+  }, [selectedConnector?.id, selectedConnector?.is_approved]);
+  const stillOpenCredit = (id: string) => openedPartnerRef.current === id;
 
   async function handlePurchase() {
     // 같은 화면에서 빠르게 두 번 눌러도 한 번만 결제되도록
@@ -510,9 +517,9 @@ export default function ConnectorsScreen() {
 
         {/* Connector 바텀시트 */}
         {selectedConnector && user?.role === 'connector' && (
-          <BottomSheet visible onClose={() => setSelectedConnector(null)}>
+          <BottomSheet visible onClose={() => setSelectedConnector(null)} title="회원 프로필">
                 <View>
-                  {selectedConnector && <MemberProfileView member={selectedConnector} />}
+                  {selectedConnector && <MemberProfileView member={selectedConnector} showBirthDate />}
                 </View>
           </BottomSheet>
         )}
@@ -638,7 +645,7 @@ export default function ConnectorsScreen() {
         contentContainerStyle={styles.list}
       />
 
-      <BottomSheet visible={selectedConnector !== null} onClose={() => setSelectedConnector(null)}>
+      <BottomSheet visible={selectedConnector !== null} onClose={() => setSelectedConnector(null)} title="파트너 정보">
             <View>
               {selectedConnector && (
                 <>

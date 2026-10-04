@@ -16,6 +16,7 @@ export function formatDeadline(d: Date) {
 
 type AfterCareMatch = {
   id: string;
+  status?: string;
   meeting_status?: string;
   meeting_completed_at?: string | null;
   settlement_completed?: boolean;
@@ -26,7 +27,8 @@ type AfterCareMatch = {
 // 기한이 지난 매칭은 응답하지 않은 쪽을 '미신청'으로 채우고 정산한다.
 // 별도 서버 작업 없이, 회원이나 파트너가 화면을 열 때 처리된다. 처리한 경우 true.
 export async function expireAfterCareIfDue(m: AfterCareMatch) {
-  if (m.meeting_status !== 'completed' || m.settlement_completed) return false;
+  // 취소된 매칭은 마무리(정산)하지 않는다
+  if (m.status === 'rejected' || m.meeting_status !== 'completed' || m.settlement_completed) return false;
 
   // 두 회원이 모두 골랐는데 마무리가 안 된 경우 (네트워크 오류 등) 다시 시도한다
   if (m.after_care_hopeful_1 && m.after_care_hopeful_2) {

@@ -28,8 +28,10 @@ export function ageColors(count: number) {
 }
 
 // 누적 가로 막대 하나 + 아래 범례(이름·인원·비율)
-export default function StackedBar({ rows, total }: { rows: DistributionRow[]; total: number }) {
+export default function StackedBar({ rows }: { rows: DistributionRow[]; total?: number }) {
   const shown = rows.filter((r) => r.count > 0);
+  // 비율은 막대에 실제로 그린 항목 합계 기준 (나이·지역 미입력 등으로 빠진 사람이 있어도 100%가 되게)
+  const total = shown.reduce((sum, r) => sum + r.count, 0);
   return (
     <View>
       <View style={styles.bar} accessible accessibilityLabel={shown.map((r) => `${r.label} ${r.count}명`).join(', ')}>
@@ -62,7 +64,8 @@ export default function StackedBar({ rows, total }: { rows: DistributionRow[]; t
 }
 
 // 두 항목 비교(예: 남·여): 막대 하나 안에 왼쪽·오른쪽으로 이름과 인원을 바로 적는다
-export function SplitBar({ left, right, total }: { left: DistributionRow; right: DistributionRow; total: number }) {
+export function SplitBar({ left, right }: { left: DistributionRow; right: DistributionRow; total?: number }) {
+  const total = left.count + right.count;
   const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
   const label = (r: DistributionRow) => `${r.label} ${r.count}명 (${pct(r.count)}%)`;
   return (

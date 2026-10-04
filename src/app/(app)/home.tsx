@@ -23,7 +23,8 @@ import AvailableDatesSheet from '@/components/AvailableDatesSheet';
 import { toDateKey } from '@/components/CalendarGrid';
 import { autoScheduleMatch, earliestCommonDate } from '@/lib/schedule';
 import { afterCareDeadline, expireAfterCareIfDue, formatDeadline, notifyAfterCareResult } from '@/lib/afterCare';
-import { Avatar, PhotoList } from '@/components/ProfilePhoto';
+import { Avatar } from '@/components/ProfilePhoto';
+import MemberProfileView from '@/components/MemberProfileView';
 import ReviewSheet from '@/components/ReviewSheet';
 import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
 
@@ -534,7 +535,7 @@ export default function HomeScreen() {
         {matchingRequests.length === 0 ? (
           <View style={styles.placeholder}>
             <Text style={styles.placeholderText}>진행 중인 매칭이 없습니다</Text>
-            <TouchableOpacity style={styles.findPartnerBtn} onPress={() => router.push('/matching')}>
+            <TouchableOpacity style={styles.findPartnerBtn} onPress={() => router.push({ pathname: '/matching', params: { view: 'active' } })}>
               <Text style={styles.findPartnerBtnText}>매칭 제안하기</Text>
             </TouchableOpacity>
           </View>
@@ -891,34 +892,8 @@ export default function HomeScreen() {
         }}
       />
 
-      <BottomSheet visible={profilePartner !== null} onClose={() => setProfilePartner(null)} title={profilePartner?.name ?? ''}>
-        {profilePartner && (
-          <View>
-            <PhotoList photoUrls={profilePartner.photo_urls} />
-            {[
-              ['나이', profilePartner.age ? `${profilePartner.age}세` : null],
-              ['지역', profilePartner.location],
-              ['키', profilePartner.height ? `${profilePartner.height}cm` : null],
-              ['직업', profilePartner.job],
-              ['학력', profilePartner.education],
-              ['종교', profilePartner.religion],
-              ['흡연', profilePartner.smoking],
-              ['음주', profilePartner.drinking],
-              ['체형', profilePartner.body_type],
-            ].map(([label, value]) => (
-              <View key={label} style={styles.profileRow}>
-                <Text style={styles.profileLabel}>{label}</Text>
-                <Text style={styles.profileValue}>{value || '-'}</Text>
-              </View>
-            ))}
-            {!!profilePartner.bio && (
-              <View style={styles.profileBio}>
-                <Text style={styles.profileLabel}>소개</Text>
-                <Text style={styles.profileBioText}>{profilePartner.bio}</Text>
-              </View>
-            )}
-          </View>
-        )}
+      <BottomSheet visible={profilePartner !== null} onClose={() => setProfilePartner(null)} title="소개팅 상대">
+        {profilePartner && <MemberProfileView member={profilePartner} />}
       </BottomSheet>
     </ScrollView>
   );
@@ -1233,31 +1208,6 @@ const styles = StyleSheet.create({
     color: '#5B21FF',
     paddingVertical: 6,
     paddingLeft: 12,
-  },
-  profileRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  profileLabel: {
-    fontSize: 14,
-    color: '#888',
-  },
-  profileValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  profileBio: {
-    paddingVertical: 12,
-    gap: 6,
-  },
-  profileBioText: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#333',
   },
   partnerName: {
     fontSize: 14,

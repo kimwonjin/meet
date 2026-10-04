@@ -59,6 +59,8 @@ export default function MatchingScreen() {
   const [focusId, setFocusId] = useState<string | null>(null);
   const listRef = useRef<FlatList>(null);
   const historyOrderRef = useRef<string[]>([]);
+  const scrollRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (scrollRetryRef.current) clearTimeout(scrollRetryRef.current); }, []);
   // 강조할 매칭이 목록에 나타나면 그 위치로 스크롤하고, 잠시 뒤 강조를 끈다
   useEffect(() => {
     if (!focusId || view !== 'history') return;
@@ -70,7 +72,10 @@ export default function MatchingScreen() {
   }, [focusId, view, matchRequests.length]);
 
   useEffect(() => {
-    if (params.segment === 'ally' || params.view === 'history' || params.focus) {
+    if (params.view === 'active') {
+      setView('active');
+      router.setParams({ view: undefined });
+    } else if (params.segment === 'ally' || params.view === 'history' || params.focus) {
       // 매칭 관련 알림(동의 요청, 승인, 일정 등)은 매칭내역에서 확인한다
       setView('history');
       if (params.focus) setFocusId(params.focus);
@@ -232,20 +237,22 @@ export default function MatchingScreen() {
   }
 
   function toggleSelectForMatch(memberId: string, connectorId: string) {
-    setSelectedForMatch((prev) => {
-      const exists = prev.find((s) => s.id === memberId);
-      if (exists) return prev.filter((s) => s.id !== memberId);
-      if (prev.length >= 2) {
-        toast.show('최대 2명까지 선택할 수 있습니다', 'error');
-        return prev;
-      }
-      // 동맹 회원끼리는 매칭할 수 없다 (내 회원이 한 명은 있어야 한다)
-      if (prev.length === 1 && connectorId !== user?.id && prev[0].connectorId !== user?.id) {
-        toast.show('동맹 회원끼리는 매칭할 수 없어요. 내 회원을 한 명 포함해주세요', 'error');
-        return prev;
-      }
-      return [...prev, { id: memberId, connectorId }];
-    });
+    // 안내는 상태 업데이트 함수 밖에서 (개발 모드에서 두 번 뜨지 않도록)
+    const prev = selectedForMatch;
+    if (prev.some((s) => s.id === memberId)) {
+      setSelectedForMatch(prev.filter((s) => s.id !== memberId));
+      return;
+    }
+    if (prev.length >= 2) {
+      toast.show('최대 2명까지 선택할 수 있습니다', 'error');
+      return;
+    }
+    // 동맹 회원끼리는 매칭할 수 없다 (내 회원이 한 명은 있어야 한다)
+    if (prev.length === 1 && connectorId !== user?.id && prev[0].connectorId !== user?.id) {
+      toast.show('동맹 회원끼리는 매칭할 수 없어요. 내 회원을 한 명 포함해주세요', 'error');
+      return;
+    }
+    setSelectedForMatch([...prev, { id: memberId, connectorId }]);
   }
 
   function memberName(id: string) {
@@ -286,7 +293,7 @@ export default function MatchingScreen() {
           userId: a.connectorId === user.id ? b.connectorId : a.connectorId,
           type: 'match_consent_requested',
           title: '동맹 매칭 동의 요청이 왔습니다',
-          body: `${user.name}님이 회원 매칭을 제안했습니다. 매칭 › 동맹매칭에서 확인해주세요`,
+          body: `${user.name}님이 회원 매칭을 제안했습니다. 매칭 › 매칭내역에서 확인해주세요`,
           route: '/matching',
           routeParams: { segment: 'ally' },
         });
@@ -387,7 +394,12 @@ export default function MatchingScreen() {
       const { data: result, error } = await supabase.rpc('fn_cancel_match', { p_match_id: matchId, p_connector_id: user.id });
       if (error || !result) throw error;
       if (!result.ok) {
-        toast.show(result.reason === 'meeting_done' ? '만남이 끝난 매칭은 취소할 수 없어요' : '이미 종료된 매칭이에요', 'error');
+        toast.show(
+          result.reason === 'meeting_done' ? '만남이 끝난 매칭은 취소할 수 없어요'
+            : result.reason === 'not_yours' ? '내가 담당하는 매칭만 취소할 수 있어요'
+            : '이미 종료된 매칭이에요',
+          'error'
+        );
         await fetchMatches();
         return;
       }
@@ -528,8 +540,20 @@ export default function MatchingScreen() {
       const mine: Record<string, boolean> = {};
       if (match.connector_1_id === user.id) mine.meeting_done_connector_1 = true;
       if (match.connector_2_id === user.id) mine.meeting_done_connector_2 = true;
-      const { error } = await supabase.from('match_requests').update(mine).eq('id', matchId);
+      // 취소·마무리된 매칭에는 저장하지 않는다 (오래된 화면에서 누른 경우)
+      const { data: marked, error } = await supabase
+        .from('match_requests')
+        .update(mine)
+        .eq('id', matchId)
+        .neq('status', 'rejected')
+        .eq('settlement_completed', false)
+        .select('id');
       if (error) throw error;
+      if (!marked?.length) {
+        toast.show('이미 취소되었거나 마무리된 매칭이에요', 'info');
+        await fetchMatches();
+        return;
+      }
 
       // 저장된 최신 값으로 양쪽 확인 여부를 판단하고, 완료 처리는 한 번만 일어나게 한다
       const { data: fresh } = await supabase
@@ -544,6 +568,7 @@ export default function MatchingScreen() {
           .update({ meeting_status: 'completed', meeting_completed_at: new Date().toISOString() })
           .eq('id', matchId)
           .neq('meeting_status', 'completed')
+          .neq('status', 'rejected')
           .select('id');
         if (completed?.length) {
           await Promise.all(
@@ -990,7 +1015,14 @@ export default function MatchingScreen() {
 
       <View style={styles.viewRow}>
         {([['active', '매칭'], ['history', `매칭내역${activeMatches.length ? ` (진행 ${activeMatches.length})` : ''}`]] as const).map(([key, label]) => (
-          <TouchableOpacity key={key} style={[styles.viewBtn, view === key && styles.viewBtnActive]} onPress={() => setView(key)}>
+          <TouchableOpacity
+            key={key}
+            style={[styles.viewBtn, view === key && styles.viewBtnActive]}
+            onPress={() => setView(key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: view === key }}
+            accessibilityLabel={key === 'active' ? '매칭 제안 화면' : '매칭내역 화면'}
+          >
             <Text style={[styles.viewBtnText, view === key && styles.viewBtnTextActive]}>{label}</Text>
           </TouchableOpacity>
         ))}
@@ -998,7 +1030,15 @@ export default function MatchingScreen() {
 
       <FlatList
           ref={listRef}
-          onScrollToIndexFailed={({ index }) => setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true }), 300)}
+          // 아직 그려지지 않은 위치면 대략 그 근처로 먼저 이동한 뒤 한 번만 다시 시도한다
+          onScrollToIndexFailed={({ index, averageItemLength }) => {
+            listRef.current?.scrollToOffset({ offset: averageItemLength * index, animated: false });
+            if (scrollRetryRef.current) clearTimeout(scrollRetryRef.current);
+            scrollRetryRef.current = setTimeout(() => {
+              const len = historyOrderRef.current.length;
+              if (view === 'history' && index < len) listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.1 });
+            }, 300);
+          }}
           // 매칭: 제안만 / 매칭내역: 진행 중(동의 필요 먼저) → 마무리된 매칭
           data={view === 'active' ? [] : [...sortedMatches, ...historyMatches]}
           keyExtractor={(item) => item.id}
@@ -1024,13 +1064,13 @@ export default function MatchingScreen() {
         onConfirm={(date) => scheduleMatchId && handleSetSchedule(scheduleMatchId, date)}
       />
 
-      <BottomSheet visible={previewMember !== null} onClose={() => setPreviewMember(null)} title="">
+      <BottomSheet visible={previewMember !== null} onClose={() => setPreviewMember(null)} title="회원 프로필">
         {previewMember && (() => {
           const { member, connectorId } = previewMember;
           const isSelected = selectedForMatch.some((s) => s.id === member.id);
           return (
             <>
-              <MemberProfileView member={member} />
+              <MemberProfileView member={member} showBirthDate />
               <TouchableOpacity
                 style={styles.proposeBtn}
                 onPress={() => {

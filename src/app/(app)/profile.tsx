@@ -557,7 +557,12 @@ export default function ProfileScreen() {
       });
       if (error || !result) throw error;
       if (!result.ok) {
-        toast.show(`출금 가능 금액(${Number(result.available ?? 0).toLocaleString()}원)을 초과했습니다`, 'error');
+        toast.show(
+          result.reason === 'invalid'
+            ? '출금할 금액을 확인해주세요'
+            : `출금 가능 금액(${Number(result.available ?? 0).toLocaleString()}원)을 초과했습니다`,
+          'error'
+        );
       } else {
         toast.show('✓ 출금을 신청했습니다', 'success');
         setWithdrawAmount('');
