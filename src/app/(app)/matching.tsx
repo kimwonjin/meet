@@ -45,6 +45,8 @@ export default function MatchingScreen() {
   const [remindedKeys, setRemindedKeys] = useState<string[]>([]);
   // 동맹 파트너 회원까지 후보로 보여줄지
   const [includeAllies, setIncludeAllies] = useState(false);
+  // 매칭(제안·진행 중) / 매칭내역(마무리된 매칭)
+  const [view, setView] = useState<'active' | 'history'>('active');
   const router = useRouter();
   // 알림에서 들어오면 해당 칸(예: 동맹매칭)을 바로 연다
   // 동맹 매칭 알림으로 들어오면 동맹 회원까지 펼쳐서 보여준다
@@ -574,7 +576,11 @@ export default function MatchingScreen() {
   const needsMyConsent = (m: any) =>
     m.connector_1_id !== m.connector_2_id &&
     ((m.connector_1_id === user?.id && !m.connector_1_consented) || (m.connector_2_id === user?.id && !m.connector_2_consented));
-  const sortedMatches = [...matchRequests].sort((a, b) => {
+  const activeMatches = matchRequests.filter((m) => !m.settlement_completed);
+  const historyMatches = matchRequests
+    .filter((m) => m.settlement_completed)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const sortedMatches = [...activeMatches].sort((a, b) => {
     const pa = needsMyConsent(a) ? 1 : 0, pb = needsMyConsent(b) ? 1 : 0;
     if (pa !== pb) return pb - pa;
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -952,13 +958,21 @@ export default function MatchingScreen() {
         </View>
       </View>
 
+      <View style={styles.viewRow}>
+        {([['active', `매칭${activeMatches.length ? ` (${activeMatches.length})` : ''}`], ['history', '매칭내역']] as const).map(([key, label]) => (
+          <TouchableOpacity key={key} style={[styles.viewBtn, view === key && styles.viewBtnActive]} onPress={() => setView(key)}>
+            <Text style={[styles.viewBtnText, view === key && styles.viewBtnTextActive]}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <FlatList
-          data={sortedMatches}
+          data={view === 'active' ? sortedMatches : historyMatches}
           keyExtractor={(item) => item.id}
-          ListHeaderComponent={createSection}
+          ListHeaderComponent={view === 'active' ? createSection : null}
           ListEmptyComponent={
             <View style={styles.placeholder}>
-              <Text style={styles.placeholderText}>진행 중인 매칭이 없습니다</Text>
+              <Text style={styles.placeholderText}>{view === 'active' ? '진행 중인 매칭이 없습니다' : '마무리된 매칭이 없습니다'}</Text>
             </View>
           }
           renderItem={({ item }) => renderMatchCard(item)}
@@ -1048,6 +1062,31 @@ const styles = StyleSheet.create({
     color: '#5B21FF',
     fontWeight: '600',
     marginTop: 4,
+  },
+  viewRow: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginBottom: 8,
+    backgroundColor: '#F3F3F5',
+    borderRadius: 10,
+    padding: 4,
+  },
+  viewBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  viewBtnActive: {
+    backgroundColor: '#fff',
+  },
+  viewBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#999',
+  },
+  viewBtnTextActive: {
+    color: '#5B21FF',
   },
   createHeader: {
     marginBottom: 4,
