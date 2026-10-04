@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "인연장",
-    "slug": "inyeonjang",
+    "name": "두두인연",
+    "slug": "duduinyeon",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "inyeonjang",
+    "scheme": "duduinyeon",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.inyeonjang.app"
+      "bundleIdentifier": "com.duduinyeon.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +19,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.inyeonjang.app"
+      "package": "com.duduinyeon.app"
     },
     "web": {
       "output": "static",

@@ -58,7 +58,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>인연장</Text>
+      <Text style={styles.title}>두두인연</Text>
       <Text style={styles.subtitle}>사람이 아닌, 지지 인연.</Text>
 
       <View style={styles.form}>
