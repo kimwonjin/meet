@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
+  TextInput,
 } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
@@ -47,6 +48,11 @@ export default function MatchingScreen() {
   const [includeAllies, setIncludeAllies] = useState(false);
   // 매칭(제안·진행 중) / 매칭내역(마무리된 매칭)
   const [view, setView] = useState<'active' | 'history'>('active');
+  // 회원 후보 필터
+  const [filterQuery, setFilterQuery] = useState('');
+  const [filterGender, setFilterGender] = useState<'all' | 'M' | 'F'>('all');
+  const [filterAges, setFilterAges] = useState<number[]>([]); // 20, 30, 40(=40대 이상)
+  const [filterRegions, setFilterRegions] = useState<string[]>([]);
   const router = useRouter();
   // 알림에서 들어오면 해당 칸(예: 동맹매칭)을 바로 연다
   // 동맹 매칭 알림으로 들어오면 동맹 회원까지 펼쳐서 보여준다
@@ -587,7 +593,27 @@ export default function MatchingScreen() {
   });
 
   // 회원 후보 목록: 줄을 누르면 선택, 사진을 누르면 프로필 크게 보기
-  function renderMemberChips(members: Member[], connectorId: string) {
+  const filterActive = !!filterQuery.trim() || filterGender !== 'all' || filterAges.length > 0 || filterRegions.length > 0;
+  function passesFilter(m: Member) {
+    // 이미 고른 회원은 필터와 관계없이 계속 보인다
+    if (selectedForMatch.some((s) => s.id === m.id)) return true;
+    if (filterQuery.trim() && !m.name.includes(filterQuery.trim())) return false;
+    if (filterGender !== 'all' && m.gender !== filterGender) return false;
+    if (filterAges.length) {
+      if (!m.age) return false;
+      const decade = Math.min(40, Math.floor(m.age / 10) * 10);
+      if (!filterAges.includes(decade)) return false;
+    }
+    if (filterRegions.length && !filterRegions.includes(m.location || '')) return false;
+    return true;
+  }
+  function toggleIn<T>(list: T[], v: T) {
+    return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
+  }
+
+  function renderMemberChips(allMembers: Member[], connectorId: string) {
+    const members = allMembers.filter(passesFilter);
+    if (members.length === 0) return <Text style={styles.emptyCreateText}>조건에 맞는 회원이 없습니다</Text>;
     return (
       <View style={styles.memberList}>
         {members.map((m) => {
@@ -645,6 +671,48 @@ export default function MatchingScreen() {
         <Text style={styles.allyToggleText}>동맹 회원 포함</Text>
         {allyConnectors.length === 0 && <Text style={styles.allyToggleHint}>(마이 › 동맹 관리에서 동맹을 맺을 수 있어요)</Text>}
       </TouchableOpacity>
+
+      {/* 회원 필터: 이름·성별·나이·지역 */}
+      {(() => {
+        const candidates = [...ownMembers, ...(includeAllies ? allyMembers.flatMap((g) => g.members) : [])];
+        const regions = [...new Set(candidates.map((m) => m.location).filter(Boolean) as string[])].sort();
+        const chip = (label: string, on: boolean, onPress: () => void) => (
+          <TouchableOpacity key={label} style={[styles.filterChip, on && styles.filterChipOn]} onPress={onPress}>
+            <Text style={[styles.filterChipText, on && styles.filterChipTextOn]}>{label}</Text>
+          </TouchableOpacity>
+        );
+        return (
+          <View style={styles.filterBox}>
+            <TextInput
+              style={styles.filterSearch}
+              placeholder="🔍 이름으로 찾기"
+              placeholderTextColor="#aaa"
+              value={filterQuery}
+              onChangeText={setFilterQuery}
+            />
+            <View style={styles.filterRow}>
+              {chip('전체', filterGender === 'all', () => setFilterGender('all'))}
+              {chip('남', filterGender === 'M', () => setFilterGender('M'))}
+              {chip('여', filterGender === 'F', () => setFilterGender('F'))}
+              <View style={styles.filterDivider} />
+              {[20, 30, 40].map((d) => chip(d === 40 ? '40대+' : `${d}대`, filterAges.includes(d), () => setFilterAges(toggleIn(filterAges, d))))}
+            </View>
+            {regions.length > 0 && (
+              <View style={styles.filterRow}>
+                {regions.map((r) => chip(r, filterRegions.includes(r), () => setFilterRegions(toggleIn(filterRegions, r))))}
+              </View>
+            )}
+            {filterActive && (
+              <TouchableOpacity
+                onPress={() => { setFilterQuery(''); setFilterGender('all'); setFilterAges([]); setFilterRegions([]); }}
+                style={styles.filterReset}
+              >
+                <Text style={styles.filterResetText}>필터 초기화</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        );
+      })()}
 
       <Text style={styles.groupTitle}>내 회원</Text>
       {ownMembers.length === 0 ? (
@@ -1062,6 +1130,58 @@ const styles = StyleSheet.create({
     color: '#5B21FF',
     fontWeight: '600',
     marginTop: 4,
+  },
+  filterBox: {
+    gap: 8,
+    marginBottom: 4,
+  },
+  filterSearch: {
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  filterChipOn: {
+    borderColor: '#5B21FF',
+    backgroundColor: '#F1ECFF',
+  },
+  filterChipText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  filterChipTextOn: {
+    color: '#5B21FF',
+    fontWeight: '600',
+  },
+  filterDivider: {
+    width: 1,
+    height: 18,
+    backgroundColor: '#e5e5e5',
+    marginHorizontal: 2,
+  },
+  filterReset: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+  },
+  filterResetText: {
+    fontSize: 12,
+    color: '#999',
+    textDecorationLine: 'underline',
   },
   viewRow: {
     flexDirection: 'row',
