@@ -658,7 +658,17 @@ export default function HomeScreen() {
               return (
                 <View style={styles.requestCard}>
                   <View style={styles.requestHeader}>
-                    <Text style={styles.requestTitle}>🤝 매칭 제안</Text>
+                    <Text style={styles.requestTitle}>
+                      {item.closed_reason
+                        ? '매칭 종료'
+                        : item.settlement_completed
+                          ? '✓ 소개팅 완료'
+                          : item.meeting_status === 'completed'
+                            ? '💬 소개팅 어떠셨나요?'
+                            : item.meeting_scheduled_at
+                              ? '📅 소개팅 예정'
+                              : '🤝 매칭 제안'}
+                    </Text>
                     <Text style={styles.requestDate}>
                       {new Date(item.created_at).toLocaleDateString('ko-KR')}
                     </Text>

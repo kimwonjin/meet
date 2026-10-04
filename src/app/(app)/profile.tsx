@@ -1200,7 +1200,7 @@ export default function ProfileScreen() {
           <>
             <View style={styles.walletBalanceBox}>
               <Text style={styles.walletBalanceLabel}>충전된 금액</Text>
-              <Text style={styles.walletBalanceValue}>{walletBalance.toLocaleString()}원</Text>
+              <Text style={styles.walletBalanceValue}>{Math.max(0, walletBalance).toLocaleString()}원</Text>
             </View>
 
             <View style={styles.modalSection}>
