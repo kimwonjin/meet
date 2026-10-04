@@ -14,7 +14,9 @@ export function useMemberFilter() {
   const [gender, setGender] = useState<'all' | 'M' | 'F'>('all');
   const [ages, setAges] = useState<number[]>([]); // 20, 30, 40(=40대 이상)
   const [regions, setRegions] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
   const active = !!query.trim() || gender !== 'all' || ages.length > 0 || regions.length > 0;
+  const chipCount = (gender !== 'all' ? 1 : 0) + ages.length + regions.length;
 
   function passes(m: FilterableMember, keepIds: string[] = []) {
     if (keepIds.includes(m.id)) return true;
@@ -45,24 +47,40 @@ export function useMemberFilter() {
     );
     return (
       <View style={styles.box}>
-        <TextInput
-          style={styles.search}
-          placeholder="🔍 이름으로 찾기"
-          placeholderTextColor="#aaa"
-          value={query}
-          onChangeText={setQuery}
-        />
-        <View style={styles.row}>
-          {chip('전체', gender === 'all', () => setGender('all'))}
-          {chip('남', gender === 'M', () => setGender('M'))}
-          {chip('여', gender === 'F', () => setGender('F'))}
-          <View style={styles.divider} />
-          {[20, 30, 40].map((d) => chip(d === 40 ? '40대+' : `${d}대`, ages.includes(d), () => setAges(toggleIn(ages, d))))}
+        {/* 검색창 옆 '필터' 버튼 하나로 접어 두고, 누르면 조건이 펼쳐진다 */}
+        <View style={styles.topRow}>
+          <TextInput
+            style={styles.search}
+            placeholder="🔍 이름으로 찾기"
+            placeholderTextColor="#aaa"
+            value={query}
+            onChangeText={setQuery}
+          />
+          <TouchableOpacity
+            style={[styles.toggle, (open || chipCount > 0) && styles.toggleOn]}
+            onPress={() => setOpen(!open)}
+            accessibilityLabel={open ? '필터 접기' : '필터 펼치기'}
+          >
+            <Text style={[styles.toggleText, (open || chipCount > 0) && styles.toggleTextOn]}>
+              필터{chipCount > 0 ? ` ${chipCount}` : ''} {open ? '▴' : '▾'}
+            </Text>
+          </TouchableOpacity>
         </View>
-        {regionOptions.length > 0 && (
-          <View style={styles.row}>
-            {regionOptions.map((r) => chip(r, regions.includes(r), () => setRegions(toggleIn(regions, r))))}
-          </View>
+        {open && (
+          <>
+            <View style={styles.row}>
+              {chip('전체', gender === 'all', () => setGender('all'))}
+              {chip('남', gender === 'M', () => setGender('M'))}
+              {chip('여', gender === 'F', () => setGender('F'))}
+              <View style={styles.divider} />
+              {[20, 30, 40].map((d) => chip(d === 40 ? '40대+' : `${d}대`, ages.includes(d), () => setAges(toggleIn(ages, d))))}
+            </View>
+            {regionOptions.length > 0 && (
+              <View style={styles.row}>
+                {regionOptions.map((r) => chip(r, regions.includes(r), () => setRegions(toggleIn(regions, r))))}
+              </View>
+            )}
+          </>
         )}
         {active && (
           <TouchableOpacity onPress={reset} style={styles.reset}>
@@ -78,7 +96,12 @@ export function useMemberFilter() {
 
 const styles = StyleSheet.create({
   box: { gap: 8, marginBottom: 4 },
-  search: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14 },
+  topRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  toggle: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
+  toggleOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
+  toggleText: { fontSize: 14, color: '#666' },
+  toggleTextOn: { color: '#5B21FF', fontWeight: '600' },
+  search: { flex: 1, borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14 },
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   chip: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 },
   chipOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
