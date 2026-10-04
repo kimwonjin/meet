@@ -790,6 +790,8 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           )}
         </View>
+        {/* 배포된 버전 확인용 (커밋 번호) */}
+        <Text style={styles.buildId}>버전 {(process.env.EXPO_PUBLIC_BUILD_ID || 'dev').slice(0, 7)}</Text>
         </View>
       </ScrollView>
 
@@ -1527,6 +1529,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#333',
     marginBottom: 0,
+  },
+  buildId: {
+    textAlign: 'center',
+    fontSize: 11,
+    color: '#bbb',
+    marginBottom: 24,
   },
   policyLinks: {
     flexDirection: 'row',
