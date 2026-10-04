@@ -112,7 +112,8 @@ export async function getMyConnectorCredits(hopefulId: string) {
     const myPayments = payments.filter((p: any) => p.connector_id === id);
     const purchased = myPayments.reduce((sum: number, p: any) => sum + p.session_count, 0);
     const available = myPayments.reduce((sum: number, p: any) => sum + p.sessions_remaining, 0);
-    const used = purchased - available;
+    const refunded = myPayments.reduce((sum: number, p: any) => sum + (p.refunded_sessions || 0), 0);
+    const used = purchased - available - refunded;
     const totalCharged = myPayments.reduce((sum: number, p: any) => sum + Number(p.amount_total), 0);
     return {
       connectorId: id,
@@ -122,6 +123,7 @@ export async function getMyConnectorCredits(hopefulId: string) {
       purchased,
       available,
       used,
+      refunded,
     };
   });
 

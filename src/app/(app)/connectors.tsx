@@ -137,7 +137,7 @@ export default function ConnectorsScreen() {
         const connectorIds = (conData || []).map((c: any) => c.id);
         const { data: connUsers } = await supabase
           .from('users')
-          .select('id, name')
+          .select('id, name, withdrawn_at')
           .in('id', connectorIds);
 
         // 내 요청 상태 (승인됨 / 승인 대기)
@@ -159,7 +159,9 @@ export default function ConnectorsScreen() {
             is_approved: approvedConnectorIds.includes(conn.id),
             is_pending: pendingConnectorIds.includes(conn.id),
           };
-        }).filter(conn => conn.id !== user?.id);
+        }).filter(conn => conn.id !== user?.id)
+          // 탈퇴한 파트너는 목록에서 뺀다
+          .filter((conn) => !(connUsers || []).find((u: any) => u.id === conn.id)?.withdrawn_at);
 
         setConnectors(filtered);
         setReviewSummaries(await fetchReviewSummaries(filtered.map((c: any) => c.id)));

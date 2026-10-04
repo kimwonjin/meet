@@ -6,8 +6,9 @@ import { useToast } from '@/contexts/ToastContext';
 import { createNotification } from '@/lib/notifications';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import NotificationBell from '@/components/NotificationBell';
+import { getRefundable } from '@/lib/refunds';
 
-type Segment = 'settlements' | 'approvals' | 'withdrawals';
+type Segment = 'settlements' | 'approvals' | 'withdrawals' | 'refunds';
 
 export default function SettlementsScreen() {
   const toast = useToast();
@@ -15,6 +16,7 @@ export default function SettlementsScreen() {
   const [settlements, setSettlements] = useState<any[]>([]);
   const [pendingConnectors, setPendingConnectors] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [refunds, setRefunds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [segment, setSegment] = useState<Segment>('settlements');
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export default function SettlementsScreen() {
   );
 
   async function fetchAll() {
-    await Promise.all([fetchSettlements(), fetchPendingConnectors(), fetchWithdrawals()]);
+    await Promise.all([fetchSettlements(), fetchPendingConnectors(), fetchWithdrawals(), fetchRefunds()]);
     setLoading(false);
   }
 
@@ -98,6 +100,67 @@ export default function SettlementsScreen() {
       setWithdrawals(enriched);
     } catch (error) {
       console.error('Error fetching withdrawals:', error);
+    }
+  }
+
+  async function fetchRefunds() {
+    try {
+      const { data, error } = await supabase
+        .from('refund_requests')
+        .select('*')
+        .order('requested_at', { ascending: false });
+      if (error) throw error;
+      const ids = [...new Set((data || []).map((r: any) => r.hopeful_id))];
+      const { data: users } = await supabase.from('users').select('id, name').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      // 대기 중인 요청은 지금 시점 환불 가능 금액을 함께 보여준다
+      const enriched = await Promise.all((data || []).map(async (r: any) => ({
+        ...r,
+        hopeful_name: (users || []).find((u: any) => u.id === r.hopeful_id)?.name || '회원',
+        current: r.status === 'pending' ? await getRefundable(r.hopeful_id) : null,
+      })));
+      setRefunds(enriched);
+    } catch (error) {
+      console.error('Error fetching refunds:', error);
+    }
+  }
+
+  async function handleCompleteRefund(requestId: string) {
+    setProcessingId(requestId);
+    try {
+      const { data, error } = await supabase.rpc('fn_process_refund', { p_request_id: requestId });
+      if (error) throw error;
+      toast.show(`✓ ${Number(data?.total ?? 0).toLocaleString()}원 환불을 완료 처리했습니다`, 'success');
+      await fetchRefunds();
+    } catch (error) {
+      console.error(error);
+      toast.show('환불 처리 중 오류가 발생했습니다', 'error');
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  async function handleRejectRefund(item: any) {
+    setProcessingId(item.id);
+    try {
+      const { error } = await supabase
+        .from('refund_requests')
+        .update({ status: 'rejected', processed_at: new Date().toISOString() })
+        .eq('id', item.id);
+      if (error) throw error;
+      await createNotification({
+        userId: item.hopeful_id,
+        type: 'refund_rejected',
+        title: '환불 요청이 반려되었습니다',
+        body: '자세한 내용은 운영자 채팅으로 문의해주세요',
+        route: '/chat',
+      });
+      toast.show('환불 요청을 반려했습니다', 'info');
+      await fetchRefunds();
+    } catch (error) {
+      console.error(error);
+      toast.show('처리 중 오류가 발생했습니다', 'error');
+    } finally {
+      setProcessingId(null);
     }
   }
 
@@ -180,6 +243,7 @@ export default function SettlementsScreen() {
   const totalFee = settlements.reduce((sum, s) => sum + Number(s.platform_fee), 0);
   const pendingWithdrawals = withdrawals.filter((w) => w.status === 'pending');
   const completedWithdrawals = withdrawals.filter((w) => w.status === 'completed');
+  const pendingRefunds = refunds.filter((r) => r.status === 'pending');
 
   return (
     <View style={styles.container}>
@@ -194,7 +258,8 @@ export default function SettlementsScreen() {
         {([
           { key: 'settlements', label: '정산' },
           { key: 'approvals', label: `파트너 승인${pendingConnectors.length > 0 ? ` (${pendingConnectors.length})` : ''}` },
-          { key: 'withdrawals', label: `출금 처리${pendingWithdrawals.length > 0 ? ` (${pendingWithdrawals.length})` : ''}` },
+          { key: 'withdrawals', label: `출금${pendingWithdrawals.length > 0 ? ` (${pendingWithdrawals.length})` : ''}` },
+          { key: 'refunds', label: `환불${pendingRefunds.length > 0 ? ` (${pendingRefunds.length})` : ''}` },
         ] as { key: Segment; label: string }[]).map((s) => (
           <TouchableOpacity
             key={s.key}
@@ -348,6 +413,79 @@ export default function SettlementsScreen() {
                   >
                     <Text style={styles.approveBtnText}>{processingId === item.id ? '처리 중...' : '지급 완료 처리'}</Text>
                   </TouchableOpacity>
+                )}
+              </View>
+            )}
+          />
+        )
+      )}
+
+      {segment === 'refunds' && (
+        refunds.length === 0 ? (
+          <View style={styles.placeholder}>
+            <Text style={styles.placeholderText}>환불 요청 내역이 없습니다</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={[...pendingRefunds, ...refunds.filter((r) => r.status !== 'pending')]}
+            keyExtractor={(item) => item.id}
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.list}
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>{item.hopeful_name}</Text>
+                  <Text style={styles.cardDate}>{new Date(item.requested_at).toLocaleDateString('ko-KR')}</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={styles.rowLabel}>{item.status === 'pending' ? '지금 환불할 금액' : '환불 금액'}</Text>
+                  <Text style={styles.payoutValue}>
+                    {(item.status === 'pending' ? item.current?.total ?? 0 : Number(item.wallet_amount) + Number(item.credit_amount)).toLocaleString()}원
+                  </Text>
+                </View>
+                {item.status === 'pending' && item.current && (
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>내역</Text>
+                    <Text style={styles.rowValue}>
+                      충전 잔액 {item.current.wallet.toLocaleString()}원 · 이용권 {item.current.sessions}회 {item.current.credit.toLocaleString()}원
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.row}>
+                  <Text style={styles.rowLabel}>입금 계좌</Text>
+                  <Text style={styles.rowValue}>{item.bank_name} {item.account_number} ({item.account_holder})</Text>
+                </View>
+                {item.status === 'completed' ? (
+                  <View style={styles.paidBadge}>
+                    <Text style={styles.paidBadgeText}>✓ {new Date(item.processed_at).toLocaleDateString('ko-KR')} 환불 완료</Text>
+                  </View>
+                ) : item.status === 'rejected' ? (
+                  <Text style={[styles.rowLabel, { marginTop: 10 }]}>반려됨</Text>
+                ) : (
+                  <View style={styles.approvalBtnRow}>
+                    <TouchableOpacity
+                      style={[styles.approveBtn, processingId === item.id && styles.buttonDisabled]}
+                      onPress={async () => {
+                        if (await confirm({
+                          title: '환불 완료로 처리할까요?',
+                          message: `${(item.current?.total ?? 0).toLocaleString()}원을 입금한 뒤에 처리해주세요. 남은 이용권이 차감되고 되돌릴 수 없습니다.`,
+                          confirmText: '환불 완료',
+                        })) handleCompleteRefund(item.id);
+                      }}
+                      disabled={processingId !== null}
+                    >
+                      <Text style={styles.approveBtnText}>{processingId === item.id ? '처리 중...' : '환불 완료 처리'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.rejectBtn, processingId === item.id && styles.buttonDisabled]}
+                      onPress={async () => {
+                        if (await confirm({ title: '환불 요청을 반려할까요?', message: '회원에게 반려 알림이 갑니다.', confirmText: '반려', destructive: true })) handleRejectRefund(item);
+                      }}
+                      disabled={processingId !== null}
+                    >
+                      <Text style={styles.rejectBtnText}>반려</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
             )}

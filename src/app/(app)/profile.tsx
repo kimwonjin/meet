@@ -14,6 +14,8 @@ import ReviewList from '@/components/ReviewList';
 import TermsSheet from '@/components/TermsSheet';
 import ConsentChecklist, { ConsentItem } from '@/components/ConsentChecklist';
 import { recordConsents, TermsDocKey } from '@/lib/terms';
+import { getPendingRefund, getRefundable, Refundable, requestRefund, withdrawAccount } from '@/lib/refunds';
+import { createNotification } from '@/lib/notifications';
 
 const PARTNER_CONSENTS: ConsentItem[] = [{ key: 'partner', label: '매칭 파트너 이용약관 동의', doc: 'partner' }];
 import { fetchConnectorReviews, Review } from '@/lib/reviews';
@@ -40,6 +42,13 @@ export default function ProfileScreen() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showStoreModal, setShowStoreModal] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
+  // 환불
+  const [refundable, setRefundable] = useState<Refundable | null>(null);
+  const [pendingRefund, setPendingRefund] = useState<any | null>(null);
+  const [showRefundSheet, setShowRefundSheet] = useState(false);
+  const [refundBank, setRefundBank] = useState({ bankName: '', accountNumber: '', accountHolder: '' });
+  const [requestingRefund, setRequestingRefund] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [showSettlementsModal, setShowSettlementsModal] = useState(false);
   const [showCreditScoreModal, setShowCreditScoreModal] = useState(false);
   // 회원이 남긴 내 후기 (연결자)
@@ -195,11 +204,15 @@ export default function ProfileScreen() {
     if (!user) return;
     setLoadingCredits(true);
     try {
-      const [{ data: credits, error }, { balance }] = await Promise.all([
+      const [{ data: credits, error }, { balance }, refundableNow, pending] = await Promise.all([
         getMyConnectorCredits(user.id),
         getWalletBalance(user.id),
+        getRefundable(user.id),
+        getPendingRefund(user.id),
       ]);
       if (error) throw error;
+      setRefundable(refundableNow);
+      setPendingRefund(pending);
 
       setMyConnectorCredits(credits);
       setWalletBalance(balance);
@@ -368,6 +381,69 @@ export default function ProfileScreen() {
       toast.show('저장 실패', 'error');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleRequestRefund() {
+    if (!user || !refundable) return;
+    if (!refundBank.bankName.trim() || !refundBank.accountNumber.trim() || !refundBank.accountHolder.trim()) {
+      toast.show('환불받을 계좌 정보를 모두 입력해주세요', 'error');
+      return;
+    }
+    setRequestingRefund(true);
+    try {
+      const { error } = await requestRefund({ hopefulId: user.id, ...refundBank });
+      if (error) throw error;
+      // 운영자에게 알림
+      const { data: operators } = await supabase.from('users').select('id').eq('role', 'operator');
+      await Promise.all((operators || []).map((o: any) => createNotification({
+        userId: o.id,
+        type: 'refund_requested',
+        title: '새 환불 요청이 있습니다',
+        body: `${user.name}님 · 약 ${refundable.total.toLocaleString()}원`,
+        route: '/settlements',
+      })));
+      setShowRefundSheet(false);
+      toast.show('환불을 요청했어요. 영업일 3일 이내에 처리돼요', 'success');
+      setShowCreditsModal(true);
+    } catch (error) {
+      console.error('환불 요청 오류:', error);
+      toast.show('환불 요청 중 오류가 발생했습니다', 'error');
+    } finally {
+      setRequestingRefund(false);
+    }
+  }
+
+  async function handleWithdraw() {
+    if (!user) return;
+    const ok = await confirm({
+      title: '정말 탈퇴할까요?',
+      message: '프로필, 사진, 파트너 연결 정보가 삭제되고 되돌릴 수 없어요. 결제·정산 기록은 법에 따라 5년간 보관됩니다.',
+      confirmText: '탈퇴',
+      destructive: true,
+    });
+    if (!ok) return;
+    setWithdrawing(true);
+    try {
+      const result = await withdrawAccount(user.id);
+      if (result.ok) {
+        await logout();
+        router.replace('/');
+        toast.show('탈퇴가 완료되었어요. 그동안 이용해주셔서 감사합니다', 'success');
+        return;
+      }
+      if (result.reason === 'in_progress') {
+        toast.show('진행 중인 매칭이 있어요. 매칭이 마무리된 뒤 탈퇴할 수 있어요', 'error');
+      } else if (result.reason === 'refund_needed') {
+        toast.show(`환불받을 금액 ${(result.amount ?? 0).toLocaleString()}원이 남아 있어요. 먼저 환불을 요청해주세요`, 'error');
+        setShowCreditsModal(true);
+      } else if (result.reason === 'payout_left') {
+        toast.show(`출금하지 않은 정산금 ${(result.amount ?? 0).toLocaleString()}원이 있어요. 계좌 정보에서 출금한 뒤 탈퇴해주세요`, 'error');
+      } else {
+        toast.show('탈퇴 처리 중 오류가 발생했습니다', 'error');
+      }
+    } finally {
+      setWithdrawing(false);
     }
   }
 
@@ -688,11 +764,40 @@ export default function ProfileScreen() {
               <Text style={styles.policyLinkText}>{label}</Text>
             </TouchableOpacity>
           ))}
+          {user?.role !== 'operator' && (
+            <TouchableOpacity onPress={handleWithdraw} disabled={withdrawing} style={styles.policyLink}>
+              <Text style={styles.policyLinkText}>{withdrawing ? '처리 중...' : '회원 탈퇴'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
         </View>
       </ScrollView>
 
       <TermsSheet docKey={viewingTerms} onClose={() => setViewingTerms(null)} />
+
+      <BottomSheet visible={showRefundSheet} onClose={() => setShowRefundSheet(false)} title="환불 요청">
+        <View style={styles.gradeBox}>
+          <Text style={styles.gradeBoxLabel}>환불 예정 금액</Text>
+          <Text style={styles.gradeBoxValue}>{(refundable?.total ?? 0).toLocaleString()}원</Text>
+          <Text style={styles.gradeBoxScore}>처리 시점의 남은 금액으로 확정돼요</Text>
+        </View>
+        <Text style={styles.modalLabel}>은행명</Text>
+        <TextInput style={styles.modalInput} placeholder="국민은행" placeholderTextColor="#ddd" value={refundBank.bankName}
+          onChangeText={(v) => setRefundBank((b) => ({ ...b, bankName: v }))} editable={!requestingRefund} />
+        <Text style={styles.modalLabel}>계좌번호</Text>
+        <TextInput style={styles.modalInput} placeholder="123456-78-901234" placeholderTextColor="#ddd" value={refundBank.accountNumber}
+          onChangeText={(v) => setRefundBank((b) => ({ ...b, accountNumber: v }))} keyboardType="number-pad" editable={!requestingRefund} />
+        <Text style={styles.modalLabel}>예금주</Text>
+        <TextInput style={styles.modalInput} placeholder="홍길동" placeholderTextColor="#ddd" value={refundBank.accountHolder}
+          onChangeText={(v) => setRefundBank((b) => ({ ...b, accountHolder: v }))} editable={!requestingRefund} />
+        <TouchableOpacity
+          style={[styles.storeSaveBtn, requestingRefund && styles.storeSaveBtnDisabled]}
+          onPress={handleRequestRefund}
+          disabled={requestingRefund}
+        >
+          {requestingRefund ? <ActivityIndicator color="#fff" /> : <Text style={styles.storeSaveBtnText}>환불 요청하기</Text>}
+        </TouchableOpacity>
+      </BottomSheet>
 
       <BottomSheet visible={showProfileModal} onClose={() => setShowProfileModal(false)} title="내 프로필 수정">
         <View style={styles.profileFormSection}>
@@ -1061,8 +1166,44 @@ export default function ProfileScreen() {
                         <Text style={styles.creditStatValueMuted}>{c.used}회</Text>
                       </View>
                     </View>
+                    {c.refunded > 0 && <Text style={styles.refundedNote}>환불 {c.refunded}회</Text>}
                   </View>
                 ))
+              )}
+            </View>
+
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>환불</Text>
+              {pendingRefund ? (
+                <View style={styles.refundPendingBox}>
+                  <Text style={styles.refundPendingText}>환불 요청을 처리하고 있어요</Text>
+                  <Text style={styles.refundHint}>
+                    {new Date(pendingRefund.requested_at).toLocaleDateString('ko-KR')} 요청 · 영업일 3일 이내에 {pendingRefund.bank_name} 계좌로 보내드려요
+                  </Text>
+                </View>
+              ) : refundable && refundable.total > 0 ? (
+                <>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>환불 가능 금액</Text>
+                    <Text style={styles.infoValue}>{refundable.total.toLocaleString()}원</Text>
+                  </View>
+                  <Text style={styles.refundHint}>
+                    충전 잔액 {refundable.wallet.toLocaleString()}원 + 남은 이용권 {refundable.sessions}회 {refundable.credit.toLocaleString()}원{'\n'}
+                    진행 중인 매칭에 필요한 이용권은 제외돼요.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.refundBtn}
+                    onPress={() => {
+                      // 시트 위에 시트를 겹치지 않는다
+                      setShowCreditsModal(false);
+                      setShowRefundSheet(true);
+                    }}
+                  >
+                    <Text style={styles.refundBtnText}>환불 요청하기</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <Text style={styles.refundHint}>환불받을 금액이 없어요</Text>
               )}
             </View>
           </>
@@ -1766,6 +1907,40 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     color: '#5B21FF',
+  },
+  refundedNote: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 8,
+  },
+  refundHint: {
+    fontSize: 12,
+    color: '#888',
+    lineHeight: 18,
+    marginTop: 6,
+  },
+  refundBtn: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  refundBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#444',
+  },
+  refundPendingBox: {
+    backgroundColor: '#F7F7F7',
+    borderRadius: 10,
+    padding: 14,
+  },
+  refundPendingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
   },
   chargeNotice: {
     fontSize: 11,
