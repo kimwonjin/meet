@@ -56,13 +56,14 @@ export default function MatchingScreen() {
   const router = useRouter();
   // 알림에서 들어오면 해당 칸(예: 동맹매칭)을 바로 연다
   // 동맹 매칭 알림으로 들어오면 동맹 회원까지 펼쳐서 보여준다
-  const params = useLocalSearchParams<{ segment?: string }>();
+  const params = useLocalSearchParams<{ segment?: string; view?: string }>();
   useEffect(() => {
-    if (params.segment === 'ally') {
-      setIncludeAllies(true);
-      router.setParams({ segment: undefined });
+    if (params.segment === 'ally' || params.view === 'history') {
+      // 매칭 관련 알림(동의 요청, 승인, 일정 등)은 매칭내역에서 확인한다
+      setView('history');
+      router.setParams({ segment: undefined, view: undefined });
     }
-  }, [params.segment]);
+  }, [params.segment, params.view]);
 
   const [ownMembers, setOwnMembers] = useState<Member[]>([]);
   const [allyConnectors, setAllyConnectors] = useState<{ id: string; name: string }[]>([]);
@@ -283,8 +284,9 @@ export default function MatchingScreen() {
         ]);
       }
 
-      toast.show('✓ 매칭을 제안했습니다', 'success');
+      toast.show('✓ 매칭을 제안했습니다. 매칭내역에서 진행 상황을 볼 수 있어요', 'success');
       setSelectedForMatch([]);
+      setView('history');
       fetchMatches();
     } catch (error: any) {
       console.error('propose error:', error);
@@ -1027,7 +1029,7 @@ export default function MatchingScreen() {
       </View>
 
       <View style={styles.viewRow}>
-        {([['active', `매칭${activeMatches.length ? ` (${activeMatches.length})` : ''}`], ['history', '매칭내역']] as const).map(([key, label]) => (
+        {([['active', '매칭'], ['history', `매칭내역${activeMatches.length ? ` (진행 ${activeMatches.length})` : ''}`]] as const).map(([key, label]) => (
           <TouchableOpacity key={key} style={[styles.viewBtn, view === key && styles.viewBtnActive]} onPress={() => setView(key)}>
             <Text style={[styles.viewBtnText, view === key && styles.viewBtnTextActive]}>{label}</Text>
           </TouchableOpacity>
@@ -1035,13 +1037,16 @@ export default function MatchingScreen() {
       </View>
 
       <FlatList
-          data={view === 'active' ? sortedMatches : historyMatches}
+          // 매칭: 제안만 / 매칭내역: 진행 중(동의 필요 먼저) → 마무리된 매칭
+          data={view === 'active' ? [] : [...sortedMatches, ...historyMatches]}
           keyExtractor={(item) => item.id}
           ListHeaderComponent={view === 'active' ? createSection : null}
           ListEmptyComponent={
-            <View style={styles.placeholder}>
-              <Text style={styles.placeholderText}>{view === 'active' ? '진행 중인 매칭이 없습니다' : '마무리된 매칭이 없습니다'}</Text>
-            </View>
+            view === 'history' ? (
+              <View style={styles.placeholder}>
+                <Text style={styles.placeholderText}>매칭 내역이 없습니다</Text>
+              </View>
+            ) : null
           }
           renderItem={({ item }) => renderMatchCard(item)}
           contentContainerStyle={styles.list}

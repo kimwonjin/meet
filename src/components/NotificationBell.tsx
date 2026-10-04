@@ -49,7 +49,9 @@ export default function NotificationBell() {
     }
     setVisible(false);
     if (n.deep_link_route) {
-      router.push({ pathname: n.deep_link_route, params: n.deep_link_params || {} });
+      // 매칭 관련 알림은 매칭 탭의 '매칭내역'으로 연다
+      const params = { ...(n.deep_link_params || {}), ...(n.deep_link_route === '/matching' ? { view: 'history' } : {}) };
+      router.push({ pathname: n.deep_link_route, params });
     }
   }
 
