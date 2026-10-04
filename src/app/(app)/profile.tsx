@@ -10,6 +10,8 @@ import NotificationBell from '@/components/NotificationBell';
 import BottomSheet from '@/components/BottomSheet';
 import PhotoEditor from '@/components/PhotoEditor';
 import { Avatar } from '@/components/ProfilePhoto';
+import ReviewList from '@/components/ReviewList';
+import { fetchConnectorReviews, Review } from '@/lib/reviews';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -32,6 +34,9 @@ export default function ProfileScreen() {
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [showSettlementsModal, setShowSettlementsModal] = useState(false);
   const [showCreditScoreModal, setShowCreditScoreModal] = useState(false);
+  // 회원이 남긴 내 후기 (연결자)
+  const [showReviewsSheet, setShowReviewsSheet] = useState(false);
+  const [myReviews, setMyReviews] = useState<Review[] | null>(null);
   const [creditScore, setCreditScore] = useState<any | null>(null);
   const [loadingCreditScore, setLoadingCreditScore] = useState(false);
   const [showBankModal, setShowBankModal] = useState(false);
@@ -596,6 +601,22 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setMyReviews(null);
+              setShowReviewsSheet(true);
+              fetchConnectorReviews(user.id).then(setMyReviews);
+            }}
+          >
+            <Text style={styles.menuIcon}>💬</Text>
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>받은 후기</Text>
+              <Text style={styles.menuSub}>회원들이 남긴 별점과 한마디</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowCreditScoreModal(true)}>
             <Text style={styles.menuIcon}>⭐</Text>
             <View style={styles.menuContent}>
@@ -1088,6 +1109,10 @@ export default function ProfileScreen() {
             </View>
           </>
         )}
+      </BottomSheet>
+
+      <BottomSheet visible={showReviewsSheet} onClose={() => setShowReviewsSheet(false)} title="받은 후기">
+        <ReviewList reviews={myReviews} emptyText="아직 받은 후기가 없어요. 매칭을 마친 회원이 후기를 남기면 여기에 보여요." />
       </BottomSheet>
 
       <BottomSheet visible={showCreditScoreModal} onClose={() => setShowCreditScoreModal(false)} title="신뢰지표">

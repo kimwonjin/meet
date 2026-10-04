@@ -21,7 +21,7 @@ import BottomSheet from '@/components/BottomSheet';
 import { formatMeetingDate } from '@/lib/format';
 import AvailableDatesSheet from '@/components/AvailableDatesSheet';
 import { autoScheduleMatch, earliestCommonDate } from '@/lib/schedule';
-import { afterCareDeadline, expireAfterCareIfDue, formatDeadline } from '@/lib/afterCare';
+import { afterCareDeadline, expireAfterCareIfDue, formatDeadline, notifyAfterCareResult } from '@/lib/afterCare';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
 import ReviewSheet from '@/components/ReviewSheet';
 import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
@@ -321,7 +321,7 @@ export default function HomeScreen() {
       // (두 회원이 서로 다른 기기에서 시차를 두고 제출하면 내 화면의 match는 상대방 제출 사실을 모를 수 있다)
       const { data: freshMatch } = await supabase
         .from('match_requests')
-        .select('after_care_hopeful_1, after_care_hopeful_2, connector_1_id, connector_2_id')
+        .select('after_care_hopeful_1, after_care_hopeful_2')
         .eq('id', matchId)
         .single();
 
@@ -333,19 +333,8 @@ export default function HomeScreen() {
         } else if (afterCareType === '노쇼신고') {
           toast.show('노쇼 신고가 접수되어 매칭이 종료되었어요. 이용권은 차감되지 않아요', 'success');
         } else {
-          toast.show('매칭이 마무리되었어요', 'success');
-          // 두 회원 모두 다시 만나고 싶어하면 양쪽 파트너에게 알린다 (한쪽만 원할 때는 알리지 않는다)
-          if (freshMatch?.after_care_hopeful_1 === '신청' && freshMatch?.after_care_hopeful_2 === '신청') {
-            const connectorIds = [...new Set([freshMatch.connector_1_id, freshMatch.connector_2_id])];
-            await Promise.all(connectorIds.map((id) => createNotification({
-              userId: id,
-              type: 'after_care_mutual',
-              title: '💞 두 회원 모두 다시 만나고 싶어해요',
-              body: '소개한 두 회원이 모두 애프터를 원했습니다',
-              route: '/matching',
-              routeParams: connectorIds.length > 1 ? { segment: 'ally' } : undefined,
-            })));
-          }
+          toast.show('소개팅 결과가 나왔어요', 'success');
+          await notifyAfterCareResult(matchId, user.id);
         }
       }
 
@@ -727,7 +716,7 @@ export default function HomeScreen() {
                   ((item.isHopeful1 && !item.after_care_hopeful_1) ||
                     (!item.isHopeful1 && !item.after_care_hopeful_2)) && (
                     <View style={styles.afterCareSection}>
-                      <Text style={styles.afterCareLabel}>소개팅은 어떠셨나요? 상대에게는 알려지지 않아요</Text>
+                      <Text style={styles.afterCareLabel}>소개팅은 어떠셨나요? 두 분 모두 고른 뒤에 결과를 알려드려요</Text>
                       {!!item.meeting_completed_at && (
                         <Text style={styles.afterCareDeadline}>
                           {formatDeadline(afterCareDeadline(item.meeting_completed_at))}까지 고르지 않으면 '이번이 마지막이에요'로 처리돼요
@@ -777,8 +766,10 @@ export default function HomeScreen() {
                             ? (item.isHopeful1 ? item.after_care_hopeful_1 : item.after_care_hopeful_2) === '노쇼신고'
                               ? '노쇼 신고가 접수되어 매칭이 종료되었어요. 이용권은 차감되지 않았어요.'
                               : '매칭이 종료되었어요. 이용권은 차감되지 않았어요.'
-                            : '✓ 매칭이 마무리되었어요.'
-                          : `✓ 의사를 전달했어요. 상대방도 응답하면 매칭이 마무리됩니다.${item.meeting_completed_at ? ` (늦어도 ${formatDeadline(afterCareDeadline(item.meeting_completed_at))})` : ''}`}
+                            : item.after_care_hopeful_1 === '신청' && item.after_care_hopeful_2 === '신청'
+                              ? '💞 상대도 다시 만나고 싶어해요! 채팅에서 받은 연락처로 다시 연락해보세요.'
+                              : '이번 만남은 여기서 마무리되었어요. 좋은 인연을 계속 응원할게요.'
+                          : `✓ 의사를 전달했어요. 상대방도 고르면 결과를 알려드릴게요.${item.meeting_completed_at ? ` (늦어도 ${formatDeadline(afterCareDeadline(item.meeting_completed_at))})` : ''}`}
                       </Text>
                     </View>
                   )}
