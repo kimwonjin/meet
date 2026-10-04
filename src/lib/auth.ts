@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-function calculateAge(birthDate: string): number {
+export function calculateAge(birthDate: string): number {
   const [year, month, day] = birthDate.split('-').map(Number);
   const today = new Date();
   let age = today.getFullYear() - year;

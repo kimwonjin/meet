@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { signUpHopeful } from '@/lib/auth';
+import { calculateAge, signUpHopeful } from '@/lib/auth';
+import ConsentChecklist, { ConsentItem } from '@/components/ConsentChecklist';
+import { recordConsents } from '@/lib/terms';
+
+const SIGNUP_CONSENTS: ConsentItem[] = [
+  { key: 'age19', label: '만 19세 이상입니다' },
+  { key: 'service', label: '서비스 이용약관 동의', doc: 'service' },
+  { key: 'privacy', label: '개인정보 수집·이용 동의', doc: 'privacy' },
+];
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -28,6 +36,8 @@ export default function SignupScreen() {
   const [birthDate, setBirthDate] = useState('');
   const [gender, setGender] = useState<'M' | 'F' | null>(null);
   const [loading, setLoading] = useState(false);
+  const [consents, setConsents] = useState<string[]>([]);
+  const allConsented = SIGNUP_CONSENTS.every((c) => consents.includes(c.key));
   const router = useRouter();
   const { user, login } = useAuth();
 
@@ -46,6 +56,16 @@ export default function SignupScreen() {
 
     if (birthDate.length !== 10) {
       toast.show('생년월일을 완전히 입력해주세요 (YYYY-MM-DD)', 'error');
+      return;
+    }
+
+    if (calculateAge(birthDate) < 19) {
+      toast.show('만 19세 이상만 가입할 수 있어요', 'error');
+      return;
+    }
+
+    if (!allConsented) {
+      toast.show('필수 약관에 동의해주세요', 'error');
       return;
     }
 
@@ -69,6 +89,8 @@ export default function SignupScreen() {
         }
         return;
       }
+
+      if (data?.id) await recordConsents(data.id, SIGNUP_CONSENTS.map((c) => c.key));
 
       const loginResult = await login(phone);
 
@@ -170,10 +192,11 @@ export default function SignupScreen() {
           </View>
         </View>
 
+        <ConsentChecklist items={SIGNUP_CONSENTS} checked={consents} onChange={setConsents} disabled={loading} />
         <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
+          style={[styles.button, (loading || !allConsented) && styles.buttonDisabled]}
           onPress={handleSignup}
-          disabled={loading}
+          disabled={loading || !allConsented}
         >
           <Text style={styles.buttonText}>{loading ? '가입 중...' : '가입하기'}</Text>
         </TouchableOpacity>

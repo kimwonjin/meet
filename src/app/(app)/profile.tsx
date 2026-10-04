@@ -11,6 +11,11 @@ import BottomSheet from '@/components/BottomSheet';
 import PhotoEditor from '@/components/PhotoEditor';
 import { Avatar } from '@/components/ProfilePhoto';
 import ReviewList from '@/components/ReviewList';
+import TermsSheet from '@/components/TermsSheet';
+import ConsentChecklist, { ConsentItem } from '@/components/ConsentChecklist';
+import { recordConsents, TermsDocKey } from '@/lib/terms';
+
+const PARTNER_CONSENTS: ConsentItem[] = [{ key: 'partner', label: '매칭 파트너 이용약관 동의', doc: 'partner' }];
 import { fetchConnectorReviews, Review } from '@/lib/reviews';
 
 export default function ProfileScreen() {
@@ -27,6 +32,9 @@ export default function ProfileScreen() {
   const confirm = useConfirm();
   const [showConnectorModal, setShowConnectorModal] = useState(false);
   const [businessName, setBusinessName] = useState('');
+  const [partnerConsents, setPartnerConsents] = useState<string[]>([]);
+  // 마이 하단에서 여는 약관 전문
+  const [viewingTerms, setViewingTerms] = useState<TermsDocKey | null>(null);
   const [connectorApplicationStatus, setConnectorApplicationStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -495,6 +503,10 @@ export default function ProfileScreen() {
       toast.show('회사명을 입력해주세요', 'error');
       return;
     }
+    if (!partnerConsents.includes('partner')) {
+      toast.show('파트너 이용약관에 동의해주세요', 'error');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -510,6 +522,7 @@ export default function ProfileScreen() {
 
       if (connectorError) throw connectorError;
 
+      await recordConsents(user!.id, ['partner']);
       setConnectorApplicationStatus('pending');
       toast.show('✓ 매칭 파트너 심사를 신청했습니다', 'success');
       setBusinessName('');
@@ -665,8 +678,21 @@ export default function ProfileScreen() {
             <Text style={styles.logoutText}>로그아웃</Text>
           </TouchableOpacity>
         )}
+        <View style={styles.policyLinks}>
+          {([
+            ['service', '이용약관'],
+            ['privacy', '개인정보 처리방침'],
+            ...(user?.role !== 'hopeful' ? [['partner', '파트너 이용약관']] : []),
+          ] as [TermsDocKey, string][]).map(([key, label]) => (
+            <TouchableOpacity key={key} onPress={() => setViewingTerms(key)} style={styles.policyLink}>
+              <Text style={styles.policyLinkText}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
         </View>
       </ScrollView>
+
+      <TermsSheet docKey={viewingTerms} onClose={() => setViewingTerms(null)} />
 
       <BottomSheet visible={showProfileModal} onClose={() => setShowProfileModal(false)} title="내 프로필 수정">
         <View style={styles.profileFormSection}>
@@ -863,6 +889,9 @@ export default function ProfileScreen() {
                   onChangeText={setBusinessName}
                   editable={!loading}
                 />
+                <View style={{ marginTop: 12 }}>
+                  <ConsentChecklist items={PARTNER_CONSENTS} checked={partnerConsents} onChange={setPartnerConsents} disabled={loading} />
+                </View>
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
                     style={[styles.modalBtn, styles.modalBtnCancel]}
@@ -874,9 +903,9 @@ export default function ProfileScreen() {
                     <Text style={styles.modalBtnTextCancel}>취소</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.modalBtn, styles.modalBtnConfirm, loading && styles.modalBtnDisabled]}
+                    style={[styles.modalBtn, styles.modalBtnConfirm, (loading || !partnerConsents.includes('partner')) && styles.modalBtnDisabled]}
                     onPress={handleConnectorSignup}
-                    disabled={loading}
+                    disabled={loading || !partnerConsents.includes('partner')}
                   >
                     <Text style={styles.modalBtnText}>{loading ? '신청 중...' : '심사 신청하기'}</Text>
                   </TouchableOpacity>
@@ -1302,6 +1331,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#333',
     marginBottom: 0,
+  },
+  policyLinks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  policyLink: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  policyLinkText: {
+    fontSize: 12,
+    color: '#999',
+    textDecorationLine: 'underline',
   },
   scoreRow: {
     flexDirection: 'row',
