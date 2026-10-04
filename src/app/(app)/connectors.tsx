@@ -8,6 +8,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { formatRegions } from '@/lib/format';
 import { fetchConnectorReviews, fetchReviewSummaries, Review, ReviewSummary } from '@/lib/reviews';
 import ReviewList from '@/components/ReviewList';
+import { useMemberFilter } from '@/components/MemberFilter';
 import StackedBar, { SplitBar, ageColors, regionColor } from '@/components/DistributionBars';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
@@ -59,6 +60,8 @@ export default function ConnectorsScreen() {
   const purchasingRef = useRef(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  // 파트너의 회원 탭 필터 (매칭 탭과 같은 필터)
+  const memberFilter = useMemberFilter();
   // 회원이 보는 파트너 정보 (회원 구성·실적)
   const [overview, setOverview] = useState<any | null>(null);
   const [networkOverview, setNetworkOverview] = useState<any | null>(null);
@@ -399,11 +402,12 @@ export default function ConnectorsScreen() {
 
   // connector면 회원 관리 화면
   if (user?.role === 'connector') {
-    const displayRequests = tabStatus === 'ally' ? allyMembers : allRequests.filter(r => r.request_status === tabStatus);
+    const tabMembers = tabStatus === 'ally' ? allyMembers : allRequests.filter(r => r.request_status === tabStatus);
+    const displayRequests = tabMembers.filter((m: any) => memberFilter.passes(m));
     const emptyText = {
       approved: '승인한 회원이 없습니다',
       pending: '대기 중인 요청이 없습니다',
-      ally: '동맹 파트너의 회원이 없습니다.\n매칭 탭 > 동맹관리에서 다른 파트너와 동맹을 맺어보세요.',
+      ally: '동맹 파트너의 회원이 없습니다.\n마이 › 동맹 관리에서 다른 파트너와 동맹을 맺어보세요.',
     }[tabStatus];
 
     return (
@@ -431,13 +435,17 @@ export default function ConnectorsScreen() {
           ))}
         </View>
 
+        {tabMembers.length > 0 && <View style={styles.filterWrap}>{memberFilter.render(tabMembers)}</View>}
+
         {tabStatus === 'ally' && allyMembers.length > 0 && (
-          <Text style={styles.allyHint}>매칭 탭 › 동맹매칭에서 내 회원과 매칭을 제안할 수 있어요</Text>
+          <Text style={styles.allyHint}>매칭 탭에서 '동맹 회원 포함'을 켜면 내 회원과 매칭을 제안할 수 있어요</Text>
         )}
 
         {displayRequests.length === 0 ? (
           <View style={styles.emptyTab}>
-            <Text style={[styles.placeholderText, { textAlign: 'center', lineHeight: 20 }]}>{emptyText}</Text>
+            <Text style={[styles.placeholderText, { textAlign: 'center', lineHeight: 20 }]}>
+              {tabMembers.length > 0 ? '조건에 맞는 회원이 없습니다' : emptyText}
+            </Text>
           </View>
         ) : (
           <FlatList
@@ -1235,6 +1243,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#5B21FF',
+  },
+  filterWrap: {
+    paddingHorizontal: 20,
+    marginBottom: 8,
   },
   subTabContainer: {
     flexDirection: 'row',
