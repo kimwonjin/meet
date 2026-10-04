@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import SkeletonScreen from '@/components/Skeleton';
+import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
@@ -82,6 +84,7 @@ export default function ConnectorsScreen() {
   }, []);
 
   useFocusPolling(() => fetchConnectors(), 15000, !!user);
+  const pullRefresh = usePullRefresh(() => fetchConnectors());
 
   // 초대 링크로 들어온 회원: 초대한 파트너 정보를 바로 열어 준다
   const params = useLocalSearchParams<{ open?: string }>();
@@ -411,11 +414,7 @@ export default function ConnectorsScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#5B21FF" />
-      </View>
-    );
+    return <SkeletonScreen />;
   }
 
   // connector면 회원 관리 화면
@@ -429,7 +428,7 @@ export default function ConnectorsScreen() {
     }[tabStatus];
 
     return (
-      <ScrollView style={styles.container}>
+      <ScrollView style={styles.container} refreshControl={pullRefresh}>
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <Text style={styles.title}>회원</Text>
@@ -624,6 +623,7 @@ export default function ConnectorsScreen() {
           </View>
         }
         keyExtractor={(item) => item.id}
+        refreshControl={pullRefresh}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={[styles.card, item.is_approved && styles.approvedCard]}

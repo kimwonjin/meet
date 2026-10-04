@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import SkeletonScreen from '@/components/Skeleton';
+import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import {
   View,
   Text,
@@ -105,6 +107,7 @@ export default function MatchingScreen() {
     fetchOwnMembers();
     fetchAllyConnectors();
   }, 15000, !!user);
+  const pullRefresh = usePullRefresh(() => Promise.all([fetchMatches(), fetchOwnMembers(), fetchAllyConnectors()]));
 
   async function fetchMatches(retried = false) {
     try {
@@ -626,11 +629,7 @@ export default function MatchingScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#5B21FF" />
-      </View>
-    );
+    return <SkeletonScreen />;
   }
 
   // 내 동의가 필요한 동맹 매칭을 맨 위로, 나머지는 최신순
@@ -711,7 +710,11 @@ export default function MatchingScreen() {
       </TouchableOpacity>
 
       {/* 회원 필터: 이름·성별·나이·지역 */}
-      {memberFilter.render([...ownMembers, ...(includeAllies ? allyMembers.flatMap((g) => g.members) : [])])}
+      {/* 고를 회원이 없으면 검색·필터는 숨긴다 */}
+      {(() => {
+        const candidates = [...ownMembers, ...(includeAllies ? allyMembers.flatMap((g) => g.members) : [])];
+        return candidates.length > 0 ? memberFilter.render(candidates) : null;
+      })()}
 
       <Text style={styles.groupTitle}>내 회원</Text>
       {ownMembers.length === 0 ? (
@@ -1045,6 +1048,7 @@ export default function MatchingScreen() {
 
       <FlatList
           ref={listRef}
+          refreshControl={pullRefresh}
           // 아직 그려지지 않은 위치면 대략 그 근처로 먼저 이동한 뒤 한 번만 다시 시도한다
           onScrollToIndexFailed={({ index, averageItemLength }) => {
             listRef.current?.scrollToOffset({ offset: averageItemLength * index, animated: false });

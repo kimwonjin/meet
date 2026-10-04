@@ -5,7 +5,6 @@ import BottomSheet from './BottomSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { inviteMessage, inviteUrl } from '@/lib/invite';
-import { haptic } from '@/lib/haptics';
 
 // 마이 › 초대장 보내기: 회원 후보에게 나에게 바로 연결되는 링크를 보낸다
 export default function InviteSheet({ visible, onClose, partnerName }: { visible: boolean; onClose: () => void; partnerName: string }) {
@@ -19,7 +18,6 @@ export default function InviteSheet({ visible, onClose, partnerName }: { visible
   async function copy(text: string, done: string) {
     try {
       await Clipboard.setStringAsync(text);
-      haptic.success();
       toast.show(done, 'success');
     } catch {
       toast.show('복사하지 못했어요. 링크를 길게 눌러 복사해주세요', 'error');

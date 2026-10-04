@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import SkeletonScreen from '@/components/Skeleton';
+import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -94,6 +96,7 @@ export default function ChatScreen() {
   // 대화 목록: 화면을 보고 있는 동안 주기적으로 미리보기와 안 읽은 수를 갱신한다
   // (모든 메시지를 실시간으로 받으면 다른 사람 대화까지 받아 매번 다시 불러오게 되므로 쓰지 않는다)
   useFocusPolling(() => load(), 10000, !!user);
+  const pullRefresh = usePullRefresh(() => load());
 
   async function load() {
     if (!user) return;
@@ -166,11 +169,7 @@ export default function ChatScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#5B21FF" />
-      </View>
-    );
+    return <SkeletonScreen />;
   }
 
   // 운영자는 항상 목록 최상단 고정 (아직 대화가 없어도 진입 가능하게 노출)
@@ -215,6 +214,7 @@ export default function ChatScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
+        refreshControl={pullRefresh}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           showOperatorRow ? (

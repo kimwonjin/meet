@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import SkeletonScreen from '@/components/Skeleton';
+import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import {
   View,
   Text,
@@ -39,6 +41,7 @@ export default function AlliancesScreen() {
       fetchAlliances();
     }, [])
   );
+  const pullRefresh = usePullRefresh(() => fetchAlliances());
 
   async function fetchAlliances() {
     if (!user) return;
@@ -199,11 +202,7 @@ export default function AlliancesScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#5B21FF" />
-      </View>
-    );
+    return <SkeletonScreen />;
   }
 
   return (
@@ -223,6 +222,7 @@ export default function AlliancesScreen() {
         <FlatList
           data={otherConnectors}
           keyExtractor={(item) => item.id}
+          refreshControl={pullRefresh}
           style={{ flex: 1 }}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => {

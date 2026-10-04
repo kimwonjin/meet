@@ -118,6 +118,9 @@ export default function ProfileScreen() {
     if (open === 'credits') {
       setShowCreditsModal(true);
       router.setParams({ open: undefined });
+    } else if (open === 'profile') {
+      setShowProfileModal(true);
+      router.setParams({ open: undefined });
     }
   }, [open]);
 

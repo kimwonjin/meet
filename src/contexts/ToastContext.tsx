@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { haptic } from '@/lib/haptics';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 
 type ToastType = 'success' | 'error' | 'info';
@@ -21,6 +22,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const show = useCallback((message: string, type: ToastType = 'info') => {
+    // 완료·오류 안내에 짧은 진동을 곁들인다 (폰에서만, 소리는 내지 않음)
+    if (type === 'success') haptic.success();
+    else if (type === 'error') haptic.warning();
     // 같은 순간 두 번 띄워도 겹치지 않도록 순번을 붙인다
     const id = `${Date.now()}-${++toastSeq}`;
     // 토스트가 성공 아이콘을 따로 그리므로 메시지 앞의 ✓는 뺀다

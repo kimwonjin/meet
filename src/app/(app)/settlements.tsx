@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import SkeletonScreen from '@/components/Skeleton';
+import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -33,6 +35,7 @@ export default function SettlementsScreen() {
       fetchAll();
     }, [])
   );
+  const pullRefresh = usePullRefresh(() => fetchAll());
 
   async function fetchAll() {
     await Promise.all([fetchSettlements(), fetchPendingConnectors(), fetchWithdrawals(), fetchRefunds(), fetchReports()]);
@@ -300,11 +303,7 @@ export default function SettlementsScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#5B21FF" />
-      </View>
-    );
+    return <SkeletonScreen />;
   }
 
   const totalPayout = settlements.reduce((sum, s) => sum + Number(s.connector_payout), 0);
@@ -352,6 +351,7 @@ export default function SettlementsScreen() {
           <FlatList
             data={settlements}
             keyExtractor={(item) => item.id}
+            refreshControl={pullRefresh}
             style={{ flex: 1 }}
             contentContainerStyle={styles.list}
             ListHeaderComponent={
@@ -406,6 +406,7 @@ export default function SettlementsScreen() {
           <FlatList
             data={pendingConnectors}
             keyExtractor={(item) => item.id}
+            refreshControl={pullRefresh}
             style={{ flex: 1 }}
             contentContainerStyle={styles.list}
             renderItem={({ item }) => (
@@ -451,6 +452,7 @@ export default function SettlementsScreen() {
           <FlatList
             data={[...pendingWithdrawals, ...completedWithdrawals]}
             keyExtractor={(item) => item.id}
+            refreshControl={pullRefresh}
             style={{ flex: 1 }}
             contentContainerStyle={styles.list}
             renderItem={({ item }) => (
@@ -507,6 +509,7 @@ export default function SettlementsScreen() {
           <FlatList
             data={[...pendingRefunds, ...refunds.filter((r) => r.status !== 'pending')]}
             keyExtractor={(item) => item.id}
+            refreshControl={pullRefresh}
             style={{ flex: 1 }}
             contentContainerStyle={styles.list}
             renderItem={({ item }) => (
@@ -579,6 +582,7 @@ export default function SettlementsScreen() {
           <FlatList
             data={[...openReports, ...reports.filter((r) => r.status !== 'open')]}
             keyExtractor={(item) => item.id}
+            refreshControl={pullRefresh}
             style={{ flex: 1 }}
             contentContainerStyle={styles.list}
             renderItem={({ item }) => (

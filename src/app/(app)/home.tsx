@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import SkeletonScreen from '@/components/Skeleton';
+import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import {
   View,
   Text,
@@ -47,6 +49,7 @@ export default function HomeScreen() {
   const [remainingSessions, setRemainingSessions] = useState<number | null>(null);
   const [profilePartner, setProfilePartner] = useState<any | null>(null);
   const [approvedMemberCount, setApprovedMemberCount] = useState(0);
+  const [profileGaps, setProfileGaps] = useState<string[]>([]);
   const [showInvite, setShowInvite] = useState(false);
   // 후기를 남긴 매칭 / 후기 작성 중인 매칭
   const [reviewedMatchIds, setReviewedMatchIds] = useState<string[]>([]);
@@ -68,6 +71,7 @@ export default function HomeScreen() {
   }, [user]);
 
   useFocusPolling(() => fetchDashboard(), 15000, !!user);
+  const pullRefresh = usePullRefresh(() => fetchDashboard());
 
   async function fetchDashboard(retried = false) {
     try {
@@ -136,7 +140,16 @@ export default function HomeScreen() {
             .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         );
       } else {
-        // 희望자: 받은 매칭 제안 조회
+        // 프로필이 비어 있으면 파트너가 소개하기 어렵다 → 채울 항목을 알려준다
+        const { data: me } = await supabase.from('users').select('photo_urls, bio, job, height').eq('id', user!.id).maybeSingle();
+        setProfileGaps([
+          !(me?.photo_urls?.length) && '사진',
+          !me?.bio && '자기소개',
+          !me?.job && '직업',
+          !me?.height && '키',
+        ].filter(Boolean) as string[]);
+
+        // 회원: 받은 매칭 제안 조회
         const { data: reqData } = await supabase
           .from('match_requests')
           .select('*')
@@ -419,11 +432,7 @@ export default function HomeScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#5B21FF" />
-      </View>
-    );
+    return <SkeletonScreen />;
   }
 
   // 연결자 화면
@@ -462,7 +471,7 @@ export default function HomeScreen() {
     });
 
     return (
-      <ScrollView style={styles.container}>
+      <ScrollView style={styles.container} refreshControl={pullRefresh}>
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <View>
@@ -594,7 +603,7 @@ export default function HomeScreen() {
 
   // 회원 화면
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} refreshControl={pullRefresh}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View>
@@ -614,6 +623,16 @@ export default function HomeScreen() {
           {remainingSessions === null ? '-' : `${remainingSessions}회`} ›
         </Text>
       </TouchableOpacity>
+
+      {profileGaps.length > 0 && (
+        <TouchableOpacity style={styles.profileNudge} onPress={() => router.push({ pathname: '/profile', params: { open: 'profile' } })}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.profileNudgeTitle}>프로필을 채우면 소개받기 쉬워요</Text>
+            <Text style={styles.profileNudgeSub}>아직 비어 있어요: {profileGaps.join(' · ')}</Text>
+          </View>
+          <Text style={styles.profileNudgeLink}>채우기 ›</Text>
+        </TouchableOpacity>
+      )}
 
       {receivedMatches.length === 0 ? (
         <View style={styles.placeholder}>
@@ -1098,6 +1117,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12,
   },
+  profileNudge: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#D9CCFF', backgroundColor: '#FBFAFF' },
+  profileNudgeTitle: { fontSize: 14, fontWeight: '700', color: '#333' },
+  profileNudgeSub: { fontSize: 12, color: '#888', marginTop: 3 },
+  profileNudgeLink: { fontSize: 13, fontWeight: '700', color: '#5B21FF' },
   placeholder: {
     flex: 1,
     justifyContent: 'center',
