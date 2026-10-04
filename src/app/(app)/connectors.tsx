@@ -297,7 +297,7 @@ export default function ConnectorsScreen() {
           hopeful_id: user.id,
           connector_id: selectedConnector.id,
           status: 'pending',
-          message: `${user.name}님이 연락을 요청했습니다.`,
+          message: `${user.name}님이 가입을 요청했습니다.`,
         }]);
 
       if (error) throw error;
@@ -310,7 +310,7 @@ export default function ConnectorsScreen() {
         route: '/connectors',
       });
 
-      toast.show('연락을 요청했습니다', 'success');
+      toast.show('가입을 요청했어요. 파트너가 승인하면 알려드릴게요', 'success');
       setSelectedConnector(null);
     } catch (error) {
       console.error('Request error:', error);
@@ -717,7 +717,10 @@ export default function ConnectorsScreen() {
 
                         <TouchableOpacity
                           style={styles.chatShortcutBtnWide}
-                          onPress={() => router.push({ pathname: '/chat', params: { with: selectedConnector.id, name: selectedConnector.business_name } })}
+                          onPress={() => {
+                            setSelectedConnector(null);
+                            router.push({ pathname: '/chat', params: { with: selectedConnector.id, name: selectedConnector.business_name } });
+                          }}
                         >
                           <Text style={styles.chatShortcutBtnWideText}>💬 채팅하기</Text>
                         </TouchableOpacity>
@@ -755,15 +758,31 @@ export default function ConnectorsScreen() {
                         </TouchableOpacity>
                       </View>
                     ) : (
-                      <TouchableOpacity
-                        style={[styles.contactBtn, (requesting || selectedConnector.is_pending) && styles.buttonDisabled]}
-                        onPress={handleRequest}
-                        disabled={requesting || selectedConnector.is_pending}
-                      >
-                        <Text style={styles.contactBtnText}>
-                          {requesting ? '요청 중...' : selectedConnector.is_pending ? '요청 보냄 · 승인을 기다리는 중' : '연락하기'}
-                        </Text>
-                      </TouchableOpacity>
+                      <View>
+                        {/* 가입 전에 궁금한 점을 먼저 물어볼 수 있다 (보조 버튼) */}
+                        <TouchableOpacity
+                          style={styles.chatShortcutBtnWide}
+                          onPress={() => {
+                            setSelectedConnector(null);
+                            router.push({ pathname: '/chat', params: { with: selectedConnector.id, name: selectedConnector.business_name } });
+                          }}
+                        >
+                          <Text style={styles.chatShortcutBtnWideText}>💬 궁금한 점 채팅으로 물어보기</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.contactBtn, (requesting || selectedConnector.is_pending) && styles.buttonDisabled]}
+                          onPress={handleRequest}
+                          disabled={requesting || selectedConnector.is_pending}
+                        >
+                          {requesting ? (
+                            <ActivityIndicator color="#fff" />
+                          ) : (
+                            <Text style={styles.contactBtnText}>
+                              {selectedConnector.is_pending ? '가입요청 보냄 · 승인을 기다리는 중' : '가입요청'}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
                     )}
                   </>
               </>
