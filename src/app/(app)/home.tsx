@@ -25,6 +25,7 @@ import { autoScheduleMatch, earliestCommonDate } from '@/lib/schedule';
 import { afterCareDeadline, expireAfterCareIfDue, formatDeadline, notifyAfterCareResult } from '@/lib/afterCare';
 import { Avatar } from '@/components/ProfilePhoto';
 import MemberProfileView from '@/components/MemberProfileView';
+import SafetyActions from '@/components/SafetyActions';
 import ReviewSheet from '@/components/ReviewSheet';
 import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
 
@@ -893,7 +894,12 @@ export default function HomeScreen() {
       />
 
       <BottomSheet visible={profilePartner !== null} onClose={() => setProfilePartner(null)} title="소개팅 상대">
-        {profilePartner && <MemberProfileView member={profilePartner} />}
+        {profilePartner && (
+          <>
+            <MemberProfileView member={profilePartner} />
+            <SafetyActions targetId={profilePartner.id} targetName={profilePartner.name} context="match" />
+          </>
+        )}
       </BottomSheet>
     </ScrollView>
   );

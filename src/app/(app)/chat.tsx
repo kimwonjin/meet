@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
+import SafetyActions from '@/components/SafetyActions';
+import { getBlockState } from '@/lib/safety';
 import { fetchThreads, fetchMessages, sendMessage, markThreadRead, getOrCreateThread, findOperator } from '@/lib/chat';
 
 type Filter = '전체' | '회원' | '파트너' | '운영자';
@@ -26,7 +28,7 @@ export default function ChatScreen() {
   const [operator, setOperator] = useState<{ id: string; name: string } | null>(null);
 
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  const [activeOther, setActiveOther] = useState<{ id: string; name: string; withdrawn?: boolean } | null>(null);
+  const [activeOther, setActiveOther] = useState<{ id: string; name: string; withdrawn?: boolean; iBlocked?: boolean; blockedMe?: boolean } | null>(null);
   // 늦게 도착한 이전 대화방의 메시지가 새로 연 대화방에 섞이지 않도록 현재 대화방을 기억한다
   const activeThreadRef = useRef<string | null>(null);
   const sendingRef = useRef(false);
@@ -118,7 +120,8 @@ export default function ChatScreen() {
       }
       activeThreadRef.current = threadId;
       setActiveThreadId(threadId);
-      setActiveOther({ id: otherId, name: otherName || known?.otherName || operator?.name || '상대방', withdrawn });
+      const block = operator?.id === otherId ? { iBlocked: false, blockedMe: false } : await getBlockState(user.id, otherId);
+      setActiveOther({ id: otherId, name: otherName || known?.otherName || operator?.name || '상대방', withdrawn, ...block });
       setMessages([]);
       const msgs = await fetchMessages(threadId);
       if (activeThreadRef.current !== threadId) return;
@@ -280,7 +283,17 @@ export default function ChatScreen() {
               <Text style={styles.threadBackText}>‹</Text>
             </TouchableOpacity>
             <Text style={styles.threadHeaderName}>{activeOther?.name}</Text>
-            <View style={{ width: 30 }} />
+            {activeOther && operator?.id !== activeOther.id && user?.role !== 'operator' ? (
+              <SafetyActions
+                variant="menu"
+                targetId={activeOther.id}
+                targetName={activeOther.name}
+                context="chat"
+                onBlocked={() => setActiveOther((o) => (o ? { ...o, iBlocked: true } : o))}
+              />
+            ) : (
+              <View style={{ width: 30 }} />
+            )}
           </View>
 
           <FlatList
@@ -306,9 +319,15 @@ export default function ChatScreen() {
             }
           />
 
-          {activeOther?.withdrawn ? (
+          {activeOther?.withdrawn || activeOther?.iBlocked || activeOther?.blockedMe ? (
             <View style={styles.inputRow}>
-              <Text style={styles.withdrawnNote}>탈퇴한 회원이라 메시지를 보낼 수 없어요</Text>
+              <Text style={styles.withdrawnNote}>
+                {activeOther.withdrawn
+                  ? '탈퇴한 회원이라 메시지를 보낼 수 없어요'
+                  : activeOther.iBlocked
+                    ? '차단한 상대예요. 마이 › 차단 목록에서 풀 수 있어요'
+                    : '메시지를 보낼 수 없는 상대예요'}
+              </Text>
             </View>
           ) : (
           <View style={styles.inputRow}>

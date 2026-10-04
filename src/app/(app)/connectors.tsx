@@ -8,6 +8,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { formatRegions } from '@/lib/format';
 import { fetchConnectorReviews, fetchReviewSummaries, Review, ReviewSummary } from '@/lib/reviews';
 import ReviewList from '@/components/ReviewList';
+import SafetyActions from '@/components/SafetyActions';
 import MemberProfileView from '@/components/MemberProfileView';
 import { useMemberFilter } from '@/components/MemberFilter';
 import StackedBar, { SplitBar, ageColors, regionColor } from '@/components/DistributionBars';
@@ -802,6 +803,9 @@ export default function ConnectorsScreen() {
                     )}
                   </>
               </>
+            )}
+            {selectedConnector && (
+              <SafetyActions targetId={selectedConnector.id} targetName={selectedConnector.business_name || selectedConnector.name || '파트너'} context="partner" />
             )}
             </View>
       </BottomSheet>

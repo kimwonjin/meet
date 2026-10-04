@@ -9,7 +9,7 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import NotificationBell from '@/components/NotificationBell';
 import { getRefundable } from '@/lib/refunds';
 
-type Segment = 'settlements' | 'approvals' | 'withdrawals' | 'refunds';
+type Segment = 'settlements' | 'approvals' | 'withdrawals' | 'refunds' | 'reports';
 
 export default function SettlementsScreen() {
   const toast = useToast();
@@ -19,6 +19,7 @@ export default function SettlementsScreen() {
   const [pendingConnectors, setPendingConnectors] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [refunds, setRefunds] = useState<any[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [segment, setSegment] = useState<Segment>('settlements');
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -34,7 +35,7 @@ export default function SettlementsScreen() {
   );
 
   async function fetchAll() {
-    await Promise.all([fetchSettlements(), fetchPendingConnectors(), fetchWithdrawals(), fetchRefunds()]);
+    await Promise.all([fetchSettlements(), fetchPendingConnectors(), fetchWithdrawals(), fetchRefunds(), fetchReports()]);
     setLoading(false);
   }
 
@@ -110,6 +111,37 @@ export default function SettlementsScreen() {
       setWithdrawals(enriched);
     } catch (error) {
       console.error('Error fetching withdrawals:', error);
+    }
+  }
+
+  async function fetchReports() {
+    try {
+      const { data, error } = await supabase.from('user_reports').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      const ids = [...new Set((data || []).flatMap((r: any) => [r.reporter_id, r.target_id]))];
+      const { data: users } = await supabase.from('users').select('id, name, role').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      const nameOf = (id: string) => {
+        const u = (users || []).find((x: any) => x.id === id);
+        return u ? `${u.name}${u.role === 'connector' ? ' (파트너)' : ''}` : '알 수 없음';
+      };
+      setReports((data || []).map((r: any) => ({ ...r, reporter_name: nameOf(r.reporter_id), target_name: nameOf(r.target_id) })));
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+    }
+  }
+
+  async function handleResolveReport(id: string) {
+    setProcessingId(id);
+    try {
+      const { error } = await supabase.from('user_reports').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', id).eq('status', 'open');
+      if (error) throw error;
+      toast.show('✓ 확인 완료로 처리했습니다', 'success');
+      await fetchReports();
+    } catch (error) {
+      console.error('Error resolving report:', error);
+      toast.show('처리 중 오류가 발생했습니다', 'error');
+    } finally {
+      setProcessingId(null);
     }
   }
 
@@ -280,6 +312,7 @@ export default function SettlementsScreen() {
   const pendingWithdrawals = withdrawals.filter((w) => w.status === 'pending');
   const completedWithdrawals = withdrawals.filter((w) => w.status === 'completed');
   const pendingRefunds = refunds.filter((r) => r.status === 'pending');
+  const openReports = reports.filter((r) => r.status === 'open');
 
   return (
     <View style={styles.container}>
@@ -296,6 +329,7 @@ export default function SettlementsScreen() {
           { key: 'approvals', label: `파트너 승인${pendingConnectors.length > 0 ? ` (${pendingConnectors.length})` : ''}` },
           { key: 'withdrawals', label: `출금${pendingWithdrawals.length > 0 ? ` (${pendingWithdrawals.length})` : ''}` },
           { key: 'refunds', label: `환불${pendingRefunds.length > 0 ? ` (${pendingRefunds.length})` : ''}` },
+          { key: 'reports', label: `신고${openReports.length > 0 ? ` (${openReports.length})` : ''}` },
         ] as { key: Segment; label: string }[]).map((s) => (
           <TouchableOpacity
             key={s.key}
@@ -536,11 +570,62 @@ export default function SettlementsScreen() {
           />
         )
       )}
+      {segment === 'reports' && (
+        reports.length === 0 ? (
+          <View style={styles.placeholder}>
+            <Text style={styles.placeholderText}>신고 내역이 없습니다</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={[...openReports, ...reports.filter((r) => r.status !== 'open')]}
+            keyExtractor={(item) => item.id}
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.list}
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>{item.reason}</Text>
+                  <Text style={styles.cardDate}>{new Date(item.created_at).toLocaleDateString('ko-KR')}</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={styles.rowLabel}>신고 대상</Text>
+                  <Text style={styles.rowValue}>{item.target_name}</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={styles.rowLabel}>신고한 사람</Text>
+                  <Text style={styles.rowValue}>{item.reporter_name}</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={styles.rowLabel}>신고한 곳</Text>
+                  <Text style={styles.rowValue}>{({ match: '소개팅 상대', chat: '채팅', partner: '파트너 정보' } as Record<string, string>)[item.context] ?? item.context}</Text>
+                </View>
+                {!!item.detail && <Text style={styles.reportDetail}>{item.detail}</Text>}
+                {item.status === 'resolved' ? (
+                  <View style={styles.paidBadge}>
+                    <Text style={styles.paidBadgeText}>✓ {new Date(item.resolved_at).toLocaleDateString('ko-KR')} 확인 완료</Text>
+                  </View>
+                ) : (
+                  <View style={styles.approvalBtnRow}>
+                    <TouchableOpacity
+                      style={[styles.approveBtn, processingId === item.id && styles.buttonDisabled]}
+                      onPress={() => handleResolveReport(item.id)}
+                      disabled={processingId !== null}
+                    >
+                      <Text style={styles.approveBtnText}>{processingId === item.id ? '처리 중...' : '확인 완료'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+          />
+        )
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  reportDetail: { fontSize: 13, color: '#444', backgroundColor: '#F7F7F9', borderRadius: 8, padding: 10, marginTop: 8, lineHeight: 19 },
   container: {
     flex: 1,
     backgroundColor: '#fff',

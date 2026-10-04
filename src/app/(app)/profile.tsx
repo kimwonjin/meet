@@ -12,6 +12,7 @@ import PhotoEditor from '@/components/PhotoEditor';
 import { Avatar } from '@/components/ProfilePhoto';
 import ReviewList from '@/components/ReviewList';
 import TermsSheet from '@/components/TermsSheet';
+import BlockListSheet from '@/components/BlockListSheet';
 import ConsentChecklist, { ConsentItem } from '@/components/ConsentChecklist';
 import { recordConsents, TermsDocKey } from '@/lib/terms';
 import { getPendingRefund, getRefundable, Refundable, requestRefund, withdrawAccount } from '@/lib/refunds';
@@ -35,6 +36,7 @@ export default function ProfileScreen() {
   const [showConnectorModal, setShowConnectorModal] = useState(false);
   const [businessName, setBusinessName] = useState('');
   const [partnerConsents, setPartnerConsents] = useState<string[]>([]);
+  const [showBlocks, setShowBlocks] = useState(false);
   // 프로필을 다 불러오기 전에 저장하면 빈 값으로 덮어쓰므로, 불러온 뒤에만 저장할 수 있다
   const [profileLoaded, setProfileLoaded] = useState(false);
   // 마이 하단에서 여는 약관 전문
@@ -790,6 +792,11 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           ))}
           {user?.role !== 'operator' && (
+            <TouchableOpacity onPress={() => setShowBlocks(true)} style={styles.policyLink}>
+              <Text style={styles.policyLinkText}>차단 목록</Text>
+            </TouchableOpacity>
+          )}
+          {user?.role !== 'operator' && (
             <TouchableOpacity onPress={handleWithdraw} disabled={withdrawing} style={styles.policyLink}>
               <Text style={styles.policyLinkText}>{withdrawing ? '처리 중...' : '회원 탈퇴'}</Text>
             </TouchableOpacity>
@@ -825,6 +832,8 @@ export default function ProfileScreen() {
           {requestingRefund ? <ActivityIndicator color="#fff" /> : <Text style={styles.storeSaveBtnText}>환불 요청하기</Text>}
         </TouchableOpacity>
       </BottomSheet>
+
+      <BlockListSheet visible={showBlocks} onClose={() => setShowBlocks(false)} />
 
       <BottomSheet visible={showProfileModal} onClose={() => setShowProfileModal(false)} title="내 프로필 수정">
         <View style={styles.profileFormSection}>

@@ -273,6 +273,11 @@ export default function MatchingScreen() {
         p_hopeful_2: b.id,
         p_connector_2: b.connectorId,
       });
+      if (error?.message?.includes('BLOCKED_PAIR')) {
+        // 어느 쪽이 차단했는지는 파트너에게 알리지 않는다
+        toast.show('두 회원은 서로 매칭할 수 없어요', 'error');
+        return;
+      }
       if (error || !result) throw error;
       if (!result.ok) {
         const messages: Record<string, string> = {
@@ -325,6 +330,11 @@ export default function MatchingScreen() {
     try {
       // 동맹·이용권 확인 후 동의를 저장한다 (그 사이 이용권을 다른 매칭에 썼을 수 있다)
       const { data: result, error } = await supabase.rpc('fn_consent_match', { p_match_id: matchId, p_connector_id: user.id });
+      if (error?.message?.includes('BLOCKED_PAIR')) {
+        // 어느 쪽이 차단했는지는 파트너에게 알리지 않는다
+        toast.show('두 회원은 서로 매칭할 수 없어요', 'error');
+        return;
+      }
       if (error || !result) throw error;
       if (!result.ok) {
         const messages: Record<string, string> = {
@@ -392,6 +402,11 @@ export default function MatchingScreen() {
     setProcessingId(matchId);
     try {
       const { data: result, error } = await supabase.rpc('fn_cancel_match', { p_match_id: matchId, p_connector_id: user.id });
+      if (error?.message?.includes('BLOCKED_PAIR')) {
+        // 어느 쪽이 차단했는지는 파트너에게 알리지 않는다
+        toast.show('두 회원은 서로 매칭할 수 없어요', 'error');
+        return;
+      }
       if (error || !result) throw error;
       if (!result.ok) {
         toast.show(
