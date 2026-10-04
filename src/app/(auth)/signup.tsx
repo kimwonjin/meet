@@ -29,8 +29,6 @@ function formatBirthDate(value: string) {
 
 export default function SignupScreen() {
   const toast = useToast();
-  const [step, setStep] = useState<'role' | 'form'>('form');
-  const [role, setRole] = useState<'hopeful' | 'connector'>('hopeful');
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [birthDate, setBirthDate] = useState('');
@@ -107,29 +105,9 @@ export default function SignupScreen() {
     }
   }
 
-  if (step === 'role') {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>역할 선택</Text>
-        <Text style={styles.subtitle}>어떤 역할로 시작하시겠어요?</Text>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => {
-            setRole('hopeful');
-            setStep('form');
-          }}
-        >
-          <Text style={styles.buttonText}>가입하기</Text>
-        </TouchableOpacity>
-        <Text style={styles.footerNote}>중개사는 가입 후 설정에서 신청할 수 있습니다</Text>
-      </View>
-    );
-  }
-
   return (
     <ScrollView style={styles.container}>
-      <TouchableOpacity onPress={() => setStep('role')}>
+      <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}>
         <Text style={styles.back}>← 뒤로가기</Text>
       </TouchableOpacity>
 
@@ -200,6 +178,7 @@ export default function SignupScreen() {
         >
           <Text style={styles.buttonText}>{loading ? '가입 중...' : '가입하기'}</Text>
         </TouchableOpacity>
+        <Text style={styles.footerNote}>파트너 활동은 가입 후 마이 › 매칭 파트너에서 신청할 수 있습니다</Text>
       </View>
     </ScrollView>
   );

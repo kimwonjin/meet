@@ -1,4 +1,5 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loginWithPhone } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
@@ -27,7 +28,7 @@ interface AuthContextType {
   recentLogins: RecentLogin[];
   loading: boolean;
   login: (phone: string) => Promise<any>;
-  logout: () => Promise<void>;
+  logout: (options?: { forget?: boolean }) => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
   refreshUser: (id: string) => Promise<void>;
 }
@@ -41,6 +42,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     checkLogin();
+  }, []);
+
+  // 앱(탭)으로 돌아올 때마다 서버의 최신 계정 상태를 반영한다 (역할 변경, 다른 기기에서 탈퇴 등)
+  const userRef = useRef<User | null>(null);
+  userRef.current = user;
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && userRef.current) refreshUser(userRef.current.id);
+    });
+    return () => sub.remove();
   }, []);
 
   async function checkLogin() {
@@ -64,8 +75,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // 운영자 승인으로 역할이 바뀌는 등 서버 쪽 변경을 반영한다 (실패해도 저장된 값으로 계속 사용)
   async function refreshUser(id: string) {
-    const { data } = await supabase.from('users').select('*').eq('id', id).maybeSingle();
-    if (!data) return;
+    const { data, error } = await supabase.from('users').select('*').eq('id', id).maybeSingle();
+    if (error) return; // 네트워크 오류 등: 저장된 값으로 계속
+    // 계정이 없거나 탈퇴한 계정이면 로그아웃 (다른 기기에서 탈퇴한 경우)
+    if (!data || data.withdrawn_at) {
+      await logout({ forget: true });
+      return;
+    }
     setUser(data);
     await AsyncStorage.setItem('user', JSON.stringify(data));
   }
@@ -84,14 +100,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { data };
   }
 
-  async function logout() {
+  // forget: 탈퇴한 계정은 최근 로그인 목록에서도 지운다
+  async function logout(options?: { forget?: boolean }) {
+    const current = userRef.current;
     await AsyncStorage.removeItem('user');
     setUser(null);
+    if (options?.forget && current) {
+      const stored = await AsyncStorage.getItem(RECENT_LOGINS_KEY);
+      const next = (stored ? (JSON.parse(stored) as RecentLogin[]) : []).filter((r) => r.phone !== current.phone);
+      setRecentLogins(next);
+      await AsyncStorage.setItem(RECENT_LOGINS_KEY, JSON.stringify(next));
+    }
   }
 
   async function updateUser(updates: Partial<User>) {
-    if (!user) return;
-    const updated = { ...user, ...updates };
+    // 가장 최근 값에 합친다 (느린 저장이 더 최근 변경을 덮어쓰지 않도록)
+    const base = userRef.current;
+    if (!base) return;
+    const updated = { ...base, ...updates };
+    userRef.current = updated;
     setUser(updated);
     await AsyncStorage.setItem('user', JSON.stringify(updated));
   }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
@@ -52,6 +52,7 @@ export default function ConnectorsScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedConnector, setSelectedConnector] = useState<Connector | null>(null);
   const [requesting, setRequesting] = useState(false);
+  const purchasingRef = useRef(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [completedMatchCount, setCompletedMatchCount] = useState<number | null>(null);
@@ -256,19 +257,33 @@ export default function ConnectorsScreen() {
   }, [selectedConnector]);
 
   async function handlePurchase() {
-    if (!user || !selectedConnector) return;
-
+    // 같은 화면에서 빠르게 두 번 눌러도 한 번만 결제되도록
+    if (!user || !selectedConnector || purchasingRef.current) return;
+    purchasingRef.current = true;
     setPurchasing(true);
     try {
-      const { data, error } = await purchasePackage(user.id, selectedConnector.id, selectedPackage);
-      if (error) throw error;
-
-      toast.show(`✓ ${selectedPackage}회 이용권을 구매했습니다`, 'success');
-      const { credit } = await getCredit(user.id, selectedConnector.id);
-      setMyCredit(credit);
-    } catch (error: any) {
-      toast.show(error?.message || '결제 중 오류가 발생했습니다', 'error');
+      const result = await purchasePackage(user.id, selectedConnector.id, selectedPackage, selectedConnector.fee_per_session ?? 0);
+      if (result.ok) {
+        toast.show(`✓ ${selectedPackage}회 이용권을 구매했습니다`, 'success');
+        const { credit } = await getCredit(user.id, selectedConnector.id);
+        setMyCredit(credit);
+      } else if (result.reason === 'insufficient') {
+        // 잔액이 모자라면 충전 화면으로 바로 보낸다 (막다른 길 방지)
+        toast.show(`충전된 금액이 ${(result.total! - result.balance!).toLocaleString()}원 부족해요. 충전 후 다시 결제해주세요`, 'error');
+        setSelectedConnector(null);
+        router.push({ pathname: '/profile', params: { open: 'credits' } });
+      } else if (result.reason === 'fee_changed') {
+        setSelectedConnector({ ...selectedConnector, fee_per_session: result.fee });
+        toast.show(`파트너가 1회 비용을 ${result.fee!.toLocaleString()}원으로 바꿨어요. 금액을 확인하고 다시 결제해주세요`, 'error');
+      } else if (result.reason === 'no_fee') {
+        toast.show('파트너가 아직 비용을 정하지 않았어요. 채팅으로 문의해주세요', 'error');
+      } else if (result.reason === 'not_member') {
+        toast.show('가입 승인을 받은 파트너의 이용권만 구매할 수 있어요', 'error');
+      } else {
+        toast.show('결제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요', 'error');
+      }
     } finally {
+      purchasingRef.current = false;
       setPurchasing(false);
     }
   }
@@ -316,7 +331,7 @@ export default function ConnectorsScreen() {
       setSelectedConnector(null);
     } catch (error) {
       console.error('Request error:', error);
-      toast.show('요청 실패', 'error');
+      toast.show('가입요청을 보내지 못했어요. 잠시 후 다시 시도해주세요', 'error');
     } finally {
       setRequesting(false);
     }
@@ -345,7 +360,7 @@ export default function ConnectorsScreen() {
       fetchConnectors();
     } catch (error) {
       console.error('Approve error:', error);
-      toast.show('승인 실패', 'error');
+      toast.show('승인하지 못했어요. 잠시 후 다시 시도해주세요', 'error');
     } finally {
       setProcessingId(null);
     }
@@ -373,7 +388,7 @@ export default function ConnectorsScreen() {
       fetchConnectors();
     } catch (error) {
       console.error('Reject error:', error);
-      toast.show('거절 실패', 'error');
+      toast.show('거절하지 못했어요. 잠시 후 다시 시도해주세요', 'error');
     } finally {
       setProcessingId(null);
     }
@@ -443,7 +458,7 @@ export default function ConnectorsScreen() {
                       <Text style={styles.desc}>
                         {tabStatus === 'ally'
                           ? [item.ally_connector_name + ' 소속', item.gender === 'M' ? '남' : item.gender === 'F' ? '여' : null, item.age && `${item.age}세`, item.location].filter(Boolean).join(' · ')
-                          : '회원 요청'}
+                          : [item.gender === 'M' ? '남' : item.gender === 'F' ? '여' : null, item.age && `${item.age}세`, item.location].filter(Boolean).join(' · ') || (tabStatus === 'pending' ? '가입 요청' : '내 회원')}
                       </Text>
                     </View>
                     {tabStatus !== 'ally' && (
@@ -610,7 +625,7 @@ export default function ConnectorsScreen() {
               <View style={styles.connInfo}>
                 <View style={styles.nameRow}>
                   <Text style={styles.name}>{item.business_name}</Text>
-                  {item.verified && <View style={styles.badge}><Text style={styles.badgeText}>인</Text></View>}
+                  {item.verified && <View style={styles.badge}><Text style={styles.badgeText}>인증</Text></View>}
                   {item.is_approved && <View style={styles.approvedBadge}><Text style={styles.approvedBadgeText}>✓ 승인됨</Text></View>}
                 </View>
                 <Text style={styles.desc}>파트너</Text>
@@ -727,9 +742,9 @@ export default function ConnectorsScreen() {
                           <Text style={styles.chatShortcutBtnWideText}>💬 채팅하기</Text>
                         </TouchableOpacity>
 
-                        <Text style={styles.modalSectionTitle}>이용권 구매 (디파짓)</Text>
+                        <Text style={styles.modalSectionTitle}>이용권 구매</Text>
                         <View style={styles.infoRow}>
-                          <Text style={styles.infoLabel}>잔여 이용권</Text>
+                          <Text style={styles.infoLabel}>사용할 수 있는 이용권</Text>
                           <Text style={styles.infoValue}>{myCredit}회</Text>
                         </View>
 
@@ -1154,7 +1169,7 @@ const styles = StyleSheet.create({
   approvedStatusBadge: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#4CAF50',
+    color: '#5B21FF',
   },
   subTabContainer: {
     flexDirection: 'row',

@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import BottomSheet from './BottomSheet';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { fetchNotifications, markAllRead, markOneRead, getUnreadNotificationCount } from '@/lib/notifications';
 
 export default function NotificationBell() {
   const { user } = useAuth();
   const router = useRouter();
+  const toast = useToast();
   const [unreadCount, setUnreadCount] = useState(0);
   const [visible, setVisible] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -33,6 +36,7 @@ export default function NotificationBell() {
   async function handleMarkAllRead() {
     if (!user) return;
     await markAllRead(user.id);
+    toast.show('모든 알림을 읽음으로 표시했어요', 'success');
     setNotifications((prev) => prev.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() })));
     setUnreadCount(0);
   }
@@ -60,50 +64,37 @@ export default function NotificationBell() {
         )}
       </TouchableOpacity>
 
-      <Modal visible={visible} transparent animationType="slide" onRequestClose={() => setVisible(false)}>
-        <View style={styles.overlay}>
-          <View style={styles.sheet}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>알림</Text>
-              <View style={styles.sheetHeaderActions}>
-                <TouchableOpacity onPress={handleMarkAllRead}>
-                  <Text style={styles.markAllText}>모두 읽음</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setVisible(false)} style={styles.closeBtn}>
-                  <Text style={styles.closeBtnText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {loading ? (
-              <ActivityIndicator size="large" color="#5B21FF" style={{ marginTop: 40 }} />
-            ) : notifications.length === 0 ? (
-              <View style={styles.empty}>
-                <Text style={styles.emptyText}>알림이 없습니다</Text>
-              </View>
-            ) : (
-              <FlatList
-                data={notifications}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.list}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={[styles.item, !item.read_at && styles.itemUnread]}
-                    onPress={() => handleTapNotification(item)}
-                  >
-                    {!item.read_at && <View style={styles.dot} />}
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.itemTitle}>{item.title}</Text>
-                      {item.body && <Text style={styles.itemBody}>{item.body}</Text>}
-                      <Text style={styles.itemDate}>{new Date(item.created_at).toLocaleString('ko-KR')}</Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-              />
-            )}
+      <BottomSheet visible={visible} onClose={() => setVisible(false)} title="알림">
+        {loading ? (
+          <ActivityIndicator size="large" color="#5B21FF" style={{ marginTop: 40 }} />
+        ) : notifications.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>알림이 없습니다</Text>
           </View>
-        </View>
-      </Modal>
+        ) : (
+          <>
+            {unreadCount > 0 && (
+              <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn}>
+                <Text style={styles.markAllText}>모두 읽음으로 표시</Text>
+              </TouchableOpacity>
+            )}
+            {notifications.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[styles.item, !item.read_at && styles.itemUnread]}
+                onPress={() => handleTapNotification(item)}
+              >
+                {!item.read_at && <View style={styles.dot} />}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.itemTitle}>{item.title}</Text>
+                  {item.body && <Text style={styles.itemBody}>{item.body}</Text>}
+                  <Text style={styles.itemDate}>{new Date(item.created_at).toLocaleString('ko-KR')}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
+      </BottomSheet>
     </>
   );
 }
@@ -163,6 +154,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+  },
+  markAllBtn: {
+    alignSelf: 'flex-end',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    marginBottom: 4,
   },
   markAllText: {
     fontSize: 12,

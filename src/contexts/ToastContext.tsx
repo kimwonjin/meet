@@ -15,11 +15,14 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
+let toastSeq = 0;
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const show = useCallback((message: string, type: ToastType = 'info') => {
-    const id = Date.now().toString();
+    // 같은 순간 두 번 띄워도 겹치지 않도록 순번을 붙인다
+    const id = `${Date.now()}-${++toastSeq}`;
     // 토스트가 성공 아이콘을 따로 그리므로 메시지 앞의 ✓는 뺀다
     const newToast = { id, message: message.replace(/^✓\s*/, ''), type };
     setToasts((prev) => [...prev, newToast]);

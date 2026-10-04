@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import TermsSheet from './TermsSheet';
-import { TermsDocKey } from '@/lib/terms';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { TERMS_DOCS, TermsDocKey } from '@/lib/terms';
 
 export type ConsentItem = { key: string; label: string; doc?: TermsDocKey };
 
@@ -13,6 +12,7 @@ interface Props {
 }
 
 // 필수 약관 동의 체크리스트 (전체 동의 + 항목별 동의, 항목마다 전문 보기)
+// 전문은 그 자리에서 펼쳐 보여준다 (시트 안에서 시트를 또 열면 웹에서 뒤에 가려진다)
 export default function ConsentChecklist({ items, checked, onChange, disabled }: Props) {
   const [viewing, setViewing] = useState<TermsDocKey | null>(null);
   const allChecked = items.every((i) => checked.includes(i.key));
@@ -56,14 +56,28 @@ export default function ConsentChecklist({ items, checked, onChange, disabled }:
               </Text>
             </TouchableOpacity>
             {item.doc && (
-              <TouchableOpacity onPress={() => setViewing(item.doc!)} style={styles.viewBtn} accessibilityLabel={`${item.label} 보기`}>
-                <Text style={styles.viewText}>보기</Text>
+              <TouchableOpacity
+                onPress={() => setViewing(viewing === item.doc ? null : item.doc!)}
+                style={styles.viewBtn}
+                accessibilityLabel={`${item.label} ${viewing === item.doc ? '접기' : '보기'}`}
+              >
+                <Text style={styles.viewText}>{viewing === item.doc ? '접기' : '보기'}</Text>
               </TouchableOpacity>
+            )}
+            {item.doc && viewing === item.doc && (
+              <ScrollView style={styles.termsBox} nestedScrollEnabled>
+                <Text style={styles.termsTitle}>{TERMS_DOCS[item.doc].title}</Text>
+                {TERMS_DOCS[item.doc].sections.map((sec) => (
+                  <View key={sec.heading} style={styles.termsSection}>
+                    <Text style={styles.termsHeading}>{sec.heading}</Text>
+                    <Text style={styles.termsBody}>{sec.body}</Text>
+                  </View>
+                ))}
+              </ScrollView>
             )}
           </View>
         );
       })}
-      <TermsSheet docKey={viewing} onClose={() => setViewing(null)} />
     </View>
   );
 }
@@ -73,7 +87,12 @@ const styles = StyleSheet.create({
   allRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 36 },
   allText: { fontSize: 15, fontWeight: '700', color: '#222' },
   divider: { height: 1, backgroundColor: '#f0f0f0', marginVertical: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', minHeight: 40 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', minHeight: 40 },
+  termsBox: { width: '100%', maxHeight: 240, borderWidth: 1, borderColor: '#eee', borderRadius: 8, padding: 12, marginBottom: 8, backgroundColor: '#FAFAFA' },
+  termsTitle: { fontSize: 14, fontWeight: '700', color: '#222', marginBottom: 10 },
+  termsSection: { marginBottom: 12 },
+  termsHeading: { fontSize: 13, fontWeight: '700', color: '#333', marginBottom: 4 },
+  termsBody: { fontSize: 12, color: '#555', lineHeight: 19 },
   rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
   rowText: { flex: 1, fontSize: 13, color: '#444' },
   required: { color: '#5B21FF', fontWeight: '600' },

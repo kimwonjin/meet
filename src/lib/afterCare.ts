@@ -26,23 +26,32 @@ type AfterCareMatch = {
 // 기한이 지난 매칭은 응답하지 않은 쪽을 '미신청'으로 채우고 정산한다.
 // 별도 서버 작업 없이, 회원이나 파트너가 화면을 열 때 처리된다. 처리한 경우 true.
 export async function expireAfterCareIfDue(m: AfterCareMatch) {
-  if (m.meeting_status !== 'completed' || m.settlement_completed || !m.meeting_completed_at) return false;
-  if (Date.now() < afterCareDeadline(m.meeting_completed_at).getTime()) return false;
-  if (m.after_care_hopeful_1 && m.after_care_hopeful_2) return false;
+  if (m.meeting_status !== 'completed' || m.settlement_completed) return false;
 
-  // 여러 화면이 동시에 처리해도 실제로 값을 채운 쪽만 결과를 알린다
-  let filled = false;
+  // 두 회원이 모두 골랐는데 마무리가 안 된 경우 (네트워크 오류 등) 다시 시도한다
+  if (m.after_care_hopeful_1 && m.after_care_hopeful_2) {
+    const { data: settledNow, error } = await supabase.rpc('fn_settle_match', { p_match_id: m.id });
+    if (error) {
+      console.error('after-care settle retry error:', error);
+      return false;
+    }
+    if (settledNow) await notifyAfterCareResult(m.id);
+    return !!settledNow;
+  }
+
+  if (!m.meeting_completed_at) return false;
+  if (Date.now() < afterCareDeadline(m.meeting_completed_at).getTime()) return false;
+
   if (!m.after_care_hopeful_1) {
-    const { data } = await supabase.from('match_requests').update({ after_care_hopeful_1: '미신청' }).eq('id', m.id).is('after_care_hopeful_1', null).select('id');
-    filled ||= !!data?.length;
+    await supabase.from('match_requests').update({ after_care_hopeful_1: '미신청' }).eq('id', m.id).is('after_care_hopeful_1', null);
   }
   if (!m.after_care_hopeful_2) {
-    const { data } = await supabase.from('match_requests').update({ after_care_hopeful_2: '미신청' }).eq('id', m.id).is('after_care_hopeful_2', null).select('id');
-    filled ||= !!data?.length;
+    await supabase.from('match_requests').update({ after_care_hopeful_2: '미신청' }).eq('id', m.id).is('after_care_hopeful_2', null);
   }
-  const { error } = await supabase.rpc('fn_settle_match', { p_match_id: m.id });
+  // 여러 화면이 동시에 처리해도 실제로 마무리한 한 곳만 결과를 알린다
+  const { data: settledNow, error } = await supabase.rpc('fn_settle_match', { p_match_id: m.id });
   if (error) console.error('after-care auto close error:', error);
-  else if (filled) await notifyAfterCareResult(m.id);
+  else if (settledNow) await notifyAfterCareResult(m.id);
   return true;
 }
 

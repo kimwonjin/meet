@@ -9,13 +9,20 @@ export function dateKeyToMeetingAt(dateKey: string) {
   return new Date(y, mo - 1, d, 12, 0).toISOString();
 }
 
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// 두 회원이 고른 날짜 중 겹치는 가장 빠른 날 (이미 지난 날짜는 제외)
 export function earliestCommonDate(a: string[] | null, b: string[] | null): string | null {
   if (!a?.length || !b?.length) return null;
   const setB = new Set(b);
-  return [...a].sort().find((d) => setB.has(d)) ?? null;
+  const today = todayKey();
+  return [...a].sort().find((d) => d >= today && setB.has(d)) ?? null;
 }
 
-// 날짜가 처음 정해지면 각 회원에게 담당 연결자와의 채팅방으로 상대 연락처를 보낸다.
+// 날짜가 처음 정해지면 각 회원에게 담당 파트너와의 채팅방으로 상대 연락처를 보낸다.
 // 연락처는 화면에 노출하지 않고 이 메시지로만 전달한다.
 export async function sendContactsViaChat(match: {
   hopeful_1_id: string;
@@ -48,7 +55,7 @@ type AutoScheduleResult = { status: 'waiting' } | { status: 'scheduled'; at: str
 // 저장된 최신 값으로 판단한다 (두 회원이 다른 기기에서 시차를 두고 승인하기 때문).
 export async function autoScheduleMatch(matchId: string): Promise<AutoScheduleResult> {
   const { data: m } = await supabase.from('match_requests').select('*').eq('id', matchId).single();
-  if (!m || !m.hopeful_1_approved || !m.hopeful_2_approved) return { status: 'waiting' };
+  if (!m || m.status === 'rejected' || !m.hopeful_1_approved || !m.hopeful_2_approved) return { status: 'waiting' };
   if (m.meeting_scheduled_at) return { status: 'already' };
   if (!m.available_dates_1?.length || !m.available_dates_2?.length) return { status: 'waiting' };
 

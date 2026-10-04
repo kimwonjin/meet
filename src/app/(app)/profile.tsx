@@ -35,6 +35,8 @@ export default function ProfileScreen() {
   const [showConnectorModal, setShowConnectorModal] = useState(false);
   const [businessName, setBusinessName] = useState('');
   const [partnerConsents, setPartnerConsents] = useState<string[]>([]);
+  // 프로필을 다 불러오기 전에 저장하면 빈 값으로 덮어쓰므로, 불러온 뒤에만 저장할 수 있다
+  const [profileLoaded, setProfileLoaded] = useState(false);
   // 마이 하단에서 여는 약관 전문
   const [viewingTerms, setViewingTerms] = useState<TermsDocKey | null>(null);
   const [connectorApplicationStatus, setConnectorApplicationStatus] = useState<string | null>(null);
@@ -189,7 +191,7 @@ export default function ProfileScreen() {
 
       const enriched = (settlements || []).map((s: any) => ({
         ...s,
-        hopefulName: (hopefulUsers || []).find((u: any) => u.id === s.hopeful_id)?.name || '희망자',
+        hopefulName: (hopefulUsers || []).find((u: any) => u.id === s.hopeful_id)?.name || '회원',
       }));
 
       setMySettlements(enriched);
@@ -286,12 +288,13 @@ export default function ProfileScreen() {
         setStoreData((prev) => ({...prev, male_count: 0, female_count: 0}));
       }
 
-      // 매칭 수 계산 (상태가 completed인 매칭)
+      // 매칭 수: 정상 마무리(정산)된 매칭 (노쇼 종료 제외) - 회원에게 보이는 파트너 정보와 같은 기준
       const { data: completedMatches } = await supabase
         .from('match_requests')
         .select('id')
         .or(`connector_1_id.eq.${user.id},connector_2_id.eq.${user.id}`)
-        .eq('status', 'completed');
+        .eq('settlement_completed', true)
+        .is('closed_reason', null);
 
       setStoreData((prev) => ({...prev, matching_count: (completedMatches || []).length}));
     } catch (error) {
@@ -305,6 +308,7 @@ export default function ProfileScreen() {
   const bodyTypes = ['마름', '보통', '통통', '근육질'];
 
   async function loadProfile() {
+    setProfileLoaded(false);
     const { data, error } = await supabase
       .from('users')
       .select('location, height, job, education, bio, religion, smoking, drinking, body_type, photo_urls')
@@ -323,6 +327,7 @@ export default function ProfileScreen() {
       drinking: data.drinking ?? '',
       body_type: data.body_type ?? '',
     });
+    setProfileLoaded(true);
   }
 
   async function handleProfileSave() {
@@ -374,11 +379,11 @@ export default function ProfileScreen() {
 
       if (error) throw error;
 
-      toast.show('스토어 정보가 저장되었습니다', 'success');
+      toast.show('✓ 커리어 프로필을 저장했습니다', 'success');
       setShowStoreModal(false);
     } catch (error) {
       console.error('Store save error:', error);
-      toast.show('저장 실패', 'error');
+      toast.show('저장하지 못했어요. 잠시 후 다시 시도해주세요', 'error');
     } finally {
       setLoading(false);
     }
@@ -393,6 +398,13 @@ export default function ProfileScreen() {
     setRequestingRefund(true);
     try {
       const { error } = await requestRefund({ hopefulId: user.id, ...refundBank });
+      if (error?.code === '23505') {
+        // 이미 처리 중인 요청이 있음 (빠른 두 번 클릭 등)
+        setShowRefundSheet(false);
+        toast.show('이미 처리 중인 환불 요청이 있어요', 'info');
+        setShowCreditsModal(true);
+        return;
+      }
       if (error) throw error;
       // 운영자에게 알림
       const { data: operators } = await supabase.from('users').select('id').eq('role', 'operator');
@@ -427,7 +439,7 @@ export default function ProfileScreen() {
     try {
       const result = await withdrawAccount(user.id);
       if (result.ok) {
-        await logout();
+        await logout({ forget: true });
         router.replace('/');
         toast.show('탈퇴가 완료되었어요. 그동안 이용해주셔서 감사합니다', 'success');
         return;
@@ -509,8 +521,9 @@ export default function ProfileScreen() {
   }
 
   async function handleRequestWithdrawal() {
-    if (!user) return;
-    const amount = parseInt(withdrawAmount, 10);
+    if (!user || requestingWithdrawal) return;
+    // "50,000"처럼 쉼표를 넣어도 숫자만 읽는다
+    const amount = Number(withdrawAmount.replace(/[^0-9]/g, ''));
     if (!amount || amount <= 0) {
       toast.show('출금할 금액을 입력해주세요', 'error');
       return;
@@ -525,16 +538,21 @@ export default function ProfileScreen() {
     }
     setRequestingWithdrawal(true);
     try {
-      const { error } = await supabase.from('withdrawal_requests').insert({
-        connector_id: user.id,
-        amount,
-        bank_name: bankName,
-        account_number: accountNumber,
-        account_holder: accountHolder,
+      // 출금 가능 금액 확인과 신청 기록을 서버에서 한 번에 (두 번 눌러도 잔액을 넘지 않도록)
+      const { data: result, error } = await supabase.rpc('fn_request_withdrawal', {
+        p_connector_id: user.id,
+        p_amount: amount,
+        p_bank_name: bankName,
+        p_account_number: accountNumber,
+        p_account_holder: accountHolder,
       });
-      if (error) throw error;
-      toast.show('✓ 출금을 신청했습니다', 'success');
-      setWithdrawAmount('');
+      if (error || !result) throw error;
+      if (!result.ok) {
+        toast.show(`출금 가능 금액(${Number(result.available ?? 0).toLocaleString()}원)을 초과했습니다`, 'error');
+      } else {
+        toast.show('✓ 출금을 신청했습니다', 'success');
+        setWithdrawAmount('');
+      }
       await loadBankInfo();
     } catch (error) {
       console.error('출금 신청 오류:', error);
@@ -567,7 +585,7 @@ export default function ProfileScreen() {
       const { error } = await supabase.from('users').update({ role: 'hopeful' }).eq('id', user.id);
       if (error) throw error;
       await updateUser({ role: 'hopeful' });
-      toast.show('✓ 희망자 화면으로 전환했습니다', 'success');
+      toast.show('✓ 회원 화면으로 전환했습니다', 'success');
     } catch (error) {
       console.error('역할 전환 오류:', error);
       toast.show('역할 전환 중 오류가 발생했습니다', 'error');
@@ -620,7 +638,9 @@ export default function ProfileScreen() {
           <Avatar photoUrls={photoUrls} size={70} />
         </View>
         <Text style={styles.name}>{user?.name}</Text>
-        <Text style={styles.grade}>{user?.grade || 'new'}</Text>
+        {user?.role === 'connector' && (
+          <Text style={styles.grade}>{!user.grade || user.grade === 'new' ? '신규 파트너' : `${user.grade} 등급`}</Text>
+        )}
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -637,29 +657,11 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuIcon}>⭐</Text>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>신뢰지표</Text>
-              <Text style={styles.menuSub}>나의 신뢰 점수</Text>
-            </View>
-            <Text style={styles.arrow}>›</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowCreditsModal(true)}>
             <Text style={styles.menuIcon}>💳</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>이용권/결제</Text>
-              <Text style={styles.menuSub}>이용권 및 정산</Text>
-            </View>
-            <Text style={styles.arrow}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuIcon}>⚙️</Text>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>설정</Text>
-              <Text style={styles.menuSub}>앱 설정 및 알림</Text>
+              <Text style={styles.menuSub}>충전, 이용권, 환불</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -737,7 +739,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>🔄</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>역할 전환</Text>
-              <Text style={styles.menuSub}>희망자 화면으로 이동</Text>
+              <Text style={styles.menuSub}>회원 화면으로 이동</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -775,7 +777,7 @@ export default function ProfileScreen() {
 
       <TermsSheet docKey={viewingTerms} onClose={() => setViewingTerms(null)} />
 
-      <BottomSheet visible={showRefundSheet} onClose={() => setShowRefundSheet(false)} title="환불 요청">
+      <BottomSheet visible={showRefundSheet} onClose={() => { setShowRefundSheet(false); setShowCreditsModal(true); }} title="환불 요청">
         <View style={styles.gradeBox}>
           <Text style={styles.gradeBoxLabel}>환불 예정 금액</Text>
           <Text style={styles.gradeBoxValue}>{(refundable?.total ?? 0).toLocaleString()}원</Text>
@@ -785,7 +787,7 @@ export default function ProfileScreen() {
         <TextInput style={styles.modalInput} placeholder="국민은행" placeholderTextColor="#ddd" value={refundBank.bankName}
           onChangeText={(v) => setRefundBank((b) => ({ ...b, bankName: v }))} editable={!requestingRefund} />
         <Text style={styles.modalLabel}>계좌번호</Text>
-        <TextInput style={styles.modalInput} placeholder="123456-78-901234" placeholderTextColor="#ddd" value={refundBank.accountNumber}
+        <TextInput style={styles.modalInput} placeholder="숫자만 입력" placeholderTextColor="#ddd" value={refundBank.accountNumber}
           onChangeText={(v) => setRefundBank((b) => ({ ...b, accountNumber: v }))} keyboardType="number-pad" editable={!requestingRefund} />
         <Text style={styles.modalLabel}>예금주</Text>
         <TextInput style={styles.modalInput} placeholder="홍길동" placeholderTextColor="#ddd" value={refundBank.accountHolder}
@@ -940,11 +942,11 @@ export default function ProfileScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.profileSaveBtn, loading && styles.storeSaveBtnDisabled]}
+          style={[styles.profileSaveBtn, (loading || !profileLoaded) && styles.storeSaveBtnDisabled]}
           onPress={handleProfileSave}
-          disabled={loading}
+          disabled={loading || !profileLoaded}
         >
-          <Text style={styles.profileSaveBtnText}>{loading ? '저장 중...' : '저장하기'}</Text>
+          <Text style={styles.profileSaveBtnText}>{loading ? '저장 중...' : !profileLoaded ? '불러오는 중...' : '저장하기'}</Text>
         </TouchableOpacity>
       </BottomSheet>
 
@@ -988,7 +990,7 @@ export default function ProfileScreen() {
                 <Text style={styles.modalLabel}>회사명</Text>
                 <TextInput
                   style={styles.modalInput}
-                  placeholder="홍길동"
+                  placeholder="예: 행복매칭"
                   placeholderTextColor="#ddd"
                   value={businessName}
                   onChangeText={setBusinessName}
@@ -1138,13 +1140,15 @@ export default function ProfileScreen() {
               >
                 <Text style={styles.storeSaveBtnText}>{charging ? '충전 중...' : '충전하기'}</Text>
               </TouchableOpacity>
-              <Text style={styles.chargeNotice}>카드결제는 추후 지원 예정입니다 (현재는 테스트 충전)</Text>
+              {process.env.EXPO_PUBLIC_TEST_MODE === 'true' && (
+                <Text style={styles.chargeNotice}>테스트 기간에는 실제 결제 없이 충전됩니다</Text>
+              )}
             </View>
 
             <View style={styles.modalSection}>
               <Text style={styles.modalSectionTitle}>이용권 현황</Text>
               {myConnectorCredits.length === 0 ? (
-                <Text style={{ color: '#999', paddingVertical: 12 }}>아직 구매한 이용권이 없습니다. 파트너 탭에서 승인된 연결자의 이용권을 구매해보세요.</Text>
+                <Text style={{ color: '#999', paddingVertical: 12 }}>아직 구매한 이용권이 없습니다. 파트너 탭에서 가입이 승인된 파트너의 이용권을 구매해보세요.</Text>
               ) : (
                 myConnectorCredits.map((c) => (
                   <View key={c.connectorId} style={styles.creditCard}>
@@ -1303,7 +1307,7 @@ export default function ProfileScreen() {
           <>
             <View style={styles.gradeBox}>
               <Text style={styles.gradeBoxLabel}>현재 등급</Text>
-              <Text style={styles.gradeBoxValue}>{creditScore.grade}</Text>
+              <Text style={styles.gradeBoxValue}>{creditScore.grade === 'new' ? '신규' : creditScore.grade}</Text>
               <Text style={styles.gradeBoxScore}>종합 점수 {creditScore.overall_score}점</Text>
             </View>
 
@@ -1357,7 +1361,7 @@ export default function ProfileScreen() {
               <Text style={styles.modalLabel}>계좌번호</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="123456-78-901234"
+                placeholder="숫자만 입력"
                 placeholderTextColor="#ddd"
                 value={accountNumber}
                 onChangeText={setAccountNumber}
@@ -1811,14 +1815,14 @@ const styles = StyleSheet.create({
     borderLeftColor: '#5B21FF',
   },
   paidBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#F1ECFF',
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
     marginTop: 10,
   },
   paidBadgeText: {
-    color: '#2E7D32',
+    color: '#5B21FF',
     fontWeight: '500',
     fontSize: 12,
   },
@@ -1830,7 +1834,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   pendingBadgeText: {
-    color: '#E67700',
+    color: '#888',
     fontWeight: '600',
     fontSize: 12,
   },

@@ -102,11 +102,19 @@ export default function AlliancesScreen() {
     try {
       const alliance = alliances.find((a) => a.id === allianceId);
 
-      const { error } = await supabase
+      // 상대가 그 사이 요청을 취소했으면 수락되지 않는다
+      const { data: accepted, error } = await supabase
         .from('connector_alliances')
         .update({ status: 'ACTIVE', updated_at: new Date().toISOString() })
-        .eq('id', allianceId);
+        .eq('id', allianceId)
+        .eq('status', 'PENDING')
+        .select('id');
       if (error) throw error;
+      if (!accepted?.length) {
+        toast.show('상대가 요청을 취소했거나 이미 처리된 요청이에요', 'info');
+        await fetchAlliances();
+        return;
+      }
 
       if (alliance?.requested_by) {
         await createNotification({
@@ -131,13 +139,26 @@ export default function AlliancesScreen() {
     setAllianceProcessingId(allianceId);
     try {
       const alliance = alliances.find((a) => a.id === allianceId);
-      const wasPending = alliance?.status === 'PENDING';
 
-      const { error } = await supabase
-        .from('connector_alliances')
-        .update({ status: 'TERMINATED', updated_at: new Date().toISOString() })
-        .eq('id', allianceId);
-      if (error) throw error;
+      // 해지와 함께 상대 동의를 기다리던 동맹 매칭도 닫는다 (진행 중인 매칭은 끝까지 진행)
+      const { data: result, error } = await supabase.rpc('fn_terminate_alliance', { p_alliance_id: allianceId, p_connector_id: user?.id });
+      if (error || !result) throw error;
+      if (!result.ok) {
+        toast.show('이미 해지된 동맹이에요', 'info');
+        await fetchAlliances();
+        return;
+      }
+      const wasPending = result.was_pending;
+      const otherId = alliance ? (alliance.connector_1_id === user?.id ? alliance.connector_2_id : alliance.connector_1_id) : null;
+      if (!wasPending && otherId) {
+        await createNotification({
+          userId: otherId,
+          type: 'alliance_terminated',
+          title: '동맹이 해지되었습니다',
+          body: `${user?.name}님과의 동맹이 해지되었어요. 진행 중이던 동맹 매칭은 끝까지 진행돼요`,
+          route: '/matching',
+        });
+      }
 
       if (wasPending && alliance?.requested_by && alliance.requested_by !== user?.id) {
         await createNotification({
@@ -193,7 +214,7 @@ export default function AlliancesScreen() {
 
       {otherConnectors.length === 0 ? (
         <View style={styles.emptyTab}>
-          <Text style={styles.placeholderText}>다른 연결자가 없습니다</Text>
+          <Text style={styles.placeholderText}>동맹을 맺을 수 있는 다른 파트너가 없습니다</Text>
         </View>
       ) : (
         <FlatList
@@ -497,7 +518,7 @@ const styles = StyleSheet.create({
   approvedStatusBadge: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#4CAF50',
+    color: '#5B21FF',
   },
   modalHeader: {
     alignItems: 'center',

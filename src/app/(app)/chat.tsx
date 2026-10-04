@@ -3,19 +3,21 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, 
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
+import { useFocusPolling } from '@/hooks/use-focus-polling';
 import { fetchThreads, fetchMessages, sendMessage, markThreadRead, getOrCreateThread, findOperator } from '@/lib/chat';
 
-type Filter = '전체' | '회원' | '동맹 연결자' | '연결자' | '운영자';
+type Filter = '전체' | '회원' | '파트너' | '운영자';
 
-function roleLabel(otherRole: string, viewerRole: string | undefined) {
+function roleLabel(otherRole: string) {
   if (otherRole === 'operator') return '운영자';
-  if (otherRole === 'hopeful') return '회원';
-  if (otherRole === 'connector') return viewerRole === 'hopeful' ? '연결자' : '동맹';
+  if (otherRole === 'connector') return '파트너';
   return '회원';
 }
 
 export default function ChatScreen() {
   const { user } = useAuth();
+  const toast = useToast();
   const router = useRouter();
   const params = useLocalSearchParams<{ with?: string; name?: string }>();
   const [threads, setThreads] = useState<any[]>([]);
@@ -24,7 +26,11 @@ export default function ChatScreen() {
   const [operator, setOperator] = useState<{ id: string; name: string } | null>(null);
 
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  const [activeOther, setActiveOther] = useState<{ id: string; name: string } | null>(null);
+  const [activeOther, setActiveOther] = useState<{ id: string; name: string; withdrawn?: boolean } | null>(null);
+  // 늦게 도착한 이전 대화방의 메시지가 새로 연 대화방에 섞이지 않도록 현재 대화방을 기억한다
+  const activeThreadRef = useRef<string | null>(null);
+  const sendingRef = useRef(false);
+  const [openingId, setOpeningId] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [messageInput, setMessageInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -68,7 +74,13 @@ export default function ChatScreen() {
 
     const interval = setInterval(async () => {
       const msgs = await fetchMessages(threadId);
-      setMessages((prev) => (msgs.length !== prev.length ? msgs : prev));
+      if (activeThreadRef.current !== threadId) return;
+      setMessages((prev) => {
+        if (msgs.length === prev.length) return prev;
+        // 실시간 연결이 없을 때도 열어 둔 대화방의 새 메시지는 읽음 처리한다
+        if (msgs.slice(prev.length).some((m: any) => m.sender_id !== user.id)) markThreadRead(threadId, user.id);
+        return msgs;
+      });
     }, 4000);
 
     return () => {
@@ -77,22 +89,9 @@ export default function ChatScreen() {
     };
   }, [activeThreadId, user?.id]);
 
-  // 대화 목록: 새 메시지가 오면 미리보기와 안 읽은 수를 갱신한다
-  useEffect(() => {
-    if (!user) return;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const channel = supabase
-      .channel(`chat-list-${user.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => {
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(load, 500);
-      })
-      .subscribe();
-    return () => {
-      if (timer) clearTimeout(timer);
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
+  // 대화 목록: 화면을 보고 있는 동안 주기적으로 미리보기와 안 읽은 수를 갱신한다
+  // (모든 메시지를 실시간으로 받으면 다른 사람 대화까지 받아 매번 다시 불러오게 되므로 쓰지 않는다)
+  useFocusPolling(() => load(), 10000, !!user);
 
   async function load() {
     if (!user) return;
@@ -103,37 +102,62 @@ export default function ChatScreen() {
   }
 
   async function openThreadWith(otherId: string, otherName: string | undefined) {
-    if (!user) return;
-    const threadId = await getOrCreateThread(user.id, otherId);
-    if (!threadId) return;
-    setActiveThreadId(threadId);
-    setActiveOther({ id: otherId, name: otherName || threads.find((t) => t.otherId === otherId)?.otherName || operator?.name || '상대방' });
-    const msgs = await fetchMessages(threadId);
-    setMessages(msgs);
-    await markThreadRead(threadId, user.id);
-    load();
+    if (!user || openingId) return;
+    setOpeningId(otherId);
+    try {
+      const threadId = await getOrCreateThread(user.id, otherId);
+      if (!threadId) {
+        toast.show('대화방을 열지 못했어요. 잠시 후 다시 시도해주세요', 'error');
+        return;
+      }
+      const known = threads.find((t) => t.otherId === otherId);
+      let withdrawn = known?.otherWithdrawn;
+      if (withdrawn === undefined) {
+        const { data } = await supabase.from('users').select('withdrawn_at').eq('id', otherId).maybeSingle();
+        withdrawn = !!data?.withdrawn_at;
+      }
+      activeThreadRef.current = threadId;
+      setActiveThreadId(threadId);
+      setActiveOther({ id: otherId, name: otherName || known?.otherName || operator?.name || '상대방', withdrawn });
+      setMessages([]);
+      const msgs = await fetchMessages(threadId);
+      if (activeThreadRef.current !== threadId) return;
+      setMessages(msgs);
+      await markThreadRead(threadId, user.id);
+      load();
+    } finally {
+      setOpeningId(null);
+    }
   }
 
   function closeThread() {
+    activeThreadRef.current = null;
     setActiveThreadId(null);
     setActiveOther(null);
     setMessages([]);
+    setMessageInput('');
+    load();
   }
 
   async function handleSend() {
-    if (!user || !activeThreadId || !messageInput.trim()) return;
+    if (!user || !activeThreadId || !messageInput.trim() || sendingRef.current) return;
+    const threadId = activeThreadId;
     const content = messageInput.trim();
-    setMessageInput('');
+    sendingRef.current = true;
     setSending(true);
     try {
-      const { error } = await sendMessage(activeThreadId, user.id, content);
+      const { error } = await sendMessage(threadId, user.id, content);
       if (error) throw error;
-      const msgs = await fetchMessages(activeThreadId);
-      setMessages(msgs);
+      setMessageInput('');
+      const msgs = await fetchMessages(threadId);
+      if (activeThreadRef.current === threadId) setMessages(msgs);
       setTimeout(() => messageListRef.current?.scrollToEnd({ animated: true }), 100);
     } catch (error) {
+      // 보내지 못한 글은 입력창에 그대로 남겨 다시 보낼 수 있게 한다
       console.error('메시지 전송 오류:', error);
+      toast.show('메시지를 보내지 못했어요. 다시 시도해주세요', 'error');
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   }
@@ -153,20 +177,24 @@ export default function ChatScreen() {
   const filtered = otherThreads.filter((t) => {
     if (filter === '전체') return true;
     if (filter === '회원') return t.otherRole === 'hopeful';
-    if (filter === '동맹 연결자' || filter === '연결자') return t.otherRole === 'connector';
+    if (filter === '파트너') return t.otherRole === 'connector';
     if (filter === '운영자') return t.otherRole === 'operator';
     return true;
   });
 
-  const showOperatorRow = operator && (filter === '전체' || filter === '운영자');
-  const filterOptions: Filter[] = user?.role === 'hopeful'
-    ? ['전체', '연결자', '운영자']
-    : ['전체', '회원', '동맹 연결자', '운영자'];
+  // 운영자 본인에게는 '운영자에게 문의하기' 줄이 필요 없다
+  const isOperator = user?.role === 'operator';
+  const showOperatorRow = !isOperator && operator && (filter === '전체' || filter === '운영자');
+  const filterOptions: Filter[] = isOperator
+    ? ['전체', '회원', '파트너']
+    : user?.role === 'hopeful'
+      ? ['전체', '파트너', '운영자']
+      : ['전체', '회원', '파트너', '운영자'];
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>채팅</Text>
+        <Text style={styles.title}>{isOperator ? '문의' : '채팅'}</Text>
       </View>
 
       <View style={styles.filterRow}>
@@ -229,7 +257,7 @@ export default function ChatScreen() {
               <View style={styles.threadTopRow}>
                 <Text style={styles.threadName}>{item.otherName}</Text>
                 <View style={styles.roleBadge}>
-                  <Text style={styles.roleBadgeText}>{roleLabel(item.otherRole, user?.role)}</Text>
+                  <Text style={styles.roleBadgeText}>{roleLabel(item.otherRole)}</Text>
                 </View>
               </View>
               <Text style={styles.threadPreview} numberOfLines={1}>
@@ -271,8 +299,18 @@ export default function ChatScreen() {
               );
             }}
             onContentSizeChange={() => messageListRef.current?.scrollToEnd({ animated: false })}
+            ListEmptyComponent={
+              <View style={styles.placeholder}>
+                <Text style={styles.placeholderText}>{openingId ? '불러오는 중...' : '첫 메시지를 보내보세요'}</Text>
+              </View>
+            }
           />
 
+          {activeOther?.withdrawn ? (
+            <View style={styles.inputRow}>
+              <Text style={styles.withdrawnNote}>탈퇴한 회원이라 메시지를 보낼 수 없어요</Text>
+            </View>
+          ) : (
           <View style={styles.inputRow}>
             <TextInput
               style={styles.messageInput}
@@ -283,10 +321,11 @@ export default function ChatScreen() {
               editable={!sending}
               onSubmitEditing={handleSend}
             />
-            <TouchableOpacity style={styles.sendBtn} onPress={handleSend} disabled={sending || !messageInput.trim()}>
-              <Text style={styles.sendBtnText}>전송</Text>
+            <TouchableOpacity style={[styles.sendBtn, (sending || !messageInput.trim()) && { opacity: 0.5 }]} onPress={handleSend} disabled={sending || !messageInput.trim()}>
+              {sending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.sendBtnText}>전송</Text>}
             </TouchableOpacity>
           </View>
+          )}
         </KeyboardAvoidingView>
       </Modal>
     </View>
@@ -294,6 +333,13 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  withdrawnNote: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 13,
+    color: '#999',
+    paddingVertical: 10,
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',

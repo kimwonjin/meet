@@ -35,6 +35,15 @@ export default function AppLayout() {
             tabBarIcon: ({ color }) => <Ionicons name="cash" size={24} color={color} />,
           }}
         />
+        {/* 회원·파트너의 운영자 문의를 받는 곳 */}
+        <Tabs.Screen
+          name="chat"
+          options={{
+            tabBarLabel: '문의',
+            tabBarIcon: ({ color }) => <Ionicons name="chatbubble-ellipses" size={24} color={color} />,
+            tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          }}
+        />
         <Tabs.Screen
           name="profile"
           options={{
@@ -46,7 +55,6 @@ export default function AppLayout() {
         <Tabs.Screen name="connectors" options={{ href: null }} />
         <Tabs.Screen name="matching" options={{ href: null }} />
         <Tabs.Screen name="alliances" options={{ href: null }} />
-        <Tabs.Screen name="chat" options={{ href: null }} />
       </Tabs>
     );
   }
@@ -123,8 +131,8 @@ export default function AppLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          tabBarLabel: '프로필',
-          tabBarIcon: ({ color }) => <Ionicons name="person" size={24} color={color} />,
+          tabBarLabel: '마이',
+          tabBarIcon: ({ color }) => <Ionicons name="person-circle" size={24} color={color} />,
         }}
       />
       <Tabs.Screen name="alliances" options={{ href: null }} />

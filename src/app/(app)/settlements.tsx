@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity }
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { createNotification } from '@/lib/notifications';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import NotificationBell from '@/components/NotificationBell';
@@ -12,6 +13,7 @@ type Segment = 'settlements' | 'approvals' | 'withdrawals' | 'refunds';
 
 export default function SettlementsScreen() {
   const toast = useToast();
+  const { user } = useAuth();
   const confirm = useConfirm();
   const [settlements, setSettlements] = useState<any[]>([]);
   const [pendingConnectors, setPendingConnectors] = useState<any[]>([]);
@@ -50,8 +52,8 @@ export default function SettlementsScreen() {
 
       const enriched = (data || []).map((s: any) => ({
         ...s,
-        hopeful_name: (users || []).find((u: any) => u.id === s.hopeful_id)?.name || '희망자',
-        connector_name: (users || []).find((u: any) => u.id === s.connector_id)?.name || '연결자',
+        hopeful_name: (users || []).find((u: any) => u.id === s.hopeful_id)?.name || '회원',
+        connector_name: (users || []).find((u: any) => u.id === s.connector_id)?.name || '파트너',
       }));
 
       setSettlements(enriched);
@@ -93,9 +95,17 @@ export default function SettlementsScreen() {
       const ids = (data || []).map((w: any) => w.connector_id);
       const { data: users } = await supabase.from('users').select('id, name').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
 
+      // 대기 중인 출금은 파트너의 남은 정산금을 함께 보여준다 (출금 신청 합계가 번 금액을 넘지 않는지 확인용)
+      const pendingIds = [...new Set((data || []).filter((w: any) => w.status === 'pending').map((w: any) => w.connector_id))];
+      const balances: Record<string, number> = {};
+      await Promise.all(pendingIds.map(async (id: any) => {
+        const { data: left } = await supabase.rpc('fn_connector_available_payout', { p_connector_id: id });
+        balances[id] = Number(left) || 0;
+      }));
       const enriched = (data || []).map((w: any) => ({
         ...w,
-        connector_name: (users || []).find((u: any) => u.id === w.connector_id)?.name || '연결자',
+        connector_name: (users || []).find((u: any) => u.id === w.connector_id)?.name || '파트너',
+        remaining_after: balances[w.connector_id],
       }));
       setWithdrawals(enriched);
     } catch (error) {
@@ -124,12 +134,23 @@ export default function SettlementsScreen() {
     }
   }
 
-  async function handleCompleteRefund(requestId: string) {
+  async function handleCompleteRefund(requestId: string, expectedTotal: number) {
     setProcessingId(requestId);
     try {
-      const { data, error } = await supabase.rpc('fn_process_refund', { p_request_id: requestId });
-      if (error) throw error;
-      toast.show(`✓ ${Number(data?.total ?? 0).toLocaleString()}원 환불을 완료 처리했습니다`, 'success');
+      // 화면에서 확인한 금액과 처리 시점 금액이 다르면 처리하지 않는다 (그 사이 충전·정산이 있었던 경우)
+      const { data, error } = await supabase.rpc('fn_process_refund', { p_request_id: requestId, p_expected_total: expectedTotal });
+      if (error || !data) throw error;
+      if (!data.ok) {
+        toast.show(
+          data.reason === 'amount_changed'
+            ? `환불 금액이 ${Number(data.total).toLocaleString()}원으로 바뀌었어요. 금액을 다시 확인한 뒤 처리해주세요`
+            : '이미 처리된 요청이에요',
+          'error'
+        );
+        await fetchRefunds();
+        return;
+      }
+      toast.show(`✓ ${Number(data.total ?? 0).toLocaleString()}원 환불을 완료 처리했습니다`, 'success');
       await fetchRefunds();
     } catch (error) {
       console.error(error);
@@ -142,17 +163,25 @@ export default function SettlementsScreen() {
   async function handleRejectRefund(item: any) {
     setProcessingId(item.id);
     try {
-      const { error } = await supabase
+      const { data: rejected, error } = await supabase
         .from('refund_requests')
         .update({ status: 'rejected', processed_at: new Date().toISOString() })
-        .eq('id', item.id);
+        .eq('id', item.id)
+        .eq('status', 'pending')
+        .select('id');
       if (error) throw error;
+      if (!rejected?.length) {
+        toast.show('이미 처리된 요청이에요', 'info');
+        await fetchRefunds();
+        return;
+      }
       await createNotification({
         userId: item.hopeful_id,
         type: 'refund_rejected',
         title: '환불 요청이 반려되었습니다',
         body: '자세한 내용은 운영자 채팅으로 문의해주세요',
         route: '/chat',
+        routeParams: user ? { with: user.id, name: user.name } : undefined,
       });
       toast.show('환불 요청을 반려했습니다', 'info');
       await fetchRefunds();
@@ -215,11 +244,18 @@ export default function SettlementsScreen() {
   async function handleCompleteWithdrawal(withdrawalId: string) {
     setProcessingId(withdrawalId);
     try {
-      const { error } = await supabase
+      const { data: done, error } = await supabase
         .from('withdrawal_requests')
         .update({ status: 'completed', completed_at: new Date().toISOString() })
-        .eq('id', withdrawalId);
+        .eq('id', withdrawalId)
+        .eq('status', 'pending')
+        .select('id');
       if (error) throw error;
+      if (!done?.length) {
+        toast.show('이미 지급 완료된 요청이에요', 'info');
+        await fetchWithdrawals();
+        return;
+      }
 
       toast.show('✓ 출금 처리를 완료했습니다', 'success');
       await fetchWithdrawals();
@@ -287,7 +323,7 @@ export default function SettlementsScreen() {
             ListHeaderComponent={
               <View style={styles.summaryRow}>
                 <View style={styles.summaryBox}>
-                  <Text style={styles.summaryLabel}>총 연결자 지급액</Text>
+                  <Text style={styles.summaryLabel}>파트너 정산 합계</Text>
                   <Text style={styles.summaryValue}>{totalPayout.toLocaleString()}원</Text>
                 </View>
                 <View style={styles.summaryBox}>
@@ -312,7 +348,7 @@ export default function SettlementsScreen() {
                   <Text style={styles.rowValue}>{Number(item.platform_fee).toLocaleString()}원</Text>
                 </View>
                 <View style={styles.row}>
-                  <Text style={styles.rowLabel}>연결자 지급액 (80%)</Text>
+                  <Text style={styles.rowLabel}>파트너 몫 (80%)</Text>
                   <Text style={styles.payoutValue}>{Number(item.connector_payout).toLocaleString()}원</Text>
                 </View>
 
@@ -397,6 +433,14 @@ export default function SettlementsScreen() {
                   <Text style={styles.rowLabel}>입금 계좌</Text>
                   <Text style={styles.rowValue}>{item.bank_name} {item.account_number} ({item.account_holder})</Text>
                 </View>
+                {item.status === 'pending' && item.remaining_after !== undefined && (
+                  <View style={styles.row}>
+                    <Text style={styles.rowLabel}>신청 후 남은 정산금</Text>
+                    <Text style={[styles.rowValue, item.remaining_after < 0 && { color: '#E53935' }]}>
+                      {item.remaining_after.toLocaleString()}원{item.remaining_after < 0 ? ' (초과 신청 · 지급 전 확인 필요)' : ''}
+                    </Text>
+                  </View>
+                )}
                 {item.status === 'completed' ? (
                   <View style={styles.paidBadge}>
                     <Text style={styles.paidBadgeText}>
@@ -470,7 +514,7 @@ export default function SettlementsScreen() {
                           title: '환불 완료로 처리할까요?',
                           message: `${(item.current?.total ?? 0).toLocaleString()}원을 입금한 뒤에 처리해주세요. 남은 이용권이 차감되고 되돌릴 수 없습니다.`,
                           confirmText: '환불 완료',
-                        })) handleCompleteRefund(item.id);
+                        })) handleCompleteRefund(item.id, item.current?.total ?? 0);
                       }}
                       disabled={processingId !== null}
                     >
@@ -627,14 +671,14 @@ const styles = StyleSheet.create({
     color: '#5B21FF',
   },
   paidBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#F1ECFF',
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
     marginTop: 10,
   },
   paidBadgeText: {
-    color: '#2E7D32',
+    color: '#5B21FF',
     fontWeight: '500',
     fontSize: 12,
   },

@@ -20,6 +20,7 @@ import { getMyConnectorCredits } from '@/lib/payments';
 import BottomSheet from '@/components/BottomSheet';
 import { formatMeetingDate } from '@/lib/format';
 import AvailableDatesSheet from '@/components/AvailableDatesSheet';
+import { toDateKey } from '@/components/CalendarGrid';
 import { autoScheduleMatch, earliestCommonDate } from '@/lib/schedule';
 import { afterCareDeadline, expireAfterCareIfDue, formatDeadline, notifyAfterCareResult } from '@/lib/afterCare';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
@@ -45,6 +46,13 @@ export default function HomeScreen() {
   // 후기를 남긴 매칭 / 후기 작성 중인 매칭
   const [reviewedMatchIds, setReviewedMatchIds] = useState<string[]>([]);
   const [reviewTarget, setReviewTarget] = useState<{ matchId: string; connectorId: string } | null>(null);
+  const [reviewPartnerName, setReviewPartnerName] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    setReviewPartnerName(undefined);
+    if (!reviewTarget) return;
+    supabase.from('connectors').select('business_name').eq('id', reviewTarget.connectorId).maybeSingle()
+      .then(({ data }) => setReviewPartnerName(data?.business_name || undefined));
+  }, [reviewTarget]);
   // 날짜 선택 시트: 승인할 때(approve) 또는 날짜가 겹치지 않아 다시 고를 때(reselect)
   const [datesTarget, setDatesTarget] = useState<{ matchId: string; mode: 'approve' | 'reselect' } | null>(null);
 
@@ -72,6 +80,10 @@ export default function HomeScreen() {
           .from('match_requests')
           .select('*')
           .or(`connector_1_id.eq.${user!.id},connector_2_id.eq.${user!.id}`);
+
+        // 애프터 응답 기한이 지났거나 마무리가 밀린 매칭은 정리하고 다시 불러온다
+        const expiredConn = await Promise.all((matchData || []).map((m: any) => expireAfterCareIfDue(m)));
+        if (expiredConn.some(Boolean) && !retried) return fetchDashboard(true);
 
         // 매칭 데이터와 희망자 정보 결합
         const hopefulUserIds = (matchData || []).flatMap((m: any) => [
@@ -164,6 +176,16 @@ export default function HomeScreen() {
         setReceivedMatches(matches);
         setReviewedMatchIds(await fetchMyReviewedMatchIds(user!.id));
 
+        // 두 회원이 모두 승인했고 겹치는 날이 있는데 일정이 비어 있으면 (이전 시도가 실패한 경우) 다시 맞춘다
+        const unscheduled = consentedReqData.filter((r: any) =>
+          r.status !== 'rejected' && r.hopeful_1_approved && r.hopeful_2_approved && !r.meeting_scheduled_at &&
+          earliestCommonDate(r.available_dates_1, r.available_dates_2)
+        );
+        if (unscheduled.length && !retried) {
+          await Promise.all(unscheduled.map((r: any) => autoScheduleMatch(r.id).catch((e) => console.error('autoSchedule retry error:', e))));
+          return fetchDashboard(true);
+        }
+
         // 애프터 응답 기한이 지난 매칭은 자동으로 마무리하고 다시 불러온다
         const expired = await Promise.all(consentedReqData.map((r: any) => expireAfterCareIfDue(r)));
         if (expired.some(Boolean) && !retried) return fetchDashboard(true);
@@ -196,12 +218,21 @@ export default function HomeScreen() {
         ? { hopeful_1_approved: true, available_dates_1: dates }
         : { hopeful_2_approved: true, available_dates_2: dates };
 
-      const { error } = await supabase
+      // 오래된 화면에서 누른 경우: 이미 거절·취소된 매칭에는 저장하지 않는다
+      const { data: saved, error } = await supabase
         .from('match_requests')
         .update(updateData)
-        .eq('id', matchId);
+        .eq('id', matchId)
+        .neq('status', 'rejected')
+        .select('id');
 
       if (error) throw error;
+      if (!saved?.length) {
+        toast.show('이미 종료된 매칭이에요', 'info');
+        setProcessingId(null);
+        await fetchDashboard();
+        return;
+      }
 
       if (match?.connector_1_id) {
         await createNotification({
@@ -223,7 +254,12 @@ export default function HomeScreen() {
       }
 
       toast.show('✓ 매칭을 승인했습니다', 'success');
-      showScheduleResult(await autoScheduleMatch(matchId));
+      // 승인은 이미 저장됐다. 일정 맞추기가 실패해도 승인 실패로 안내하지 않고, 다음 새로고침 때 다시 맞춘다
+      try {
+        showScheduleResult(await autoScheduleMatch(matchId));
+      } catch (e) {
+        console.error('autoSchedule error:', e);
+      }
       setProcessingId(null);
       await fetchDashboard();
     } catch (error) {
@@ -260,12 +296,20 @@ export default function HomeScreen() {
     try {
       const match = receivedMatches.find((m) => m.id === matchId);
 
-      const { error } = await supabase
+      const { data: saved, error } = await supabase
         .from('match_requests')
         .update({ status: 'rejected' })
-        .eq('id', matchId);
+        .eq('id', matchId)
+        .neq('status', 'rejected')
+        .select('id');
 
       if (error) throw error;
+      if (!saved?.length) {
+        toast.show('이미 종료된 매칭이에요', 'info');
+        setProcessingId(null);
+        await fetchDashboard();
+        return;
+      }
 
       if (match?.connector_1_id) {
         await createNotification({
@@ -308,12 +352,22 @@ export default function HomeScreen() {
         ? { after_care_hopeful_1: afterCareType, after_care_requested_at_1: new Date().toISOString() }
         : { after_care_hopeful_2: afterCareType, after_care_requested_at_2: new Date().toISOString() };
 
-      const { error } = await supabase
+      // 이미 마무리된 매칭이거나 이미 고른 경우에는 다시 저장하지 않는다 (오래된 화면에서 누른 경우)
+      const { data: saved, error } = await supabase
         .from('match_requests')
         .update(updateData)
-        .eq('id', matchId);
+        .eq('id', matchId)
+        .eq('settlement_completed', false)
+        .is(isHopeful1 ? 'after_care_hopeful_1' : 'after_care_hopeful_2', null)
+        .select('id');
 
       if (error) throw error;
+      if (!saved?.length) {
+        toast.show('이미 마무리된 매칭이에요', 'info');
+        setProcessingId(null);
+        await fetchDashboard();
+        return;
+      }
 
       toast.show('의사를 전달했어요', 'success');
 
@@ -327,14 +381,15 @@ export default function HomeScreen() {
 
       // 노쇼 신고는 상대 응답을 기다리지 않고 바로 (정산 없이) 종료한다
       if (afterCareType === '노쇼신고' || (freshMatch?.after_care_hopeful_1 && freshMatch?.after_care_hopeful_2)) {
-        const { error: settleError } = await supabase.rpc('fn_settle_match', { p_match_id: matchId });
+        const { data: settledNow, error: settleError } = await supabase.rpc('fn_settle_match', { p_match_id: matchId });
         if (settleError) {
           toast.show('마무리 처리 중 문제가 발생했습니다. 파트너에게 문의해주세요', 'error');
         } else if (afterCareType === '노쇼신고') {
           toast.show('노쇼 신고가 접수되어 매칭이 종료되었어요. 이용권은 차감되지 않아요', 'success');
         } else {
           toast.show('소개팅 결과가 나왔어요', 'success');
-          await notifyAfterCareResult(matchId, user.id);
+          // 두 회원이 거의 동시에 고르면 둘 다 여기까지 온다. 실제로 마무리한 쪽만 알린다
+          if (settledNow) await notifyAfterCareResult(matchId, user.id);
         }
       }
 
@@ -370,6 +425,7 @@ export default function HomeScreen() {
     }
     if (!m.meeting_scheduled_at) return '만남 날짜 조율 중';
     if (m.meeting_status !== 'completed') return `📅 ${formatMeetingDate(m.meeting_scheduled_at)} 만남 예정`;
+    if (m.after_care_hopeful_1 && m.after_care_hopeful_2) return '결과 정리 중';
     return `애프터 응답 대기 (${[m.after_care_hopeful_1, m.after_care_hopeful_2].filter(Boolean).length}/2)`;
   }
 
@@ -698,7 +754,11 @@ export default function HomeScreen() {
                       <View style={styles.meetingBox}>
                         <Text style={styles.meetingDate}>📅 {formatMeetingDate(item.meeting_scheduled_at)} 소개팅</Text>
                         <Text style={styles.meetingHint}>상대 연락처를 채팅으로 보내드렸어요. 시간과 장소는 서로 연락해 정해주세요.</Text>
-                        <TouchableOpacity style={styles.openChatBtn} onPress={() => router.push('/chat')}>
+                        <TouchableOpacity
+                          style={styles.openChatBtn}
+                          // 연락처가 온 담당 파트너와의 대화방을 바로 연다
+                          onPress={() => router.push({ pathname: '/chat', params: { with: item.isHopeful1 ? item.connector_1_id : item.connector_2_id } })}
+                        >
                           <Text style={styles.openChatBtnText}>채팅 확인하기</Text>
                         </TouchableOpacity>
                       </View>
@@ -769,7 +829,9 @@ export default function HomeScreen() {
                             : item.after_care_hopeful_1 === '신청' && item.after_care_hopeful_2 === '신청'
                               ? '💞 상대도 다시 만나고 싶어해요! 채팅에서 받은 연락처로 다시 연락해보세요.'
                               : '이번 만남은 여기서 마무리되었어요. 좋은 인연을 계속 응원할게요.'
-                          : `✓ 의사를 전달했어요. 상대방도 고르면 결과를 알려드릴게요.${item.meeting_completed_at ? ` (늦어도 ${formatDeadline(afterCareDeadline(item.meeting_completed_at))})` : ''}`}
+                          : item.after_care_hopeful_1 && item.after_care_hopeful_2
+                            ? '두 분 모두 골랐어요. 결과를 정리하고 있으니 잠시 후 다시 확인해주세요.'
+                            : `✓ 의사를 전달했어요. 상대방도 고르면 결과를 알려드릴게요.${item.meeting_completed_at ? ` (늦어도 ${formatDeadline(afterCareDeadline(item.meeting_completed_at))})` : ''}`}
                       </Text>
                     </View>
                   )}
@@ -796,6 +858,7 @@ export default function HomeScreen() {
 
       <ReviewSheet
         visible={reviewTarget !== null}
+        partnerName={reviewPartnerName}
         onClose={() => setReviewTarget(null)}
         onSubmit={async (rating, content) => {
           if (!reviewTarget || !user) return;
@@ -816,7 +879,9 @@ export default function HomeScreen() {
         confirmLabel={datesTarget?.mode === 'reselect' ? '다시 맞춰보기' : '승인하기'}
         initialDates={(() => {
           const m = receivedMatches.find((x) => x.id === datesTarget?.matchId);
-          return m ? (m.isHopeful1 ? m.available_dates_1 : m.available_dates_2) ?? [] : [];
+          // 지난 날짜는 다시 고를 수 없으므로 빼고 보여준다
+          const today = toDateKey(new Date());
+          return m ? ((m.isHopeful1 ? m.available_dates_1 : m.available_dates_2) ?? []).filter((d: string) => d >= today) : [];
         })()}
         onConfirm={(dates) => {
           if (!datesTarget) return;
@@ -1107,12 +1172,12 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   requestCard: {
-    backgroundColor: '#fff8f0',
+    backgroundColor: '#F7F4FF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#FF9500',
+    borderLeftColor: '#5B21FF',
   },
   requestHeader: {
     marginBottom: 12,

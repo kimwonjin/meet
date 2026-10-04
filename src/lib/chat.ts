@@ -20,7 +20,7 @@ export async function fetchThreads(myId: string) {
   if (!threads || threads.length === 0) return [];
 
   const otherIds = threads.map((t: any) => (t.participant_1_id === myId ? t.participant_2_id : t.participant_1_id));
-  const { data: users } = await supabase.from('users').select('id, name, role').in('id', otherIds);
+  const { data: users } = await supabase.from('users').select('id, name, role, withdrawn_at').in('id', otherIds);
 
   const threadIds = threads.map((t: any) => t.id);
   const { data: incomingMessages } = await supabase
@@ -43,6 +43,7 @@ export async function fetchThreads(myId: string) {
       otherId,
       otherName: other?.name || '사용자',
       otherRole: other?.role || 'hopeful',
+      otherWithdrawn: !!other?.withdrawn_at,
       lastMessageAt: t.last_message_at,
       lastMessagePreview: t.last_message_preview,
       unreadCount,
@@ -67,30 +68,34 @@ export async function sendMessage(threadId: string, senderId: string, content: s
 
   const { error } = await supabase.from('chat_messages').insert({ thread_id: threadId, sender_id: senderId, content });
 
-  // 알림센터에는 "새 대화의 시작"만 남긴다 (메시지마다 쌓지 않음)
+  // 알림센터에는 "새 대화의 시작"만 남긴다 (메시지마다 쌓지 않음). 누르면 그 대화방이 바로 열린다
   if (!error && existingCount === 0) {
     const { data: thread } = await supabase.from('chat_threads').select('*').eq('id', threadId).single();
     if (thread) {
       const recipientId = thread.participant_1_id === senderId ? thread.participant_2_id : thread.participant_1_id;
-      const { data: sender } = await supabase.from('users').select('name').eq('id', senderId).single();
-      await createNotification({
-        userId: recipientId,
-        type: 'chat_started',
-        title: '새로운 대화가 시작되었습니다',
-        body: `${sender?.name || '상대방'}님이 메시지를 보냈습니다`,
-        route: '/chat',
-      });
+      const [{ data: sender }, { data: recipient }] = await Promise.all([
+        supabase.from('users').select('name').eq('id', senderId).single(),
+        supabase.from('users').select('withdrawn_at').eq('id', recipientId).maybeSingle(),
+      ]);
+      if (recipient && !recipient.withdrawn_at) {
+        await createNotification({
+          userId: recipientId,
+          type: 'chat_started',
+          title: '새로운 대화가 시작되었습니다',
+          body: `${sender?.name || '상대방'}님이 메시지를 보냈습니다`,
+          route: '/chat',
+          routeParams: { with: senderId, name: sender?.name },
+        });
+      }
     }
   }
 
   return { error };
 }
 
+// 읽은 시각은 서버 시계로 기록한다 (휴대폰 시계가 틀려도 안 읽은 수가 맞도록)
 export async function markThreadRead(threadId: string, myId: string) {
-  const { data: thread } = await supabase.from('chat_threads').select('*').eq('id', threadId).single();
-  if (!thread) return;
-  const field = thread.participant_1_id === myId ? 'p1_last_read_at' : 'p2_last_read_at';
-  await supabase.from('chat_threads').update({ [field]: new Date().toISOString() }).eq('id', threadId);
+  await supabase.rpc('fn_mark_thread_read', { p_thread_id: threadId, p_user_id: myId });
 }
 
 export async function getUnreadCount(myId: string) {

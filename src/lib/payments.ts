@@ -28,43 +28,23 @@ export async function getWalletBalance(hopefulId: string) {
   return { balance: Number(data) || 0, error: null };
 }
 
-// 연결자별 이용권(디파짓) 구매 - 지갑 잔액에서 차감한다.
-export async function purchasePackage(hopefulId: string, connectorId: string, sessionCount: number) {
-  const { data: connector, error: connErr } = await supabase
-    .from('connectors')
-    .select('fee_per_session')
-    .eq('id', connectorId)
-    .single();
+export type PurchaseResult =
+  | { ok: true; total: number }
+  | { ok: false; reason: 'invalid' | 'not_member' | 'no_fee' | 'fee_changed' | 'insufficient' | 'error'; fee?: number; balance?: number; total?: number };
 
-  if (connErr || !connector?.fee_per_session) {
-    return { data: null, error: connErr || new Error('연결자 요금 정보를 찾을 수 없습니다') };
-  }
-
-  const amountTotal = connector.fee_per_session * sessionCount;
-
-  const { balance, error: balErr } = await getWalletBalance(hopefulId);
-  if (balErr) return { data: null, error: balErr };
-  if (balance < amountTotal) {
-    return { data: null, error: new Error('지갑 잔액이 부족합니다. 먼저 충전해주세요.') };
-  }
-
-  const { data, error } = await supabase
-    .from('payments')
-    .insert({
-      hopeful_id: hopefulId,
-      connector_id: connectorId,
-      session_count: sessionCount,
-      amount_total: amountTotal,
-      amount_per_session: connector.fee_per_session,
-      sessions_remaining: sessionCount,
-      status: 'paid',
-      pg_provider: 'mock',
-      paid_at: new Date().toISOString(),
-    })
-    .select()
-    .single();
-
-  if (!error) {
+// 파트너 이용권 구매 - 지갑 잔액에서 차감한다.
+// 잔액·요금 확인과 결제 기록은 서버 함수 안에서 한 번에 처리한다 (빠른 두 번 클릭·두 기기 동시 결제 방지).
+// expectedFee: 화면에 보여준 1회 요금. 그 사이 요금이 바뀌었으면 결제하지 않는다.
+export async function purchasePackage(hopefulId: string, connectorId: string, sessionCount: number, expectedFee: number): Promise<PurchaseResult> {
+  const { data, error } = await supabase.rpc('fn_purchase_package', {
+    p_hopeful_id: hopefulId,
+    p_connector_id: connectorId,
+    p_session_count: sessionCount,
+    p_expected_fee: expectedFee,
+  });
+  if (error || !data) return { ok: false, reason: 'error' };
+  const result = data as PurchaseResult;
+  if (result.ok) {
     await createNotification({
       userId: hopefulId,
       type: 'payment_completed',
@@ -73,24 +53,17 @@ export async function purchasePackage(hopefulId: string, connectorId: string, se
       route: '/profile',
     });
   }
-
-  return { data, error };
+  return result;
 }
 
+// 새 매칭에 쓸 수 있는 이용권 수 (진행 중인 매칭에 묶인 이용권은 뺀다)
 export async function getCredit(hopefulId: string, connectorId: string) {
-  const { data, error } = await supabase
-    .from('payments')
-    .select('sessions_remaining')
-    .eq('hopeful_id', hopefulId)
-    .eq('connector_id', connectorId)
-    .eq('status', 'paid');
-
+  const { data, error } = await supabase.rpc('fn_available_credit', { p_hopeful_id: hopefulId, p_connector_id: connectorId });
   if (error) return { credit: 0, error };
-  const credit = (data || []).reduce((sum: number, p: any) => sum + p.sessions_remaining, 0);
-  return { credit, error: null };
+  return { credit: Number(data) || 0, error: null };
 }
 
-// 희망자가 결제한 이력이 있는 연결자별로 이용가능/사용 수량을 묶어서 보여준다 (프로필 > 이용권/결제 화면용)
+// 회원이 결제한 이력이 있는 파트너별로 이용가능/사용 수량을 묶어서 보여준다 (프로필 > 이용권/결제 화면용)
 export async function getMyConnectorCredits(hopefulId: string) {
   const { data: payments, error } = await supabase
     .from('payments')
@@ -103,10 +76,7 @@ export async function getMyConnectorCredits(hopefulId: string) {
 
   const connectorIds = [...new Set(payments.map((p: any) => p.connector_id))];
 
-  const [{ data: connectorRows }, { data: connectorUsers }] = await Promise.all([
-    supabase.from('connectors').select('id, fee_per_session').in('id', connectorIds),
-    supabase.from('users').select('id, name').in('id', connectorIds),
-  ]);
+  const { data: connectorRows } = await supabase.from('connectors').select('id, fee_per_session, business_name').in('id', connectorIds);
 
   const result = connectorIds.map((id) => {
     const myPayments = payments.filter((p: any) => p.connector_id === id);
@@ -117,7 +87,7 @@ export async function getMyConnectorCredits(hopefulId: string) {
     const totalCharged = myPayments.reduce((sum: number, p: any) => sum + Number(p.amount_total), 0);
     return {
       connectorId: id,
-      connectorName: (connectorUsers || []).find((u: any) => u.id === id)?.name || '연결자',
+      connectorName: (connectorRows || []).find((c: any) => c.id === id)?.business_name || '파트너',
       feePerSession: (connectorRows || []).find((c: any) => c.id === id)?.fee_per_session || 0,
       totalCharged,
       purchased,
