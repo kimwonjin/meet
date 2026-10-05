@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 const PENDING_KEY = 'pendingInvite';
 // 앱(폰)에서 만든 링크도 웹 주소로 보낸다 — 받는 사람이 앱이 없어도 열 수 있게
-const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL || 'https://meet-six-psi.vercel.app';
+export const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL || 'https://meet-six-psi.vercel.app';
 
 export function inviteUrl(connectorId: string) {
   const base = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : WEB_URL;

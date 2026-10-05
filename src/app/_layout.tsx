@@ -11,6 +11,7 @@ import { ToastProvider } from '@/contexts/ToastContext';
 import { ConfirmProvider } from '@/contexts/ConfirmContext';
 import { useWebAutoUpdate } from '@/hooks/use-web-auto-update';
 import OfflineBanner from '@/components/OfflineBanner';
+import { RouteLinkPreview } from '@/components/LinkPreview';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -41,6 +42,7 @@ export default function App() {
 
   return (
     <AuthProvider>
+      <RouteLinkPreview />
       <ToastProvider>
         <ConfirmProvider>
           <RootLayout />
