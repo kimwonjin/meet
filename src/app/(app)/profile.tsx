@@ -639,7 +639,7 @@ export default function ProfileScreen() {
 
       await recordConsents(user!.id, ['partner']);
       setConnectorApplicationStatus('pending');
-      toast.show('✓ 매칭 파트너 심사를 신청했습니다', 'success');
+      toast.show('✓ 신청했어요. 운영자가 확인하면 알려드릴게요', 'success');
       setBusinessName('');
     } catch (error) {
       console.error('Connector signup error:', error);
@@ -691,7 +691,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>💼</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>매칭 파트너</Text>
-              <Text style={styles.menuSub}>파트너로 활동하기</Text>
+              <Text style={styles.menuSub}>우리 모임 친구들을 소개해 주세요</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -1008,7 +1008,7 @@ export default function ProfileScreen() {
       <BottomSheet
         visible={showConnectorModal}
         onClose={() => setShowConnectorModal(false)}
-        title={connectorApplicationStatus === 'pending' ? '심사 중입니다' : connectorApplicationStatus === 'approved' ? '매칭 파트너' : '매칭 파트너 신청'}
+        title={connectorApplicationStatus === 'pending' ? '심사 중입니다' : connectorApplicationStatus === 'approved' ? '매칭 파트너' : '파트너로 활동하기'}
       >
             {connectorApplicationStatus === 'approved' ? (
               <>
@@ -1026,7 +1026,7 @@ export default function ProfileScreen() {
             ) : connectorApplicationStatus === 'pending' ? (
               <>
                 <Text style={{ color: '#666', fontSize: 13, marginBottom: 20, lineHeight: 20 }}>
-                  매칭 파트너 신청이 접수되었습니다.{'\n'}운영자 승인 후 파트너 화면이 열립니다.
+                  신청이 접수됐어요.{'\n'}운영자가 확인하면 알려드릴게요. 그때부터 파트너 화면을 쓸 수 있어요.
                 </Text>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.modalBtnConfirm]}
@@ -1042,10 +1042,13 @@ export default function ProfileScreen() {
                     이전 신청이 반려되었습니다. 다시 신청할 수 있습니다.
                   </Text>
                 )}
-                <Text style={styles.modalLabel}>회사명</Text>
+                <Text style={styles.partnerIntro}>
+                  모임·동호회 대표라면 누구나 시작할 수 있어요. 우리 모임 친구들을 다른 모임 친구들과 이어 주고, 소개가 성사될 때마다 소개비를 받아요. 사업자가 없어도 괜찮아요.
+                </Text>
+                <Text style={styles.modalLabel}>모임 이름 (회원에게 보이는 이름)</Text>
                 <TextInput
                   style={styles.modalInput}
-                  placeholder="예: 행복매칭"
+                  placeholder="예: 행복매칭, 판교 러닝크루"
                   placeholderTextColor="#ddd"
                   value={businessName}
                   onChangeText={setBusinessName}
@@ -1069,7 +1072,7 @@ export default function ProfileScreen() {
                     onPress={handleConnectorSignup}
                     disabled={loading || !partnerConsents.includes('partner')}
                   >
-                    <Text style={styles.modalBtnText}>{loading ? '신청 중...' : '심사 신청하기'}</Text>
+                    <Text style={styles.modalBtnText}>{loading ? '신청 중...' : '신청하기'}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -1623,6 +1626,7 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     paddingHorizontal: 20,
   },
+  partnerIntro: { fontSize: 14, color: '#444', lineHeight: 21, backgroundColor: '#F7F4FF', borderRadius: 12, padding: 14, marginBottom: 16 },
   inviteItem: { backgroundColor: '#F1ECFF' },
   newBadge: { backgroundColor: '#5B21FF', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },

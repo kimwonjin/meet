@@ -178,7 +178,7 @@ export default function SignupScreen() {
         >
           <Text style={styles.buttonText}>{loading ? '가입 중...' : '가입하기'}</Text>
         </TouchableOpacity>
-        <Text style={styles.footerNote}>파트너 활동은 가입 후 마이 › 매칭 파트너에서 신청할 수 있습니다</Text>
+        <Text style={styles.footerNote}>모임 대표라면 가입 후 마이 › 매칭 파트너에서 파트너로 활동할 수 있어요</Text>
       </View>
     </ScrollView>
   );
