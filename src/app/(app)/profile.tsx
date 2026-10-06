@@ -707,13 +707,13 @@ export default function ProfileScreen() {
           <>
           {/* 새 기능: 회원을 늘리는 가장 빠른 방법이라 맨 위에 강조해서 둔다 */}
           <TouchableOpacity style={[styles.menuItem, styles.inviteItem]} onPress={() => setShowInvite(true)}>
-            <Text style={styles.menuIcon}>💌</Text>
+            <Text style={styles.menuIcon}>📣</Text>
             <View style={styles.menuContent}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.menuTitle}>초대장 보내기</Text>
+                <Text style={styles.menuTitle}>광고하기</Text>
                 <View style={styles.newBadge}><Text style={styles.newBadgeText}>NEW</Text></View>
               </View>
-              <Text style={styles.menuSub}>나에게 바로 연결되는 가입 링크 보내기</Text>
+              <Text style={styles.menuSub}>초대 링크로 내 회원 모으기</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>

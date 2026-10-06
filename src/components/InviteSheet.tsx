@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { inviteMessage, inviteUrl } from '@/lib/invite';
 
-// 마이 › 초대장 보내기: 회원 후보에게 나에게 바로 연결되는 링크를 보낸다
+// 마이 › 광고하기: 회원 후보에게 나에게 바로 연결되는 초대 링크를 보낸다 (홍보 도구를 이 화면에 모은다)
 export default function InviteSheet({ visible, onClose, partnerName }: { visible: boolean; onClose: () => void; partnerName: string }) {
   const { user } = useAuth();
   const toast = useToast();
@@ -43,7 +43,8 @@ export default function InviteSheet({ visible, onClose, partnerName }: { visible
   }
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="초대장 보내기">
+    <BottomSheet visible={visible} onClose={onClose} title="광고하기">
+      <Text style={styles.section}>내 초대 링크</Text>
       <Text style={styles.lead}>링크를 받은 사람이 가입하면 <Text style={styles.bold}>나에게 바로 연결</Text>돼요. 카톡·문자로 보내보세요.</Text>
 
       <View style={styles.preview}>
@@ -63,6 +64,7 @@ export default function InviteSheet({ visible, onClose, partnerName }: { visible
 }
 
 const styles = StyleSheet.create({
+  section: { fontSize: 15, fontWeight: '700', color: '#222', marginBottom: 8 },
   lead: { fontSize: 14, color: '#444', lineHeight: 21, marginBottom: 14 },
   bold: { fontWeight: '700', color: '#5B21FF' },
   preview: { backgroundColor: '#F7F4FF', borderRadius: 12, padding: 14, marginBottom: 18 },
