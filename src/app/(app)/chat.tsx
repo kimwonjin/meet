@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { APP_MAX_WIDTH } from '@/lib/layout';
 import SkeletonScreen from '@/components/Skeleton';
 import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
@@ -479,6 +480,9 @@ const styles = StyleSheet.create({
   },
   threadContainer: {
     flex: 1,
+    width: '100%',
+    maxWidth: APP_MAX_WIDTH,
+    alignSelf: 'center',
     backgroundColor: '#fff',
   },
   threadHeader: {

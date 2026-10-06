@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { APP_MAX_WIDTH, WIDE_BACKDROP } from '@/lib/layout';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -45,8 +46,12 @@ export default function App() {
       <RouteLinkPreview />
       <ToastProvider>
         <ConfirmProvider>
-          <RootLayout />
-          <OfflineBanner />
+          <View style={frameStyles.outer}>
+            <View style={frameStyles.inner}>
+              <RootLayout />
+              <OfflineBanner />
+            </View>
+          </View>
         </ConfirmProvider>
       </ToastProvider>
     </AuthProvider>
@@ -75,4 +80,9 @@ const errorStyles = StyleSheet.create({
   sub: { fontSize: 14, color: '#777', textAlign: 'center', marginTop: 8, lineHeight: 21 },
   btn: { marginTop: 24, backgroundColor: '#5B21FF', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32 },
   btnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+});
+
+const frameStyles = StyleSheet.create({
+  outer: { flex: 1, backgroundColor: WIDE_BACKDROP },
+  inner: { flex: 1, width: '100%', maxWidth: APP_MAX_WIDTH, alignSelf: 'center', backgroundColor: '#fff', overflow: 'hidden' },
 });
