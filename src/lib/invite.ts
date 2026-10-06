@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from './supabase';
 import { Platform } from 'react-native';
 
 const PENDING_KEY = 'pendingInvite';
@@ -27,4 +28,18 @@ export async function takePendingInvite(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+export type ShareTemplate = { id: string; title: string; body: string };
+
+// 운영자가 관리하는 공유 문구 (없거나 오류면 빈 목록 → 화면에서 숨김)
+export async function fetchShareTemplates(): Promise<ShareTemplate[]> {
+  const { data, error } = await supabase.from('share_templates').select('id, title, body').eq('is_active', true).order('sort_order');
+  if (error || !data) return [];
+  return data as ShareTemplate[];
+}
+
+// {link} 자리에 링크를 넣는다. 자리가 없으면 끝에 붙인다.
+export function fillTemplate(body: string, link: string) {
+  return body.includes('{link}') ? body.split('{link}').join(link) : `${body}\n${link}`;
 }

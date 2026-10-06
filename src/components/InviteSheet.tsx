@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { inviteMessage, inviteUrl } from '@/lib/invite';
 import InviteQr from './InviteQr';
+import ShareTemplates from './ShareTemplates';
+import { fetchShareTemplates } from '@/lib/invite';
 
 // 마이 › 광고하기: 회원 후보에게 나에게 바로 연결되는 초대 링크를 보낸다 (홍보 도구를 이 화면에 모은다)
 export default function InviteSheet({ visible, onClose, partnerName }: { visible: boolean; onClose: () => void; partnerName: string }) {
@@ -14,6 +16,11 @@ export default function InviteSheet({ visible, onClose, partnerName }: { visible
   const [busy, setBusy] = useState(false);
   // 부가 도구는 접어 두고 하나씩 펼친다 (한 화면 한 가지 주요 행동)
   const [openTool, setOpenTool] = useState<string | null>(null);
+  // 문구 표가 아직 없으면(DB 준비 전) 홍보 문구 칸을 숨긴다
+  const [hasTemplates, setHasTemplates] = useState(false);
+  React.useEffect(() => {
+    if (visible) fetchShareTemplates().then((t) => setHasTemplates(t.length > 0));
+  }, [visible]);
   if (!user) return null;
   const url = inviteUrl(user.id);
   const message = inviteMessage(partnerName, user.id);
@@ -66,6 +73,11 @@ export default function InviteSheet({ visible, onClose, partnerName }: { visible
       <ToolSection id="qr" title="QR 코드" sub="모임 공지·명함에 넣기" openTool={openTool} setOpenTool={setOpenTool}>
         <InviteQr url={url} fileName="dodoinyeon-invite-qr" />
       </ToolSection>
+      {hasTemplates && (
+        <ToolSection id="templates" title="홍보 문구" sub="상황별 문구를 복사해서 보내기" openTool={openTool} setOpenTool={setOpenTool}>
+          <ShareTemplates link={url} />
+        </ToolSection>
+      )}
       <Text style={styles.help}>받은 사람이 링크를 열면 파트너 소개와 함께 가입 화면이 나와요. 가입하면 내 회원 탭의 '대기중'에 가입 요청이 들어와요.</Text>
     </BottomSheet>
   );
