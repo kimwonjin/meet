@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -37,6 +37,8 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
   // 로그인한 회원: 이 파트너와의 가입 상태
   const [joinState, setJoinState] = useState<JoinState | null>(null);
   const [applying, setApplying] = useState(false);
+  const userIdRef = useRef(user?.id);
+  userIdRef.current = user?.id;
 
   useEffect(() => {
     (async () => {
@@ -52,8 +54,8 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
       ]);
       if (!conn || !u || u.withdrawn_at || u.suspended_at) return setPartner(null);
       setPartner({ ...conn, name: u.name, photo_urls: u.photo_urls ?? [] });
-      // 링크 열람 기록 (코드 링크만, 봇·같은 방문 중복은 빼고 센다)
-      if (code) trackInvite(code, 'CLICK');
+      // 링크 열람 기록 (코드 링크만, 봇·같은 방문 중복·파트너 본인은 빼고 센다)
+      if (code && userIdRef.current !== p) trackInvite(code, 'CLICK');
     })();
   }, [p]);
 
