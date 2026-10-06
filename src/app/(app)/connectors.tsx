@@ -159,7 +159,7 @@ export default function ConnectorsScreen() {
         const connectorIds = (conData || []).map((c: any) => c.id);
         const { data: connUsers } = await supabase
           .from('users')
-          .select('id, name, withdrawn_at, photo_urls')
+          .select('id, name, withdrawn_at, suspended_at, photo_urls')
           .in('id', connectorIds);
 
         // 내 요청 상태 (승인됨 / 승인 대기)
@@ -184,7 +184,10 @@ export default function ConnectorsScreen() {
           };
         }).filter(conn => conn.id !== user?.id)
           // 탈퇴한 파트너는 목록에서 뺀다
-          .filter((conn) => !(connUsers || []).find((u: any) => u.id === conn.id)?.withdrawn_at);
+          .filter((conn) => {
+            const u = (connUsers || []).find((x: any) => x.id === conn.id);
+            return !u?.withdrawn_at && !u?.suspended_at;
+          });
 
         setConnectors(filtered);
         setReviewSummaries(await fetchReviewSummaries(filtered.map((c: any) => c.id)));
@@ -474,7 +477,10 @@ export default function ConnectorsScreen() {
                   <View style={styles.connTop}>
                     <Avatar photoUrls={item.photo_urls} size={44} />
                     <View style={styles.connInfo}>
-                      <Text style={styles.name}>{item.business_name}</Text>
+                      <Text style={styles.name}>
+                        {item.business_name}
+                        {!!(item as any).suspended_at && <Text style={styles.suspendedTag}>  이용 정지</Text>}
+                      </Text>
                       <Text style={styles.desc}>
                         {tabStatus === 'ally'
                           ? [item.ally_connector_name + ' 소속', item.gender === 'M' ? '남' : item.gender === 'F' ? '여' : null, item.age && `${item.age}세`, item.location].filter(Boolean).join(' · ')
@@ -823,6 +829,7 @@ export default function ConnectorsScreen() {
 }
 
 const styles = StyleSheet.create({
+  suspendedTag: { fontSize: 12, color: '#E53935', fontWeight: '600' },
   container: {
     flex: 1,
     backgroundColor: '#fff',

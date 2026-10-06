@@ -78,7 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.from('users').select('*').eq('id', id).maybeSingle();
     if (error) return; // 네트워크 오류 등: 저장된 값으로 계속
     // 계정이 없거나 탈퇴한 계정이면 로그아웃 (다른 기기에서 탈퇴한 경우)
-    if (!data || data.withdrawn_at) {
+    // 계정이 없거나 탈퇴했거나 이용이 정지된 계정이면 로그아웃
+    if (!data || data.withdrawn_at || data.suspended_at) {
       await logout({ forget: true });
       return;
     }

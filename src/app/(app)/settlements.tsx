@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import BottomSheet from '@/components/BottomSheet';
 import SkeletonScreen from '@/components/Skeleton';
 import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity } from 'react-native';
@@ -22,6 +23,7 @@ export default function SettlementsScreen() {
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [refunds, setRefunds] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
+  const [suspendTarget, setSuspendTarget] = useState<{ id: string; name: string; reason: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [segment, setSegment] = useState<Segment>('settlements');
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -122,12 +124,19 @@ export default function SettlementsScreen() {
       const { data, error } = await supabase.from('user_reports').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       const ids = [...new Set((data || []).flatMap((r: any) => [r.reporter_id, r.target_id]))];
-      const { data: users } = await supabase.from('users').select('id, name, role').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      const { data: users } = await supabase.from('users').select('id, name, role, suspended_at').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
       const nameOf = (id: string) => {
         const u = (users || []).find((x: any) => x.id === id);
         return u ? `${u.name}${u.role === 'connector' ? ' (파트너)' : ''}` : '알 수 없음';
       };
-      setReports((data || []).map((r: any) => ({ ...r, reporter_name: nameOf(r.reporter_id), target_name: nameOf(r.target_id) })));
+      setReports((data || []).map((r: any) => ({
+        ...r,
+        reporter_name: nameOf(r.reporter_id),
+        target_name: nameOf(r.target_id),
+        target_suspended: !!(users || []).find((x: any) => x.id === r.target_id)?.suspended_at,
+        // 같은 사람에 대한 신고 수 (반복 신고 판단용)
+        target_report_count: (data || []).filter((x: any) => x.target_id === r.target_id).length,
+      })));
     } catch (error) {
       console.error('Error fetching reports:', error);
     }
@@ -143,6 +152,37 @@ export default function SettlementsScreen() {
     } catch (error) {
       console.error('Error resolving report:', error);
       toast.show('처리 중 오류가 발생했습니다', 'error');
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  async function handleSuspend(targetId: string, reason: string) {
+    setProcessingId(targetId);
+    try {
+      const { error } = await supabase.from('users').update({ suspended_at: new Date().toISOString(), suspended_reason: reason }).eq('id', targetId);
+      if (error) throw error;
+      toast.show('✓ 이용을 정지했습니다. 이 사람은 로그인할 수 없고 새 매칭에서 빠져요', 'success');
+      setSuspendTarget(null);
+      await fetchReports();
+    } catch (error) {
+      console.error('Error suspending user:', error);
+      toast.show('정지 처리 중 오류가 발생했습니다', 'error');
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  async function handleUnsuspend(targetId: string) {
+    setProcessingId(targetId);
+    try {
+      const { error } = await supabase.from('users').update({ suspended_at: null, suspended_reason: null }).eq('id', targetId);
+      if (error) throw error;
+      toast.show('정지를 해제했습니다', 'success');
+      await fetchReports();
+    } catch (error) {
+      console.error('Error unsuspending user:', error);
+      toast.show('해제 중 오류가 발생했습니다', 'error');
     } finally {
       setProcessingId(null);
     }
@@ -604,6 +644,27 @@ export default function SettlementsScreen() {
                   <Text style={styles.rowValue}>{({ match: '소개팅 상대', chat: '채팅', partner: '파트너 정보' } as Record<string, string>)[item.context] ?? item.context}</Text>
                 </View>
                 {!!item.detail && <Text style={styles.reportDetail}>{item.detail}</Text>}
+                {item.target_report_count > 1 && (
+                  <Text style={styles.reportRepeat}>이 사람에 대한 신고 {item.target_report_count}건</Text>
+                )}
+                <View style={styles.suspendRow}>
+                  {item.target_suspended ? (
+                    <>
+                      <Text style={styles.suspendedText}>⛔ 이용 정지 중</Text>
+                      <TouchableOpacity onPress={() => handleUnsuspend(item.target_id)} disabled={processingId !== null}>
+                        <Text style={styles.unsuspendText}>{processingId === item.target_id ? '처리 중...' : '정지 해제'}</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.suspendBtn}
+                      onPress={() => setSuspendTarget({ id: item.target_id, name: item.target_name, reason: item.reason })}
+                      disabled={processingId !== null}
+                    >
+                      <Text style={styles.suspendBtnText}>{item.target_name} 이용 정지</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
                 {item.status === 'resolved' ? (
                   <View style={styles.paidBadge}>
                     <Text style={styles.paidBadgeText}>✓ {new Date(item.resolved_at).toLocaleDateString('ko-KR')} 확인 완료</Text>
@@ -624,11 +685,34 @@ export default function SettlementsScreen() {
           />
         )
       )}
+
+      <BottomSheet visible={suspendTarget !== null} onClose={() => setSuspendTarget(null)} title={`${suspendTarget?.name ?? ''} 이용 정지`}>
+        <Text style={styles.sheetText}>정지하면 이 사람은 로그인할 수 없고, 파트너 목록과 새 매칭 후보에서 빠집니다.</Text>
+        <Text style={styles.sheetSub}>이미 진행 중인 매칭은 그대로 남으니 필요하면 해당 파트너와 상의해 정리해주세요. 정지는 이 화면에서 언제든 해제할 수 있어요.</Text>
+        <Text style={styles.sheetSub}>정지 사유: {suspendTarget?.reason}</Text>
+        <TouchableOpacity
+          style={[styles.suspendConfirm, processingId !== null && styles.buttonDisabled]}
+          onPress={() => suspendTarget && handleSuspend(suspendTarget.id, suspendTarget.reason)}
+          disabled={processingId !== null}
+        >
+          {processingId ? <ActivityIndicator color="#fff" /> : <Text style={styles.suspendConfirmText}>이용 정지</Text>}
+        </TouchableOpacity>
+      </BottomSheet>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  reportRepeat: { fontSize: 12, color: '#E53935', fontWeight: '600', marginTop: 8 },
+  suspendRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  suspendedText: { fontSize: 13, color: '#E53935', fontWeight: '700' },
+  unsuspendText: { fontSize: 13, color: '#666', textDecorationLine: 'underline', paddingVertical: 6 },
+  suspendBtn: { borderWidth: 1, borderColor: '#E53935', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, alignSelf: 'flex-start' },
+  suspendBtnText: { color: '#E53935', fontSize: 13, fontWeight: '600' },
+  sheetText: { fontSize: 14, color: '#333', lineHeight: 21, marginBottom: 8 },
+  sheetSub: { fontSize: 13, color: '#888', lineHeight: 19, marginBottom: 8 },
+  suspendConfirm: { backgroundColor: '#E53935', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
+  suspendConfirmText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   reportDetail: { fontSize: 13, color: '#444', backgroundColor: '#F7F7F9', borderRadius: 8, padding: 10, marginTop: 8, lineHeight: 19 },
   container: {
     flex: 1,

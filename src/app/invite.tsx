@@ -23,9 +23,9 @@ export default function InviteScreen() {
       if (!p) return setPartner(null);
       const [{ data: conn }, { data: u }] = await Promise.all([
         supabase.from('connectors').select('*').eq('id', p).eq('status', 'approved').maybeSingle(),
-        supabase.from('users').select('id, name, photo_urls, withdrawn_at').eq('id', p).maybeSingle(),
+        supabase.from('users').select('id, name, photo_urls, withdrawn_at, suspended_at').eq('id', p).maybeSingle(),
       ]);
-      if (!conn || !u || u.withdrawn_at) return setPartner(null);
+      if (!conn || !u || u.withdrawn_at || u.suspended_at) return setPartner(null);
       setPartner({ ...conn, name: u.name, photo_urls: u.photo_urls ?? [] });
     })();
   }, [p]);

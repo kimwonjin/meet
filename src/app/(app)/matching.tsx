@@ -30,7 +30,9 @@ import { AFTER_CARE_DAYS, afterCareDeadline, expireAfterCareIfDue, formatDeadlin
 
 // 매칭 후보로 고를 회원 (사진·나이·지역을 보고 고른다)
 type Member = MemberProfile & { id: string; name: string };
-const MEMBER_FIELDS = 'id, name, gender, age, birth_date, location, photo_urls, height, job, education, bio, religion, smoking, drinking, body_type';
+const MEMBER_FIELDS = 'id, name, gender, age, birth_date, location, photo_urls, height, job, education, bio, religion, smoking, drinking, body_type, suspended_at';
+// 이용 정지된 회원은 매칭 후보에서 뺀다
+const active = (users: any[] | null) => ((users || []) as any[]).filter((u) => !u.suspended_at) as Member[];
 
 function memberSummary(m: Member) {
   return [m.gender === 'M' ? '남' : m.gender === 'F' ? '여' : null, m.age && `${m.age}세`, m.location].filter(Boolean).join(' · ');
@@ -200,7 +202,7 @@ export default function MatchingScreen() {
       return;
     }
     const { data: users } = await supabase.from('users').select(MEMBER_FIELDS).in('id', ids);
-    setOwnMembers((users || []) as Member[]);
+    setOwnMembers(active(users));
   }
 
   async function fetchAllyConnectors() {
@@ -234,7 +236,7 @@ export default function MatchingScreen() {
       const ids = (data || []).map((r: any) => r.hopeful_id);
       if (ids.length === 0) return { connector: conn, members: [] as Member[] };
       const { data: users } = await supabase.from('users').select(MEMBER_FIELDS).in('id', ids);
-      return { connector: conn, members: (users || []) as Member[] };
+      return { connector: conn, members: active(users) };
     }));
     setAllyMembers(groups);
   }
@@ -276,6 +278,10 @@ export default function MatchingScreen() {
         p_hopeful_2: b.id,
         p_connector_2: b.connectorId,
       });
+      if (error?.message?.includes('SUSPENDED_USER')) {
+        toast.show('이용이 정지된 회원이 있어 매칭할 수 없어요', 'error');
+        return;
+      }
       if (error?.message?.includes('BLOCKED_PAIR')) {
         // 어느 쪽이 차단했는지는 파트너에게 알리지 않는다
         toast.show('두 회원은 서로 매칭할 수 없어요', 'error');

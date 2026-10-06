@@ -45,8 +45,15 @@ export default function LoginScreen() {
       const { error } = await login(target);
       if (error) {
         // PGRST116: 해당 전화번호로 조회된 회원이 없음
-        const notFound = (error as { code?: string }).code === 'PGRST116';
-        toast.show(notFound ? '가입되지 않은 전화번호입니다' : '로그인에 실패했습니다. 잠시 후 다시 시도해주세요', 'error');
+        const code = (error as { code?: string }).code;
+        toast.show(
+          code === 'PGRST116'
+            ? '가입되지 않은 전화번호입니다'
+            : code === 'SUSPENDED'
+              ? '이용이 정지된 계정이에요. 운영 정책 위반으로 서비스를 이용할 수 없어요'
+              : '로그인에 실패했습니다. 잠시 후 다시 시도해주세요',
+          'error'
+        );
       }
     } catch (err) {
       console.error('Login error:', err);

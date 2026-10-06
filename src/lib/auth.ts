@@ -97,6 +97,8 @@ export async function loginWithPhone(phone: string) {
       .single();
 
     if (error) throw error;
+    // 운영자가 이용을 정지한 계정은 로그인할 수 없다
+    if (data?.suspended_at) return { data: null, error: { code: 'SUSPENDED' } };
     return { data, error: null };
   } catch (error) {
     return { data: null, error };
