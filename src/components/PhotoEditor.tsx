@@ -11,54 +11,68 @@ interface PhotoEditorProps {
   onChange: (photos: string[]) => void;
 }
 
-// 프로필 사진 최대 3장. 첫 번째가 대표 사진이며, 다른 사진을 누르면 대표로 바뀐다.
+// 프로필 사진 최대 3장. 칸 자리는 고정이고 첫 칸이 대표 사진이다.
+// 사진을 지우면 그 칸만 비고 나머지는 제자리에 남는다. 다른 사진을 누르면 대표 칸과 자리를 바꾼다.
 // 변경 즉시 저장한다 (프로필 저장 버튼과 별개).
 export default function PhotoEditor({ userId, photos, onChange }: PhotoEditorProps) {
   const toast = useToast();
   const confirm = useConfirm();
   const [uploading, setUploading] = useState(false);
+  const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
 
   async function update(next: string[]) {
     await savePhotoUrls(userId, next);
     onChange(next);
   }
 
-  async function handleAdd() {
+  // 칸 i에 사진을 넣는다 (중간 빈 칸도 채울 수 있다)
+  async function handleAdd(i: number) {
     setUploading(true);
+    setUploadingSlot(i);
     try {
       const url = await pickAndUploadPhoto(userId);
       if (!url) return;
-      await update([...photos, url]);
+      const next = Array.from({ length: Math.max(photos.length, i + 1) }, (_, k) => photos[k] ?? '');
+      next[i] = url;
+      await update(next);
       toast.show('사진을 추가했습니다', 'success');
     } catch (error) {
       console.error('Photo upload error:', error);
       toast.show(error instanceof Error && error.message.includes('권한') ? error.message : '사진을 올리지 못했습니다. 잠시 후 다시 시도해주세요', 'error');
     } finally {
       setUploading(false);
+      setUploadingSlot(null);
     }
   }
 
-  async function handleRemove(url: string) {
-    if (!(await confirm({ title: '사진을 삭제할까요?', confirmText: '삭제', destructive: true }))) return;
+  async function handleRemove(i: number) {
+    const url = photos[i];
+    if (!url) return;
+    if (!(await confirm({ title: i === 0 ? '대표 사진을 삭제할까요?' : '사진을 삭제할까요?', confirmText: '삭제', destructive: true }))) return;
     try {
-      await update(photos.filter((p) => p !== url));
+      const next = [...photos];
+      next[i] = '';
+      await update(next);
       deletePhoto(url);
     } catch (error) {
       toast.show('사진을 삭제하지 못했습니다', 'error');
     }
   }
 
-  async function handleMakeMain(url: string) {
+  // 누른 사진과 대표 칸의 자리를 바꾼다
+  async function handleMakeMain(i: number) {
     try {
-      await update([url, ...photos.filter((p) => p !== url)]);
+      const next = Array.from({ length: Math.max(photos.length, 1) }, (_, k) => photos[k] ?? '');
+      [next[0], next[i]] = [next[i], next[0] ?? ''];
+      await update(next);
       toast.show('대표 사진을 바꿨습니다', 'success');
     } catch (error) {
       toast.show('대표 사진을 바꾸지 못했습니다', 'error');
     }
   }
 
-  const slots = Array.from({ length: MAX_PHOTOS }, (_, i) => photos[i] ?? null);
-  const nextEmpty = photos.length;
+  const slots = Array.from({ length: MAX_PHOTOS }, (_, i) => photos[i] || null);
+  const hasAny = photos.some(Boolean);
 
   return (
     <View>
@@ -66,7 +80,7 @@ export default function PhotoEditor({ userId, photos, onChange }: PhotoEditorPro
         {slots.map((url, i) =>
           url ? (
             <View key={url} style={styles.slot}>
-              <TouchableOpacity style={styles.fill} disabled={i === 0} onPress={() => handleMakeMain(url)}>
+              <TouchableOpacity style={styles.fill} disabled={i === 0} onPress={() => handleMakeMain(i)}>
                 <Image source={{ uri: url }} style={styles.fill} contentFit="cover" />
               </TouchableOpacity>
               {i === 0 && (
@@ -74,7 +88,7 @@ export default function PhotoEditor({ userId, photos, onChange }: PhotoEditorPro
                   <Text style={styles.mainBadgeText}>대표</Text>
                 </View>
               )}
-              <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemove(url)} accessibilityLabel="사진 삭제">
+              <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemove(i)} accessibilityLabel="사진 삭제">
                 <Text style={styles.removeBtnText}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -82,22 +96,28 @@ export default function PhotoEditor({ userId, photos, onChange }: PhotoEditorPro
             <TouchableOpacity
               key={`empty-${i}`}
               style={[styles.slot, styles.emptySlot]}
-              disabled={uploading || i !== nextEmpty}
-              onPress={handleAdd}
+              disabled={uploading}
+              onPress={() => handleAdd(i)}
+              accessibilityLabel={i === 0 ? '대표 사진 추가' : '사진 추가'}
             >
-              {uploading && i === nextEmpty ? (
+              {uploading && uploadingSlot === i ? (
                 <ActivityIndicator color="#5B21FF" />
               ) : (
-                <Text style={[styles.plus, i !== nextEmpty && styles.plusDisabled]}>+</Text>
+                <>
+                  <Text style={styles.plus}>+</Text>
+                  {i === 0 && <Text style={styles.emptyMainText}>대표 사진</Text>}
+                </>
               )}
             </TouchableOpacity>
           )
         )}
       </View>
       <Text style={styles.hint}>
-        {photos.length === 0
+        {!hasAny
           ? '얼굴이 잘 보이는 사진을 올려주세요. 매칭 상대와 파트너에게 보여요.'
-          : '사진을 누르면 대표 사진으로 바뀌어요'}
+          : !photos[0]
+            ? '대표 칸이 비어 있어요. 채우기 전까지는 다음 사진이 대표로 보여요.'
+            : '사진을 누르면 대표 사진과 자리가 바뀌어요'}
       </Text>
     </View>
   );
@@ -131,8 +151,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: '#5B21FF',
   },
-  plusDisabled: {
-    color: '#ddd',
+  emptyMainText: {
+    fontSize: 11,
+    color: '#5B21FF',
+    marginTop: 2,
+    fontWeight: '600',
   },
   mainBadge: {
     position: 'absolute',

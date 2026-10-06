@@ -4,6 +4,12 @@ import { supabase } from './supabase';
 
 export const PHOTO_BUCKET = 'profile-photos';
 export const MAX_PHOTOS = 3;
+
+// 사진 칸은 자리가 고정이라, 지운 칸은 빈 문자열('')로 저장된다.
+// 다른 사람에게 보여줄 때는 빈 칸을 건너뛴다 (대표 칸이 비면 다음 사진이 대신 보임).
+export function shownPhotos(urls?: string[] | null): string[] {
+  return (urls ?? []).filter(Boolean);
+}
 // 업로드 전에 긴 변 기준 이 크기로 줄인다 (용량·속도)
 const MAX_WIDTH = 1080;
 
@@ -50,6 +56,9 @@ export async function deletePhoto(publicUrl: string) {
 }
 
 export async function savePhotoUrls(userId: string, photoUrls: string[]) {
-  const { error } = await supabase.from('users').update({ photo_urls: photoUrls }).eq('id', userId);
+  // 뒤쪽 빈 칸은 저장하지 않는다
+  const slots = [...photoUrls];
+  while (slots.length && !slots[slots.length - 1]) slots.pop();
+  const { error } = await supabase.from('users').update({ photo_urls: slots }).eq('id', userId);
   if (error) throw error;
 }

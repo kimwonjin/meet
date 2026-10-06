@@ -1,10 +1,11 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
+import { shownPhotos } from '@/lib/photos';
 
 // 동그란 대표 사진. 사진이 없으면 기본 아이콘을 보여준다.
 export function Avatar({ photoUrls, size = 44 }: { photoUrls?: string[] | null; size?: number }) {
-  const url = photoUrls?.[0];
+  const url = shownPhotos(photoUrls)[0];
   const box = { width: size, height: size, borderRadius: size / 2 };
   return url ? (
     <Image source={{ uri: url }} style={[styles.avatar, box]} contentFit="cover" />
@@ -16,8 +17,9 @@ export function Avatar({ photoUrls, size = 44 }: { photoUrls?: string[] | null; 
 }
 
 // 프로필 시트용 사진 목록. 좌우로 넘기지 않고 세로로 나열한다.
-export function PhotoList({ photoUrls }: { photoUrls?: string[] | null }) {
-  if (!photoUrls?.length) {
+export function PhotoList({ photoUrls: raw }: { photoUrls?: string[] | null }) {
+  const photoUrls = shownPhotos(raw);
+  if (!photoUrls.length) {
     return (
       <View style={styles.empty}>
         <Text style={styles.emptyText}>등록된 사진이 없습니다</Text>

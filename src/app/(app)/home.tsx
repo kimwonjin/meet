@@ -143,7 +143,7 @@ export default function HomeScreen() {
         // 프로필이 비어 있으면 파트너가 소개하기 어렵다 → 채울 항목을 알려준다
         const { data: me } = await supabase.from('users').select('photo_urls, bio, job, height').eq('id', user!.id).maybeSingle();
         setProfileGaps([
-          !(me?.photo_urls?.length) && '사진',
+          !(me?.photo_urls ?? []).some(Boolean) && '사진',
           !me?.bio && '자기소개',
           !me?.job && '직업',
           !me?.height && '키',

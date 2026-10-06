@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
+import { shownPhotos } from '@/lib/photos';
 
 export type MemberProfile = {
   name?: string;
@@ -28,7 +29,7 @@ interface Props {
 // 회원 프로필 상세 (회원 탭·매칭 탭·회원 홈에서 같은 모양)
 // 사진은 크게 한 장 + 작은 사진들(누르면 큰 사진이 바뀜). 좌우로 넘기는 방식은 쓰지 않는다.
 export default function MemberProfileView({ member, showBirthDate = false }: Props) {
-  const photos = member.photo_urls ?? [];
+  const photos = shownPhotos(member.photo_urls);
   const [mainIdx, setMainIdx] = useState(0);
   useEffect(() => setMainIdx(0), [member.photo_urls]);
   const main = photos[mainIdx];
