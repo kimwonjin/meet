@@ -92,8 +92,10 @@ export async function resolveInviteCode(code: string): Promise<{ connectorId: st
 }
 
 // 검색엔진·링크 미리보기 봇은 열람 수에서 뺀다 (카카오톡 앱 안 브라우저는 사람이므로 'kakaotalk-scrap'만 거른다)
-const BOT_RE = /bot|crawl|spider|slurp|facebookexternalhit|kakaotalk-scrap|daum|yeti|preview|headless|lighthouse|python|curl|wget|axios|node-fetch/i;
+const BOT_RE = /bot|crawl|spider|slurp|facebookexternalhit|kakaotalk-scrap|daumoa|yeti|preview|headless|lighthouse|python|curl|wget|axios|node-fetch/i;
 export function isBot(ua?: string) {
+  // 앱(폰)에서 연 경우는 사람
+  if (ua === undefined && Platform.OS !== 'web') return false;
   const agent = ua ?? (typeof navigator !== 'undefined' ? navigator.userAgent || '' : '');
   return !agent || BOT_RE.test(agent);
 }

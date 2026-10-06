@@ -113,12 +113,14 @@ export default function SettlementsScreen() {
   }
 
   async function handleReviewProfile(connectorId: string, approve: boolean, reason?: string) {
+    const expected = profileReviews.find((c) => c.id === connectorId)?.pending_profile ?? null;
     setProcessingId(connectorId);
     try {
       const { data, error } = await supabase.rpc('fn_review_connector_profile', {
         p_connector_id: connectorId,
         p_approve: approve,
         p_reason: reason ?? null,
+        p_expected: expected,
       });
       if (error) throw error;
       if (!data?.ok) {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { markJustSignedUp } from '@/lib/invite';
+import { consumeJustSignedUp, markJustSignedUp } from '@/lib/invite';
 import { calculateAge, signUpHopeful } from '@/lib/auth';
 import ConsentChecklist, { ConsentItem } from '@/components/ConsentChecklist';
 import { recordConsents } from '@/lib/terms';
@@ -90,11 +90,13 @@ export default function SignupScreen() {
       }
 
       if (data?.id) await recordConsents(data.id, SIGNUP_CONSENTS.map((c) => c.key));
-      markJustSignedUp();
 
+      // 로그인 직후 초대 처리가 이 표시를 읽으므로 먼저 켜 두고, 로그인에 실패하면 끈다
+      markJustSignedUp();
       const loginResult = await login(phone);
 
       if (loginResult.error) {
+        consumeJustSignedUp();
         toast.show('로그인에 실패했습니다', 'error');
         return;
       }

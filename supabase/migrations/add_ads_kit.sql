@@ -63,13 +63,16 @@ CREATE TRIGGER connectors_pending_profile_check
   FOR EACH ROW EXECUTE FUNCTION fn_check_pending_profile();
 
 -- 운영자 검수: 승인하면 대기본을 공개본으로 옮기고, 반려하면 사유를 남긴다. 파트너에게 알림.
-CREATE OR REPLACE FUNCTION fn_review_connector_profile(p_connector_id UUID, p_approve BOOLEAN, p_reason TEXT DEFAULT NULL)
+DROP FUNCTION IF EXISTS fn_review_connector_profile(UUID, BOOLEAN, TEXT);
+-- p_expected: 운영자가 화면에서 본 대기본. 그 사이 파트너가 또 고쳤으면 처리하지 않는다 (안 본 글이 승인되지 않게)
+CREATE OR REPLACE FUNCTION fn_review_connector_profile(p_connector_id UUID, p_approve BOOLEAN, p_reason TEXT DEFAULT NULL, p_expected JSONB DEFAULT NULL)
 RETURNS JSON AS $$
 DECLARE
   c connectors%ROWTYPE;
 BEGIN
   SELECT * INTO c FROM connectors WHERE id = p_connector_id FOR UPDATE;
-  IF NOT FOUND OR c.pending_profile IS NULL OR c.profile_status <> 'PENDING' THEN
+  IF NOT FOUND OR c.pending_profile IS NULL OR c.profile_status <> 'PENDING'
+     OR (p_expected IS NOT NULL AND c.pending_profile IS DISTINCT FROM p_expected) THEN
     RETURN json_build_object('ok', false, 'reason', 'not_pending');
   END IF;
 

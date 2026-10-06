@@ -269,6 +269,8 @@ export default function ProfileScreen() {
         .select('main_region, fee_per_session, service_description, intro, career, pending_profile, profile_status, profile_reject_reason')
         .eq('id', user.id)
         .single();
+      // 검수 칸이 없을 때(SQL 실행 전)만 예전 방식으로. 일시적인 오류로 검수를 건너뛰지 않는다
+      if (cErr && !['42703', 'PGRST204'].includes((cErr as any).code)) throw cErr;
       if (cErr) {
         reviewReady = false;
         ({ data: connectorData } = await supabase
@@ -412,13 +414,6 @@ export default function ProfileScreen() {
       return;
     }
 
-    // 거짓·과장 광고가 될 수 있는 표현은 저장하지 않는다
-    const banned = findBannedWord(storeData.career, storeData.intro, storeData.service_description);
-    if (banned) {
-      toast.show(`'${banned}' 같은 표현은 쓸 수 없어요 (과장 광고 방지). 다른 표현으로 바꿔주세요`, 'error');
-      return;
-    }
-
     const text = {
       career: storeData.career.trim(),
       intro: storeData.intro.trim(),
@@ -430,6 +425,17 @@ export default function ProfileScreen() {
     };
     const ap = profileReview.approved;
     const textChanged = text.career !== ap.career.trim() || text.intro !== ap.intro.trim() || text.service_description !== ap.service_description.trim();
+    const pv = profileReview.pending;
+    const samePending = !!pv && (pv.career ?? '') === text.career && (pv.intro ?? '') === text.intro && (pv.service_description ?? '') === text.service_description;
+    // 반려된 글을 그대로 둔 채 지역·금액만 바꾼 경우: 글은 다시 보내지 않는다
+    const resubmitRejected = profileReview.status === 'REJECTED' && samePending;
+
+    // 거짓·과장 광고가 될 수 있는 표현은 저장하지 않는다 (바뀐 글만 검사: 예전에 승인된 글 때문에 금액 저장이 막히지 않게)
+    const banned = textChanged && !resubmitRejected ? findBannedWord(text.career, text.intro, text.service_description) : null;
+    if (banned) {
+      toast.show(`'${banned}' 같은 표현은 쓸 수 없어요 (과장 광고 방지). 다른 표현으로 바꿔주세요`, 'error');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -437,7 +443,9 @@ export default function ProfileScreen() {
       if (profileReview.reviewReady) {
         // 소개 글이 바뀌었으면 검수 대기로 보내고, 승인 전까지 회원에게는 이전 승인본이 보인다
         const update: Record<string, any> = { ...base };
-        if (textChanged) {
+        if (resubmitRejected) {
+          // 반려 상태 유지 (글은 그대로)
+        } else if (textChanged) {
           Object.assign(update, { pending_profile: text, profile_status: 'PENDING', profile_reject_reason: null });
         } else if (profileReview.status !== 'APPROVED') {
           // 승인본과 같게 되돌렸다면 대기본을 지운다
@@ -446,15 +454,15 @@ export default function ProfileScreen() {
         const { error } = await supabase.from('connectors').update(update).eq('id', user!.id);
         if (error) throw error;
         // 같은 내용으로 다시 저장한 경우에는 운영자에게 또 알리지 않는다
-        const pv = profileReview.pending;
-        const samePending = profileReview.status === 'PENDING' && !!pv && (pv.career ?? '') === text.career && (pv.intro ?? '') === text.intro && (pv.service_description ?? '') === text.service_description;
         sentForReview = textChanged && !samePending;
-        setProfileReview((r) => ({
-          ...r,
-          status: textChanged ? 'PENDING' : 'APPROVED',
-          reason: null,
-          pending: textChanged ? text : null,
-        }));
+        if (!resubmitRejected) {
+          setProfileReview((r) => ({
+            ...r,
+            status: textChanged ? 'PENDING' : 'APPROVED',
+            reason: null,
+            pending: textChanged ? text : null,
+          }));
+        }
       } else {
         // 검수 컬럼이 아직 없으면 예전처럼 바로 저장
         const { error } = await supabase
@@ -464,7 +472,9 @@ export default function ProfileScreen() {
         if (error) throw error;
       }
 
-      if (textChanged && profileReview.reviewReady && !sentForReview) {
+      if (resubmitRejected && profileReview.reviewReady) {
+        toast.show('지역·금액을 저장했어요. 반려된 소개 글은 고쳐서 다시 저장해 주세요', 'info');
+      } else if (textChanged && profileReview.reviewReady && !sentForReview) {
         toast.show('저장했어요. 소개 글은 운영자 확인 중이에요', 'success');
       } else if (sentForReview) {
         const { data: operators } = await supabase.from('users').select('id').eq('role', 'operator');
