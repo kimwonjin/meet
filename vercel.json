@@ -4,5 +4,11 @@
   "installCommand": "npm ci",
   "buildCommand": "EXPO_PUBLIC_BUILD_ID=$VERCEL_GIT_COMMIT_SHA npx expo export -p web",
   "outputDirectory": "dist",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/c/:code",
+      "destination": "/api/invite-page?code=:code"
+    }
+  ]
 }

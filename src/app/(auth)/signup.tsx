@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
+import { markJustSignedUp } from '@/lib/invite';
 import { calculateAge, signUpHopeful } from '@/lib/auth';
 import ConsentChecklist, { ConsentItem } from '@/components/ConsentChecklist';
 import { recordConsents } from '@/lib/terms';
@@ -89,6 +90,7 @@ export default function SignupScreen() {
       }
 
       if (data?.id) await recordConsents(data.id, SIGNUP_CONSENTS.map((c) => c.key));
+      markJustSignedUp();
 
       const loginResult = await login(phone);
 

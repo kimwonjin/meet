@@ -2,9 +2,12 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import BottomSheet from './BottomSheet';
 import { TERMS_DOCS, TERMS_VERSION, TermsDocKey } from '@/lib/terms';
+import { useBusiness } from '@/lib/business';
 
 // 약관 전문 보기
 export default function TermsSheet({ docKey, onClose }: { docKey: TermsDocKey | null; onClose: () => void }) {
+  // 운영자가 입력한 사업자 정보를 불러오면 다시 그린다
+  useBusiness();
   const doc = docKey ? TERMS_DOCS[docKey] : null;
   return (
     <BottomSheet visible={doc !== null} onClose={onClose} title={doc?.title ?? ''}>

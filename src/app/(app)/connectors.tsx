@@ -5,6 +5,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
 import { supabase } from '@/lib/supabase';
+import { requestJoin } from '@/lib/join';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatRegions } from '@/lib/format';
@@ -315,40 +316,13 @@ export default function ConnectorsScreen() {
 
     setRequesting(true);
     try {
-      const { data: existingRows } = await supabase
-        .from('hopeful_requests')
-        .select('id, status')
-        .eq('hopeful_id', user.id)
-        .eq('connector_id', selectedConnector.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      const existing = existingRows?.[0];
-
-      if (existing && existing.status !== 'rejected') {
-        toast.show(existing.status === 'pending' ? '이미 요청을 보냈어요. 파트너의 승인을 기다리는 중이에요' : '이미 승인된 파트너입니다', 'info');
+      const result = await requestJoin(user, selectedConnector.id);
+      if (result === 'pending' || result === 'approved') {
+        toast.show(result === 'pending' ? '이미 요청을 보냈어요. 파트너의 승인을 기다리는 중이에요' : '이미 승인된 파트너입니다', 'info');
         setSelectedConnector(null);
         return;
       }
-
-      const { error } = await supabase
-        .from('hopeful_requests')
-        .insert([{
-          hopeful_id: user.id,
-          connector_id: selectedConnector.id,
-          status: 'pending',
-          message: `${user.name}님이 가입을 요청했습니다.`,
-        }]);
-
-      if (error) throw error;
-
-      await createNotification({
-        userId: selectedConnector.id,
-        type: 'signup_request',
-        title: '새로운 가입 신청이 있습니다',
-        body: `${user.name}님이 가입을 요청했습니다`,
-        route: '/connectors',
-      });
-
+      if (result === 'error') throw new Error('request failed');
       toast.show('가입을 요청했어요. 파트너가 승인하면 알려드릴게요', 'success');
       setSelectedConnector(null);
     } catch (error) {

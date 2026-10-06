@@ -15,15 +15,15 @@ export type TermsDoc = {
   sections: { heading: string; body: string }[];
 };
 
-const COMPANY = biz(BUSINESS.companyName, '회사명');
 
-export const SERVICE_TERMS: TermsDoc = {
+// 사업자 정보가 바뀌면 바로 반영되도록 열 때마다 만든다
+const SERVICE_TERMS = (): TermsDoc => ({
   key: 'service',
   title: '서비스 이용약관',
   sections: [
     {
       heading: '제1조 (목적)',
-      body: `이 약관은 ${COMPANY}(이하 "회사")가 운영하는 두두인연 서비스(이하 "서비스")를 이용하는 회원과 회사, 매칭 파트너 사이의 권리·의무 및 책임 사항을 정합니다.`,
+      body: `이 약관은 ${biz(BUSINESS.companyName, '회사명')}(이하 "회사")가 운영하는 두두인연 서비스(이하 "서비스")를 이용하는 회원과 회사, 매칭 파트너 사이의 권리·의무 및 책임 사항을 정합니다.`,
     },
     {
       heading: '제2조 (용어)',
@@ -114,12 +114,13 @@ export const SERVICE_TERMS: TermsDoc = {
       heading: '부칙',
       body: `이 약관은 ${TERMS_VERSION}부터 시행합니다.
 
-사업자 정보: ${COMPANY} · 대표 ${biz(BUSINESS.ceo, '대표자')} · 사업자등록번호 ${biz(BUSINESS.bizNumber, '번호')} · 통신판매업 신고 ${biz(BUSINESS.mailOrderNumber, '신고번호')} · ${biz(BUSINESS.address, '주소')} · ${biz([BUSINESS.phone, BUSINESS.email].filter(Boolean).join(' · '), '고객센터 연락처')}`,
+사업자 정보: ${biz(BUSINESS.companyName, '회사명')} · 국내결혼중개업 신고 ${biz(BUSINESS.reportNumber, '신고번호')} · 대표 ${biz(BUSINESS.ceo, '대표자')} · 사업자등록번호 ${biz(BUSINESS.bizNumber, '번호')} · 통신판매업 신고 ${biz(BUSINESS.mailOrderNumber, '신고번호')} · ${biz(BUSINESS.address, '주소')} · ${biz([BUSINESS.phone, BUSINESS.email].filter(Boolean).join(' · '), '고객센터 연락처')}`,
     },
   ],
-};
+});
 
-export const PRIVACY_POLICY: TermsDoc = {
+// 사업자 정보가 바뀌면 바로 반영되도록 열 때마다 만든다
+const PRIVACY_POLICY = (): TermsDoc => ({
   key: 'privacy',
   title: '개인정보 수집·이용 및 처리방침',
   sections: [
@@ -185,15 +186,16 @@ export const PRIVACY_POLICY: TermsDoc = {
       body: `이 방침은 ${TERMS_VERSION}부터 시행합니다.`,
     },
   ],
-};
+});
 
-export const PARTNER_TERMS: TermsDoc = {
+// 사업자 정보가 바뀌면 바로 반영되도록 열 때마다 만든다
+const PARTNER_TERMS = (): TermsDoc => ({
   key: 'partner',
   title: '매칭 파트너 이용약관',
   sections: [
     {
       heading: '제1조 (목적)',
-      body: `이 약관은 두두인연 서비스에서 매칭 파트너(이하 "파트너")로 활동하는 사람과 ${COMPANY}(이하 "회사") 사이의 권리·의무를 정합니다. 이 약관에 없는 내용은 서비스 이용약관을 따릅니다.`,
+      body: `이 약관은 두두인연 서비스에서 매칭 파트너(이하 "파트너")로 활동하는 사람과 ${biz(BUSINESS.companyName, '회사명')}(이하 "회사") 사이의 권리·의무를 정합니다. 이 약관에 없는 내용은 서비스 이용약관을 따릅니다.`,
     },
     {
       heading: '제2조 (자격과 승인)',
@@ -235,12 +237,12 @@ export const PARTNER_TERMS: TermsDoc = {
       body: `이 약관은 ${TERMS_VERSION}부터 시행합니다.`,
     },
   ],
-};
+});
 
 export const TERMS_DOCS: Record<TermsDocKey, TermsDoc> = {
-  service: SERVICE_TERMS,
-  privacy: PRIVACY_POLICY,
-  partner: PARTNER_TERMS,
+  get service() { return SERVICE_TERMS(); },
+  get privacy() { return PRIVACY_POLICY(); },
+  get partner() { return PARTNER_TERMS(); },
 };
 
 // 동의 기록 저장

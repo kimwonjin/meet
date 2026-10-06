@@ -26,7 +26,7 @@ export default function LinkPreview({ title, description, image = 'og.png' }: { 
 // 주소에 맞는 미리보기를 고른다. 첫 화면을 그리기 전(로딩 중)에도 웹 페이지 파일에 들어가도록 루트에서 쓴다.
 export function RouteLinkPreview() {
   const path = usePathname();
-  if (path.startsWith('/invite')) {
+  if (path.startsWith('/invite') || path.startsWith('/c/')) {
     return (
       <LinkPreview
         title="두두인연 초대장이 도착했어요"

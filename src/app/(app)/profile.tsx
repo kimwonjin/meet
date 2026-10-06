@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import BusinessSettingsSheet from '@/components/BusinessSettingsSheet';
 import BusinessInfo from '@/components/BusinessInfo';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -41,6 +42,7 @@ export default function ProfileScreen() {
   const [partnerConsents, setPartnerConsents] = useState<string[]>([]);
   const [showBlocks, setShowBlocks] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const [showBusiness, setShowBusiness] = useState(false);
   // 소개 글 검수 상태 (승인본과 검수 대기본). reviewReady=false 면 검수용 DB 컬럼이 아직 없음 → 예전처럼 바로 저장
   const [profileReview, setProfileReview] = useState<{ status: string; reason: string | null; approved: { career: string; intro: string; service_description: string }; pending: { career?: string; intro?: string; service_description?: string } | null; reviewReady: boolean }>({
     status: 'APPROVED', reason: null, approved: { career: '', intro: '', service_description: '' }, pending: null, reviewReady: false,
@@ -880,6 +882,16 @@ export default function ProfileScreen() {
           </>
         )}
         {user?.role === 'operator' && (
+          <TouchableOpacity style={styles.menuItem} onPress={() => setShowBusiness(true)}>
+            <Text style={styles.menuIcon}>🏢</Text>
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>사업자 정보</Text>
+              <Text style={styles.menuSub}>화면 하단·약관 표시, 결혼중개업 신고번호</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+        )}
+        {user?.role === 'operator' && (
           <TouchableOpacity style={styles.logoutMenuItem} onPress={handleLogout}>
             <Text style={styles.logoutIcon}>🚪</Text>
             <Text style={styles.logoutText}>로그아웃</Text>
@@ -913,6 +925,7 @@ export default function ProfileScreen() {
       </ScrollView>
 
       <TermsSheet docKey={viewingTerms} onClose={() => setViewingTerms(null)} />
+      {user?.role === 'operator' && <BusinessSettingsSheet visible={showBusiness} onClose={() => setShowBusiness(false)} />}
 
       <BottomSheet visible={showRefundSheet} onClose={() => { setShowRefundSheet(false); setShowCreditsModal(true); }} title="환불 요청">
         <View style={styles.gradeBox}>

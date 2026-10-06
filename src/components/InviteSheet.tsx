@@ -4,10 +4,10 @@ import * as Clipboard from 'expo-clipboard';
 import BottomSheet from './BottomSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { inviteMessage, inviteUrl } from '@/lib/invite';
+import { codeUrl, fetchInviteStats, fetchShareTemplates, getInviteCode, inviteMessage, inviteUrl, InviteStats } from '@/lib/invite';
 import InviteQr from './InviteQr';
 import ShareTemplates from './ShareTemplates';
-import { fetchShareTemplates } from '@/lib/invite';
+import InviteStatsView from './InviteStatsView';
 
 // 마이 › 광고하기: 회원 후보에게 나에게 바로 연결되는 초대 링크를 보낸다 (홍보 도구를 이 화면에 모은다)
 export default function InviteSheet({ visible, onClose, partnerName }: { visible: boolean; onClose: () => void; partnerName: string }) {
@@ -18,12 +18,18 @@ export default function InviteSheet({ visible, onClose, partnerName }: { visible
   const [openTool, setOpenTool] = useState<string | null>(null);
   // 문구 표가 아직 없으면(DB 준비 전) 홍보 문구 칸을 숨긴다
   const [hasTemplates, setHasTemplates] = useState(false);
+  // 코드 링크(/c/코드)와 성과. DB 준비 전이면 예전 링크(/invite?p=)를 쓰고 성과 칸은 숨긴다
+  const [code, setCode] = useState<string | null>(null);
+  const [stats, setStats] = useState<InviteStats | null>(null);
   React.useEffect(() => {
-    if (visible) fetchShareTemplates().then((t) => setHasTemplates(t.length > 0));
-  }, [visible]);
+    if (!visible || !user) return;
+    fetchShareTemplates().then((t) => setHasTemplates(t.length > 0));
+    getInviteCode(user.id).then(setCode);
+    fetchInviteStats(user.id).then(setStats);
+  }, [visible, user?.id]);
   if (!user) return null;
-  const url = inviteUrl(user.id);
-  const message = inviteMessage(partnerName, user.id);
+  const url = code ? codeUrl(code) : inviteUrl(user.id);
+  const message = inviteMessage(partnerName, user.id, url);
 
   async function copy(text: string, done: string) {
     try {
@@ -76,6 +82,11 @@ export default function InviteSheet({ visible, onClose, partnerName }: { visible
       {hasTemplates && (
         <ToolSection id="templates" title="홍보 문구" sub="상황별 문구를 복사해서 보내기" openTool={openTool} setOpenTool={setOpenTool}>
           <ShareTemplates link={url} />
+        </ToolSection>
+      )}
+      {stats && (
+        <ToolSection id="stats" title="초대 성과" sub="링크를 연 사람과 가입 신청 수" openTool={openTool} setOpenTool={setOpenTool}>
+          <InviteStatsView stats={stats} />
         </ToolSection>
       )}
       <Text style={styles.help}>받은 사람이 링크를 열면 파트너 소개와 함께 가입 화면이 나와요. 가입하면 내 회원 탭의 '대기중'에 가입 요청이 들어와요.</Text>
