@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { BUSINESS, biz } from './business';
 
 // 약관·정책 문서 (초안)
 // ※ 출시 전 반드시 법률 전문가 검토를 받고, [ ] 표시된 사업자 정보를 채운다.
@@ -14,7 +15,7 @@ export type TermsDoc = {
   sections: { heading: string; body: string }[];
 };
 
-const COMPANY = '[회사명]';
+const COMPANY = biz(BUSINESS.companyName, '회사명');
 
 export const SERVICE_TERMS: TermsDoc = {
   key: 'service',
@@ -106,14 +107,14 @@ export const SERVICE_TERMS: TermsDoc = {
     },
     {
       heading: '제14조 (분쟁 해결)',
-      body: `1. 서비스 이용과 관련한 문의·불만은 서비스 안의 운영자 채팅 또는 [고객센터 연락처]로 접수할 수 있으며, 회사는 접수일로부터 7일 이내에 답변합니다.
+      body: `1. 서비스 이용과 관련한 문의·불만은 서비스 안의 운영자 채팅 또는 ${biz([BUSINESS.phone, BUSINESS.email].filter(Boolean).join(' · '), '고객센터 연락처')}로 접수할 수 있으며, 회사는 접수일로부터 7일 이내에 답변합니다.
 2. 회사와 회원 사이의 분쟁은 대한민국 법을 따르며, 소송은 민사소송법에 따른 관할 법원에 제기합니다.`,
     },
     {
       heading: '부칙',
       body: `이 약관은 ${TERMS_VERSION}부터 시행합니다.
 
-사업자 정보: ${COMPANY} · 대표 [대표자] · 사업자등록번호 [번호] · [주소] · [고객센터 연락처]`,
+사업자 정보: ${COMPANY} · 대표 ${biz(BUSINESS.ceo, '대표자')} · 사업자등록번호 ${biz(BUSINESS.bizNumber, '번호')} · 통신판매업 신고 ${biz(BUSINESS.mailOrderNumber, '신고번호')} · ${biz(BUSINESS.address, '주소')} · ${biz([BUSINESS.phone, BUSINESS.email].filter(Boolean).join(' · '), '고객센터 연락처')}`,
     },
   ],
 };
@@ -176,7 +177,7 @@ export const PRIVACY_POLICY: TermsDoc = {
     },
     {
       heading: '9. 개인정보 보호책임자',
-      body: `· 성명: [이름] · 연락처: [이메일/전화]
+      body: `· 성명: ${biz(BUSINESS.privacyOfficer, '이름')} · 연락처: ${biz(BUSINESS.privacyContact, '이메일/전화')}
 개인정보 침해 신고: 개인정보침해신고센터(privacy.kisa.or.kr, 국번없이 118), 개인정보분쟁조정위원회(www.kopico.go.kr, 1833-6972)`,
     },
     {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import BusinessInfo from '@/components/BusinessInfo';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -821,6 +822,7 @@ export default function ProfileScreen() {
           )}
         </View>
         {/* 배포된 버전 확인용 (커밋 번호) */}
+        <BusinessInfo />
         <Text style={styles.buildId}>버전 {(process.env.EXPO_PUBLIC_BUILD_ID || 'dev').slice(0, 7)}</Text>
         </View>
       </ScrollView>

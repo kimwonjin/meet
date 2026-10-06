@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import BusinessInfo from '@/components/BusinessInfo';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth, type RecentLogin } from '@/contexts/AuthContext';
@@ -123,6 +124,10 @@ export default function LoginScreen() {
           ))}
         </View>
       )}
+      {/* 로그인 전에도 보이도록 화면 맨 아래 (결제 심사 등) */}
+      <View style={{ marginTop: 'auto' }}>
+        <BusinessInfo />
+      </View>
     </View>
   );
 }
