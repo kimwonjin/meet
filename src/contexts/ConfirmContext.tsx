@@ -37,7 +37,9 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   return (
     <ConfirmContext.Provider value={confirm}>
       {children}
-      <Modal visible={options !== null} transparent animationType="fade" onRequestClose={() => close(false)}>
+      {/* 열 때마다 새로 그려야 이미 열려 있는 바텀시트보다 위에 뜬다 (웹에서는 먼저 그린 창이 아래로 깔림) */}
+      {options !== null && (
+      <Modal visible transparent animationType="fade" onRequestClose={() => close(false)}>
         <View style={styles.backdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => close(false)} />
           <View style={styles.dialog}>
@@ -57,6 +59,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
           </View>
         </View>
       </Modal>
+      )}
     </ConfirmContext.Provider>
   );
 }
