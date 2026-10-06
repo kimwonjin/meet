@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import BottomSheet from '@/components/BottomSheet';
 import SkeletonScreen from '@/components/Skeleton';
 import { usePullRefresh } from '@/hooks/use-pull-refresh';
-import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, TextInput } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
@@ -23,6 +23,10 @@ export default function SettlementsScreen() {
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [refunds, setRefunds] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
+  // 파트너 소개 글 검수 대기 (add_ads_kit.sql 실행 전에는 비어 있다)
+  const [profileReviews, setProfileReviews] = useState<any[]>([]);
+  const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
   const [suspendTarget, setSuspendTarget] = useState<{ id: string; name: string; reason: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [segment, setSegment] = useState<Segment>('settlements');
@@ -40,7 +44,7 @@ export default function SettlementsScreen() {
   const pullRefresh = usePullRefresh(() => fetchAll());
 
   async function fetchAll() {
-    await Promise.all([fetchSettlements(), fetchPendingConnectors(), fetchWithdrawals(), fetchRefunds(), fetchReports()]);
+    await Promise.all([fetchSettlements(), fetchPendingConnectors(), fetchProfileReviews(), fetchWithdrawals(), fetchRefunds(), fetchReports()]);
     setLoading(false);
   }
 
@@ -87,6 +91,49 @@ export default function SettlementsScreen() {
       setPendingConnectors(enriched);
     } catch (error) {
       console.error('Error fetching pending connectors:', error);
+    }
+  }
+
+  async function fetchProfileReviews() {
+    const { data, error } = await supabase
+      .from('connectors')
+      .select('id, career, intro, service_description, pending_profile, profile_status')
+      .eq('profile_status', 'PENDING');
+    if (error) {
+      setProfileReviews([]);
+      return;
+    }
+    const ids = (data || []).map((c: any) => c.id);
+    const { data: users } = await supabase.from('users').select('id, name').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+    setProfileReviews(
+      (data || [])
+        .filter((c: any) => c.pending_profile)
+        .map((c: any) => ({ ...c, name: (users || []).find((u: any) => u.id === c.id)?.name || '파트너' }))
+    );
+  }
+
+  async function handleReviewProfile(connectorId: string, approve: boolean, reason?: string) {
+    setProcessingId(connectorId);
+    try {
+      const { data, error } = await supabase.rpc('fn_review_connector_profile', {
+        p_connector_id: connectorId,
+        p_approve: approve,
+        p_reason: reason ?? null,
+      });
+      if (error) throw error;
+      if (!data?.ok) {
+        toast.show('이미 처리됐거나 파트너가 글을 다시 고쳤어요', 'info');
+      } else {
+        toast.show(approve ? '✓ 소개 글을 승인했습니다' : '소개 글을 반려했습니다', 'success');
+        setRejectTarget(null);
+        setRejectReason('');
+      }
+      await fetchProfileReviews();
+    } catch (error) {
+      console.error('Error reviewing profile:', error);
+      toast.show('처리 중 오류가 발생했습니다', 'error');
+    } finally {
+      setProcessingId(null);
     }
   }
 
@@ -365,7 +412,7 @@ export default function SettlementsScreen() {
       <View style={styles.segmentRow}>
         {([
           { key: 'settlements', label: '정산' },
-          { key: 'approvals', label: `파트너 승인${pendingConnectors.length > 0 ? ` (${pendingConnectors.length})` : ''}` },
+          { key: 'approvals', label: `파트너 승인${pendingConnectors.length + profileReviews.length > 0 ? ` (${pendingConnectors.length + profileReviews.length})` : ''}` },
           { key: 'withdrawals', label: `출금${pendingWithdrawals.length > 0 ? ` (${pendingWithdrawals.length})` : ''}` },
           { key: 'refunds', label: `환불${pendingRefunds.length > 0 ? ` (${pendingRefunds.length})` : ''}` },
           { key: 'reports', label: `신고${openReports.length > 0 ? ` (${openReports.length})` : ''}` },
@@ -438,7 +485,7 @@ export default function SettlementsScreen() {
       )}
 
       {segment === 'approvals' && (
-        pendingConnectors.length === 0 ? (
+        pendingConnectors.length === 0 && profileReviews.length === 0 ? (
           <View style={styles.placeholder}>
             <Text style={styles.placeholderText}>심사 대기 중인 신청이 없습니다</Text>
           </View>
@@ -449,6 +496,46 @@ export default function SettlementsScreen() {
             refreshControl={pullRefresh}
             style={{ flex: 1 }}
             contentContainerStyle={styles.list}
+            ListHeaderComponent={
+              profileReviews.length > 0 ? (
+                <View>
+                  <Text style={styles.sectionTitle}>소개 글 검수 ({profileReviews.length})</Text>
+                  {profileReviews.map((c) => (
+                    <View key={`review-${c.id}`} style={styles.card}>
+                      <Text style={styles.cardTitle}>{c.name}</Text>
+                      {(['career', 'intro', 'service_description'] as const)
+                        .filter((k) => k in (c.pending_profile || {}) && (c.pending_profile[k] || '') !== (c[k] || ''))
+                        .map((k) => (
+                          <View key={k} style={styles.reviewField}>
+                            <Text style={styles.reviewLabel}>{k === 'career' ? '경력' : k === 'intro' ? '파트너 소개' : '서비스 설명'}</Text>
+                            <Text style={styles.reviewOld} numberOfLines={3}>지금: {c[k] || '(비어 있음)'}</Text>
+                            <Text style={styles.reviewNew}>바뀔 글: {c.pending_profile[k] || '(비움)'}</Text>
+                          </View>
+                        ))}
+                      <View style={styles.approvalBtnRow}>
+                        <TouchableOpacity
+                          style={[styles.approveBtn, processingId === c.id && styles.buttonDisabled]}
+                          onPress={() => handleReviewProfile(c.id, true)}
+                          disabled={processingId !== null}
+                          accessibilityLabel={`${c.name} 소개 글 승인`}
+                        >
+                          <Text style={styles.approveBtnText}>{processingId === c.id ? '처리 중...' : '승인'}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.rejectBtn, processingId === c.id && styles.buttonDisabled]}
+                          onPress={() => { setRejectReason(''); setRejectTarget({ id: c.id, name: c.name }); }}
+                          disabled={processingId !== null}
+                          accessibilityLabel={`${c.name} 소개 글 반려`}
+                        >
+                          <Text style={styles.rejectBtnText}>반려</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                  {pendingConnectors.length > 0 && <Text style={styles.sectionTitle}>파트너 신청 ({pendingConnectors.length})</Text>}
+                </View>
+              ) : null
+            }
             renderItem={({ item }) => (
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
@@ -686,6 +773,27 @@ export default function SettlementsScreen() {
         )
       )}
 
+      <BottomSheet visible={rejectTarget !== null} onClose={() => processingId === null && setRejectTarget(null)} title={`${rejectTarget?.name ?? ''} 소개 글 반려`}>
+        <Text style={styles.sheetSub}>사유는 파트너에게 그대로 전달돼요. 회원에게는 이전 소개 글이 계속 보여요.</Text>
+        <TextInput
+          style={styles.reasonInput}
+          placeholder="예: '보장' 같은 단정적인 표현은 빼주세요"
+          placeholderTextColor="#aaa"
+          value={rejectReason}
+          onChangeText={setRejectReason}
+          multiline
+          maxLength={200}
+          accessibilityLabel="반려 사유"
+        />
+        <TouchableOpacity
+          style={[styles.approveBtn, { flex: 0 }, (processingId !== null || !rejectReason.trim()) && styles.buttonDisabled]}
+          onPress={() => rejectTarget && handleReviewProfile(rejectTarget.id, false, rejectReason.trim())}
+          disabled={processingId !== null || !rejectReason.trim()}
+        >
+          {processingId ? <ActivityIndicator color="#fff" /> : <Text style={styles.approveBtnText}>반려하기</Text>}
+        </TouchableOpacity>
+      </BottomSheet>
+
       <BottomSheet visible={suspendTarget !== null} onClose={() => setSuspendTarget(null)} title={`${suspendTarget?.name ?? ''} 이용 정지`}>
         <Text style={styles.sheetText}>정지하면 이 사람은 로그인할 수 없고, 파트너 목록과 새 매칭 후보에서 빠집니다.</Text>
         <Text style={styles.sheetSub}>이미 진행 중인 매칭은 그대로 남으니 필요하면 해당 파트너와 상의해 정리해주세요. 정지는 이 화면에서 언제든 해제할 수 있어요.</Text>
@@ -703,6 +811,12 @@ export default function SettlementsScreen() {
 }
 
 const styles = StyleSheet.create({
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#333', marginBottom: 10, marginTop: 4 },
+  reviewField: { marginTop: 10 },
+  reviewLabel: { fontSize: 12, color: '#888', marginBottom: 4 },
+  reviewOld: { fontSize: 13, color: '#999', lineHeight: 19 },
+  reviewNew: { fontSize: 14, color: '#222', lineHeight: 20, marginTop: 4 },
+  reasonInput: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, padding: 12, minHeight: 80, fontSize: 14, textAlignVertical: 'top', marginVertical: 12 },
   reportRepeat: { fontSize: 12, color: '#E53935', fontWeight: '600', marginTop: 8 },
   suspendRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
   suspendedText: { fontSize: 13, color: '#E53935', fontWeight: '700' },

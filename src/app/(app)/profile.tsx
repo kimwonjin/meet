@@ -19,6 +19,7 @@ import ConsentChecklist, { ConsentItem } from '@/components/ConsentChecklist';
 import { recordConsents, TermsDocKey } from '@/lib/terms';
 import { getPendingRefund, getRefundable, Refundable, requestRefund, withdrawAccount } from '@/lib/refunds';
 import { createNotification } from '@/lib/notifications';
+import { findBannedWord } from '@/lib/adPolicy';
 
 const PARTNER_CONSENTS: ConsentItem[] = [{ key: 'partner', label: '매칭 파트너 이용약관 동의', doc: 'partner' }];
 import { fetchConnectorReviews, Review } from '@/lib/reviews';
@@ -40,6 +41,10 @@ export default function ProfileScreen() {
   const [partnerConsents, setPartnerConsents] = useState<string[]>([]);
   const [showBlocks, setShowBlocks] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  // 소개 글 검수 상태 (승인본과 검수 대기본). reviewReady=false 면 검수용 DB 컬럼이 아직 없음 → 예전처럼 바로 저장
+  const [profileReview, setProfileReview] = useState<{ status: string; reason: string | null; approved: { career: string; intro: string; service_description: string }; pending: { career?: string; intro?: string; service_description?: string } | null; reviewReady: boolean }>({
+    status: 'APPROVED', reason: null, approved: { career: '', intro: '', service_description: '' }, pending: null, reviewReady: false,
+  });
   // 프로필을 다 불러오기 전에 저장하면 빈 값으로 덮어쓰므로, 불러온 뒤에만 저장할 수 있다
   const [profileLoaded, setProfileLoaded] = useState(false);
   // 마이 하단에서 여는 약관 전문
@@ -255,11 +260,21 @@ export default function ProfileScreen() {
     if (!user) return;
     try {
       // 저장된 지역 로드
-      const { data: connectorData } = await supabase
+      // 검수 컬럼이 있으면 함께 읽고, 없으면(SQL 실행 전) 예전 컬럼만 읽는다
+      let reviewReady = true;
+      let { data: connectorData, error: cErr } = await supabase
         .from('connectors')
-        .select('main_region, fee_per_session, service_description, intro, career')
+        .select('main_region, fee_per_session, service_description, intro, career, pending_profile, profile_status, profile_reject_reason')
         .eq('id', user.id)
         .single();
+      if (cErr) {
+        reviewReady = false;
+        ({ data: connectorData } = await supabase
+          .from('connectors')
+          .select('main_region, fee_per_session, service_description, intro, career')
+          .eq('id', user.id)
+          .single());
+      }
       // 회원에게 보이는 대표 사진
       const { data: me } = await supabase.from('users').select('photo_urls').eq('id', user.id).maybeSingle();
       setPhotoUrls(me?.photo_urls ?? []);
@@ -271,13 +286,27 @@ export default function ProfileScreen() {
         } catch {
           setSelectedRegions([]);
         }
+        const approved = {
+          career: connectorData.career || '',
+          intro: connectorData.intro || '',
+          service_description: connectorData.service_description || '',
+        };
+        // 검수 대기(또는 반려된) 수정본이 있으면 입력칸에는 그것을 보여준다
+        const pending = (connectorData as any).pending_profile as Partial<typeof approved> | null;
+        setProfileReview({
+          status: (connectorData as any).profile_status || 'APPROVED',
+          reason: (connectorData as any).profile_reject_reason || null,
+          approved,
+          pending,
+          reviewReady,
+        });
         setStoreData((prev) => ({
           ...prev,
           main_region: connectorData.main_region || '',
           fee_per_session: connectorData.fee_per_session || '',
-          service_description: connectorData.service_description || '',
-          intro: connectorData.intro || '',
-          career: connectorData.career || '',
+          service_description: pending?.service_description ?? approved.service_description,
+          intro: pending?.intro ?? approved.intro,
+          career: pending?.career ?? approved.career,
         }));
       }
 
@@ -381,26 +410,82 @@ export default function ProfileScreen() {
       return;
     }
 
+    // 거짓·과장 광고가 될 수 있는 표현은 저장하지 않는다
+    const banned = findBannedWord(storeData.career, storeData.intro, storeData.service_description);
+    if (banned) {
+      toast.show(`'${banned}' 같은 표현은 쓸 수 없어요 (과장 광고 방지). 다른 표현으로 바꿔주세요`, 'error');
+      return;
+    }
+
+    const text = {
+      career: storeData.career.trim(),
+      intro: storeData.intro.trim(),
+      service_description: storeData.service_description.trim(),
+    };
+    const base = {
+      main_region: JSON.stringify(selectedRegions),
+      fee_per_session: parseInt(storeData.fee_per_session) || null,
+    };
+    const ap = profileReview.approved;
+    const textChanged = text.career !== ap.career.trim() || text.intro !== ap.intro.trim() || text.service_description !== ap.service_description.trim();
+
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('connectors')
-        .update({
-          main_region: JSON.stringify(selectedRegions),
-          fee_per_session: parseInt(storeData.fee_per_session) || null,
-          service_description: storeData.service_description,
-          intro: storeData.intro.trim() || null,
-          career: storeData.career.trim() || null,
-        })
-        .eq('id', user!.id);
+      let sentForReview = false;
+      if (profileReview.reviewReady) {
+        // 소개 글이 바뀌었으면 검수 대기로 보내고, 승인 전까지 회원에게는 이전 승인본이 보인다
+        const update: Record<string, any> = { ...base };
+        if (textChanged) {
+          Object.assign(update, { pending_profile: text, profile_status: 'PENDING', profile_reject_reason: null });
+        } else if (profileReview.status !== 'APPROVED') {
+          // 승인본과 같게 되돌렸다면 대기본을 지운다
+          Object.assign(update, { pending_profile: null, profile_status: 'APPROVED', profile_reject_reason: null });
+        }
+        const { error } = await supabase.from('connectors').update(update).eq('id', user!.id);
+        if (error) throw error;
+        // 같은 내용으로 다시 저장한 경우에는 운영자에게 또 알리지 않는다
+        const pv = profileReview.pending;
+        const samePending = profileReview.status === 'PENDING' && !!pv && (pv.career ?? '') === text.career && (pv.intro ?? '') === text.intro && (pv.service_description ?? '') === text.service_description;
+        sentForReview = textChanged && !samePending;
+        setProfileReview((r) => ({
+          ...r,
+          status: textChanged ? 'PENDING' : 'APPROVED',
+          reason: null,
+          pending: textChanged ? text : null,
+        }));
+      } else {
+        // 검수 컬럼이 아직 없으면 예전처럼 바로 저장
+        const { error } = await supabase
+          .from('connectors')
+          .update({ ...base, career: text.career || null, intro: text.intro || null, service_description: text.service_description })
+          .eq('id', user!.id);
+        if (error) throw error;
+      }
 
-      if (error) throw error;
-
-      toast.show('✓ 커리어 프로필을 저장했습니다', 'success');
+      if (textChanged && profileReview.reviewReady && !sentForReview) {
+        toast.show('저장했어요. 소개 글은 운영자 확인 중이에요', 'success');
+      } else if (sentForReview) {
+        const { data: operators } = await supabase.from('users').select('id').eq('role', 'operator');
+        await Promise.all((operators || []).map((o: any) => createNotification({
+          userId: o.id,
+          type: 'profile_review_requested',
+          title: '파트너 소개 글 검수 요청',
+          body: `${user!.name}님이 소개 글을 수정했어요`,
+          route: '/settlements',
+        })));
+        toast.show('저장했어요. 소개 글은 운영자 확인 후 회원에게 보여요', 'success');
+      } else {
+        toast.show('✓ 커리어 프로필을 저장했습니다', 'success');
+      }
       setShowStoreModal(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Store save error:', error);
-      toast.show('저장하지 못했어요. 잠시 후 다시 시도해주세요', 'error');
+      const msg: string = error?.message || '';
+      if (msg.includes('BANNED_WORD')) {
+        toast.show(`'${msg.split('BANNED_WORD:')[1] || ''}' 같은 표현은 쓸 수 없어요 (과장 광고 방지)`, 'error');
+      } else {
+        toast.show('저장하지 못했어요. 잠시 후 다시 시도해주세요', 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -1083,6 +1168,18 @@ export default function ProfileScreen() {
 
       {/* 스토어관리 시트 */}
       <BottomSheet visible={showStoreModal} onClose={() => setShowStoreModal(false)} title="커리어 프로필">
+        {profileReview.reviewReady && profileReview.status === 'PENDING' && (
+          <View style={styles.reviewBanner}>
+            <Text style={styles.reviewBannerTitle}>⏳ 소개 글 검수 중</Text>
+            <Text style={styles.reviewBannerText}>운영자가 확인하면 회원에게 보여요. 그 전까지는 이전 소개 글이 보여요.</Text>
+          </View>
+        )}
+        {profileReview.reviewReady && profileReview.status === 'REJECTED' && (
+          <View style={[styles.reviewBanner, styles.reviewBannerRejected]}>
+            <Text style={[styles.reviewBannerTitle, { color: '#E53935' }]}>소개 글이 반려됐어요</Text>
+            <Text style={styles.reviewBannerText}>{profileReview.reason ? `사유: ${profileReview.reason}. ` : ''}수정해서 다시 저장해 주세요.</Text>
+          </View>
+        )}
         {/* 회원수 표시 (입력불가) */}
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
@@ -1129,7 +1226,7 @@ export default function ProfileScreen() {
             onChangeText={(text) => setStoreData({ ...storeData, intro: text })}
             maxLength={500}
           />
-          <Text style={styles.formHint}>회원이 파트너 정보에서 가입 여부를 정할 때 보는 내용이에요</Text>
+          <Text style={styles.formHint}>회원이 파트너 정보에서 가입 여부를 정할 때 보는 내용이에요. 경력·소개·서비스 설명은 운영자 확인 후 공개되고, '보장·100%·확실' 같은 과장 표현은 쓸 수 없어요.</Text>
         </View>
 
         {/* 주요지역 선택 - 버튼형 (중복 선택 가능) */}
@@ -1629,6 +1726,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   partnerIntro: { fontSize: 14, color: '#444', lineHeight: 21, backgroundColor: '#F7F4FF', borderRadius: 12, padding: 14, marginBottom: 16 },
+  reviewBanner: { backgroundColor: '#F7F4FF', borderRadius: 12, padding: 12, marginBottom: 12 },
+  reviewBannerRejected: { backgroundColor: '#FFF1F0' },
+  reviewBannerTitle: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
+  reviewBannerText: { fontSize: 13, color: '#555', marginTop: 4, lineHeight: 19 },
   inviteItem: { backgroundColor: '#F1ECFF' },
   newBadge: { backgroundColor: '#5B21FF', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
