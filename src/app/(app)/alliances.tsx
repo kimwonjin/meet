@@ -158,7 +158,7 @@ export default function AlliancesScreen() {
           userId: otherId,
           type: 'alliance_terminated',
           title: '동맹이 해지되었습니다',
-          body: `${user?.name}님과의 동맹이 해지되었어요. 진행 중이던 동맹 매칭은 끝까지 진행돼요`,
+          body: `${user?.name}님과의 동맹이 해지되었어요. ${Number(result.closed_matches) > 0 ? `동의를 기다리던 제안 ${result.closed_matches}건은 취소됐고, ` : ''}회원에게 넘어간 동맹 매칭은 끝까지 진행돼요`,
           route: '/alliances',
         });
       }
@@ -173,7 +173,7 @@ export default function AlliancesScreen() {
         });
       }
 
-      toast.show('동맹을 해지했습니다', 'info');
+      toast.show(Number(result.closed_matches) > 0 ? `동맹을 해지했어요. 동의 대기 제안 ${result.closed_matches}건이 취소됐어요` : '동맹을 해지했습니다', 'info');
       await fetchAlliances();
     } catch (error) {
       toast.show('처리 중 오류가 발생했습니다', 'error');
@@ -257,7 +257,8 @@ export default function AlliancesScreen() {
                       <TouchableOpacity
                         style={[styles.rejectBtn, allianceProcessingId === alliance.id && styles.buttonDisabled]}
                         onPress={async () => {
-                          if (await confirm({ title: '동맹을 해지할까요?', message: '해지하면 서로의 회원 풀을 더 이상 볼 수 없습니다.', confirmText: '해지', destructive: true })) handleTerminateAlliance(alliance.id);
+                          const counts = await countAllianceMatches(alliance.connector_1_id, alliance.connector_2_id);
+                          if (await confirm({ title: '동맹을 해지할까요?', message: terminateMessage(counts), confirmText: '해지', destructive: true })) handleTerminateAlliance(alliance.id);
                         }}
                         disabled={allianceProcessingId !== null}
                       >
@@ -596,3 +597,23 @@ const styles = StyleSheet.create({
     color: '#999',
   },
 });
+
+// 두 파트너 사이 동맹 매칭: 상대 동의 대기(해지하면 취소) / 회원에게 넘어간 진행 중(끝까지 진행)
+async function countAllianceMatches(c1: string, c2: string) {
+  const { data } = await supabase
+    .from('match_requests')
+    .select('status, settlement_completed, connector_1_consented, connector_2_consented, connector_1_id, connector_2_id')
+    .in('connector_1_id', [c1, c2])
+    .in('connector_2_id', [c1, c2])
+    .neq('status', 'rejected');
+  const rows = (data || []).filter((m: any) => m.connector_1_id !== m.connector_2_id && !m.settlement_completed);
+  const ongoing = rows.filter((m: any) => m.connector_1_consented && m.connector_2_consented).length;
+  return { waiting: rows.length - ongoing, ongoing };
+}
+
+function terminateMessage({ waiting, ongoing }: { waiting: number; ongoing: number }) {
+  const lines = ['해지하면 서로의 회원을 더 이상 볼 수 없어요.'];
+  if (waiting > 0) lines.push(`상대 동의를 기다리는 제안 ${waiting}건은 취소돼요.`);
+  if (ongoing > 0) lines.push(`회원에게 넘어간 매칭 ${ongoing}건은 끝까지 진행돼요.`);
+  return lines.join('\n');
+}
