@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Image } from 'expo-image';
+import ProtectedPhoto from './ProtectedPhoto';
 import { shownPhotos } from '@/lib/photos';
 
 export type MemberProfile = {
@@ -56,7 +56,7 @@ export default function MemberProfileView({ member, showBirthDate = false }: Pro
       {/* 대표 사진 + 요약 */}
       <View style={styles.hero}>
         {main ? (
-          <Image source={{ uri: main }} style={styles.mainPhoto} contentFit="cover" />
+          <ProtectedPhoto uri={main} style={styles.mainPhoto} />
         ) : (
           <View style={[styles.mainPhoto, styles.noPhoto]}>
             <Text style={styles.noPhotoIcon}>👤</Text>
@@ -71,7 +71,7 @@ export default function MemberProfileView({ member, showBirthDate = false }: Pro
             <View style={styles.thumbs}>
               {photos.map((url, i) => (
                 <Pressable key={url} onPress={() => setMainIdx(i)} accessibilityLabel={`사진 ${i + 1} 크게 보기`}>
-                  <Image source={{ uri: url }} style={[styles.thumb, i === mainIdx && styles.thumbOn]} contentFit="cover" />
+                  <ProtectedPhoto uri={url} small style={[styles.thumb, i === mainIdx && styles.thumbOn]} />
                 </Pressable>
               ))}
             </View>

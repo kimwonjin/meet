@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { shownPhotos } from '@/lib/photos';
+import ProtectedPhoto from './ProtectedPhoto';
 
 // 동그란 대표 사진. 사진이 없으면 기본 아이콘을 보여준다.
 export function Avatar({ photoUrls, size = 44 }: { photoUrls?: string[] | null; size?: number }) {
@@ -29,7 +30,7 @@ export function PhotoList({ photoUrls: raw }: { photoUrls?: string[] | null }) {
   return (
     <View style={styles.list}>
       {photoUrls.map((url) => (
-        <Image key={url} source={{ uri: url }} style={styles.photo} contentFit="cover" />
+        <ProtectedPhoto key={url} uri={url} style={styles.photo} />
       ))}
     </View>
   );

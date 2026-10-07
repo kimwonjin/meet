@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { ConfirmProvider } from '@/contexts/ConfirmContext';
 import { useWebAutoUpdate } from '@/hooks/use-web-auto-update';
+import { useWebImageGuard } from '@/hooks/use-web-image-guard';
 import OfflineBanner from '@/components/OfflineBanner';
 import { RouteLinkPreview } from '@/components/LinkPreview';
 
@@ -40,6 +41,7 @@ function RootLayout() {
 
 export default function App() {
   useWebAutoUpdate();
+  useWebImageGuard();
 
   return (
     <AuthProvider>
