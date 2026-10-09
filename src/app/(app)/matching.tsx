@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
-import { matchStage, MatchStage, STAGE_LABEL, STAGE_ORDER } from '@/lib/matchStage';
+import { FILTER_LABEL, FILTERS, MatchFilter, passesFilter } from '@/lib/matchStage';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -61,7 +61,7 @@ export default function MatchingScreen() {
   // 동맹 매칭 알림으로 들어오면 동맹 회원까지 펼쳐서 보여준다
   const params = useLocalSearchParams<{ segment?: string; view?: string; focus?: string; stage?: string }>();
   // 홈의 단계 묶음에서 들어오면 그 단계만 걸러 본다 (null = 전체)
-  const [stageFilter, setStageFilter] = useState<MatchStage | null>(null);
+  const [stageFilter, setStageFilter] = useState<MatchFilter | null>(null);
   // 홈 카드에서 들어오면 그 매칭 카드로 스크롤하고 잠깐 강조한다
   const [focusId, setFocusId] = useState<string | null>(null);
   const listRef = useRef<FlatList>(null);
@@ -86,7 +86,7 @@ export default function MatchingScreen() {
       // 매칭 관련 알림(동의 요청, 승인, 일정 등)은 매칭내역에서 확인한다
       setView('history');
       if (params.focus) setFocusId(params.focus);
-      setStageFilter(params.stage && (STAGE_ORDER as string[]).includes(params.stage) ? (params.stage as MatchStage) : null);
+      setStageFilter(params.stage && (FILTERS as string[]).includes(params.stage) ? (params.stage as MatchFilter) : null);
       router.setParams({ segment: undefined, view: undefined, focus: undefined, stage: undefined });
     }
   }, [params.segment, params.view, params.focus, params.stage]);
@@ -748,7 +748,7 @@ export default function MatchingScreen() {
   );
 
   // 단계로 걸러 보면 그 단계의 진행 중 매칭만 보인다
-  const historyList = stageFilter ? sortedMatches.filter((m) => matchStage(m) === stageFilter) : [...sortedMatches, ...historyMatches];
+  const historyList = stageFilter ? sortedMatches.filter((m) => passesFilter(m, stageFilter, user?.id)) : [...sortedMatches, ...historyMatches];
   // 매칭내역에 보이는 순서 (아래 강조 스크롤에서 위치를 찾을 때 쓴다)
   historyOrderRef.current = historyList.map((m) => m.id);
 
@@ -1075,7 +1075,7 @@ export default function MatchingScreen() {
           keyExtractor={(item) => item.id}
           ListHeaderComponent={view === 'active' ? createSection : stageFilter ? (
             <View style={styles.stageBar}>
-              <Text style={styles.stageBarText}>{STAGE_LABEL[stageFilter]} {historyList.length}건만 보는 중</Text>
+              <Text style={styles.stageBarText}>{FILTER_LABEL[stageFilter]} {historyList.length}건만 보는 중</Text>
               <TouchableOpacity onPress={() => setStageFilter(null)} accessibilityLabel="전체 매칭 보기">
                 <Text style={styles.stageBarAll}>전체 보기</Text>
               </TouchableOpacity>
@@ -1084,7 +1084,7 @@ export default function MatchingScreen() {
           ListEmptyComponent={
             view === 'history' ? (
               <View style={styles.placeholder}>
-                <Text style={styles.placeholderText}>{stageFilter ? `${STAGE_LABEL[stageFilter]} 중인 매칭이 없어요` : '매칭 내역이 없습니다'}</Text>
+                <Text style={styles.placeholderText}>{stageFilter ? `${FILTER_LABEL[stageFilter]} 매칭이 없어요` : '매칭 내역이 없습니다'}</Text>
               </View>
             ) : null
           }

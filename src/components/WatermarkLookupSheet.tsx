@@ -19,7 +19,13 @@ export default function WatermarkLookupSheet({ visible, onClose }: { visible: bo
     const c = picked;
     if (!c || busy) return;
     setBusy(true);
-    const { data } = await supabase.from('users').select('id, name, phone, role').limit(20000);
+    // 번호 = 회원 고유번호 앞 8자리 → 그 범위만 서버에서 찾는다 (회원이 많아도 전부 받지 않음)
+    const lo = c.toLowerCase();
+    const { data } = await supabase
+      .from('users')
+      .select('id, name, phone, role')
+      .gte('id', `${lo}-0000-0000-0000-000000000000`)
+      .lte('id', `${lo}-ffff-ffff-ffff-ffffffffffff`);
     setResult((data || []).filter((u: any) => viewerCode(u.id) === c));
     setBusy(false);
   }

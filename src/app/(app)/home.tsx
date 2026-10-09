@@ -29,7 +29,7 @@ import { Avatar } from '@/components/ProfilePhoto';
 import MemberProfileView from '@/components/MemberProfileView';
 import SafetyActions from '@/components/SafetyActions';
 import InviteSheet from '@/components/InviteSheet';
-import { matchStage, MatchStage, needsMyConsent, schedulerOf } from '@/lib/matchStage';
+import { isOverdueForMe, isWaitingOnOthers, matchStage, MatchStage, needsMyConsent, schedulerOf } from '@/lib/matchStage';
 import ReviewSheet from '@/components/ReviewSheet';
 import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
 
@@ -475,12 +475,7 @@ export default function HomeScreen() {
     const focusMatch = (id: string) => () => router.push({ pathname: '/matching', params: { view: 'history', focus: id } });
     const consentList = matchingRequests.filter((m) => needsMyConsent(m, me));
     const scheduleList = matchingRequests.filter((m) => matchStage(m) === 'date' && schedulerOf(m) === me);
-    const finishList = matchingRequests.filter((m) => {
-      if (!m.meeting_scheduled_at || m.meeting_status === 'completed') return false;
-      if (new Date(m.meeting_scheduled_at) >= startOfToday) return false;
-      const mineDone = (m.connector_1_id === me && m.meeting_done_connector_1) || (m.connector_2_id === me && m.meeting_done_connector_2);
-      return !mineDone;
-    });
+    const finishList = matchingRequests.filter((m) => isOverdueForMe(m, me));
     type TodoItem = { key: string; label: string; action: string; go: () => void };
     type Todo = TodoItem & { name: string; items: TodoItem[]; total: number };
     const goPending = () => router.push({ pathname: '/connectors', params: { tab: 'pending' } });
@@ -495,7 +490,7 @@ export default function HomeScreen() {
         items: consentList.slice(0, 3).map((m) => ({ key: m.id, label: pair(m), action: '동의 확인', go: focusMatch(m.id) })),
       },
       finishList.length > 0 && {
-        key: 'finish', name: '지난 만남 완료 처리', label: `지난 만남 완료 처리 ${finishList.length}건`, action: '처리하기', go: goStageList('meeting'), total: finishList.length,
+        key: 'finish', name: '지난 만남 완료 처리', label: `지난 만남 완료 처리 ${finishList.length}건`, action: '처리하기', go: () => router.push({ pathname: '/matching', params: { view: 'history', stage: 'overdue' } }), total: finishList.length,
         items: finishList.slice(0, 3).map((m) => ({ key: m.id, label: pair(m), action: '완료 처리', go: focusMatch(m.id) })),
       },
       scheduleList.length > 0 && {
@@ -511,8 +506,8 @@ export default function HomeScreen() {
       .slice(0, 3);
 
     // 기다리는 중: 진행 중인 매칭 가운데 '지금 할 일'에 없는 것 (회원·상대 파트너 차례)
-    const myTurnIds = new Set([...consentList, ...scheduleList, ...finishList].map((m) => m.id));
-    const waitingMatches = matchingRequests.filter((m) => !myTurnIds.has(m.id));
+    // 상대가 답해야 다음으로 넘어가는 매칭만 (만남 예정은 '다가오는 만남'에, 내 차례는 '할 일'에 있음)
+    const waitingMatches = matchingRequests.filter((m) => isWaitingOnOthers(m, me));
 
     // 시안 A: 보라 카드에 오늘 할 일 수와 가장 급한 일 하나, 나머지는 한 줄씩
     const todoTotal = todos.reduce((n, t) => n + t.total, 0);
@@ -624,7 +619,7 @@ export default function HomeScreen() {
 
         {/* 답을 기다리는 매칭 (한 줄) */}
         {waitingMatches.length > 0 && (
-          <TouchableOpacity style={styles.aWait} onPress={() => router.push({ pathname: '/matching', params: { view: 'history' } })} accessibilityLabel={`답을 기다리는 매칭 ${waitingMatches.length}건 보기`}>
+          <TouchableOpacity style={styles.aWait} onPress={() => router.push({ pathname: '/matching', params: { view: 'history', stage: 'waiting' } })} accessibilityLabel={`답을 기다리는 매칭 ${waitingMatches.length}건 보기`}>
             <Text style={styles.aWaitT}>답을 기다리는 매칭 {waitingMatches.length}건</Text>
             <Text style={styles.aChev}>›</Text>
           </TouchableOpacity>

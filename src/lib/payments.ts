@@ -60,16 +60,25 @@ export async function purchasePackage(hopefulId: string, connectorId: string, se
 // 파트너가 회원에게 선물한 무료 이용권 (결제 기록의 pg_provider로 구분)
 export const FREE_GIFT = 'free_gift';
 
-// 이 파트너에게 쓸 수 있는 무료 이용권 남은 횟수
+// 이 파트너 이용권 중 무료 이용권 남은 횟수와 전체 남은 횟수 (진행 중 매칭 몫을 빼기 전)
 export async function getFreeCredit(hopefulId: string, connectorId: string) {
   const { data } = await supabase
     .from('payments')
-    .select('sessions_remaining')
+    .select('sessions_remaining, pg_provider')
     .eq('hopeful_id', hopefulId)
     .eq('connector_id', connectorId)
-    .eq('pg_provider', FREE_GIFT)
     .eq('status', 'paid');
-  return (data || []).reduce((s: number, p: any) => s + (p.sessions_remaining || 0), 0);
+  const rows = data || [];
+  return {
+    free: rows.filter((p: any) => p.pg_provider === FREE_GIFT).reduce((s: number, p: any) => s + (p.sessions_remaining || 0), 0),
+    total: rows.reduce((s: number, p: any) => s + (p.sessions_remaining || 0), 0),
+  };
+}
+
+// 쓸 수 있는 이용권(available) 가운데 무료가 몇 회인지: 진행 중 매칭은 무료부터 쓰므로 그만큼 뺀다
+export function freeWithinAvailable(free: number, total: number, available: number) {
+  const reserved = Math.max(0, total - available);
+  return Math.min(available, Math.max(0, free - reserved));
 }
 
 // 파트너: 이미 무료 이용권을 준 회원 목록. 서버 준비 전(SQL 실행 전)이면 null → 기능을 숨긴다

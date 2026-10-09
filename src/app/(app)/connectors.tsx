@@ -17,7 +17,7 @@ import { useMemberFilter } from '@/components/MemberFilter';
 import StackedBar, { SplitBar, ageColors, regionColor } from '@/components/DistributionBars';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
-import { purchasePackage, getCredit, getFreeCredit, fetchFreeGiven, grantFreeCredit, PACKAGE_OPTIONS } from '@/lib/payments';
+import { purchasePackage, getCredit, getFreeCredit, freeWithinAvailable, fetchFreeGiven, grantFreeCredit, PACKAGE_OPTIONS } from '@/lib/payments';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
@@ -63,7 +63,7 @@ export default function ConnectorsScreen() {
   const [freeGiven, setFreeGiven] = useState<Set<string> | null>(null);
   const [granting, setGranting] = useState(false);
   // 회원: 이 파트너에게 쓸 수 있는 무료 이용권
-  const [myFree, setMyFree] = useState(0);
+  const [myFree, setMyFree] = useState({ free: 0, total: 0 });
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [allRequests, setAllRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -290,7 +290,7 @@ export default function ConnectorsScreen() {
       getFreeCredit(user!.id, id).then((n) => stillOpenCredit(id) && setMyFree(n));
     } else {
       setMyCredit(0);
-      setMyFree(0);
+      setMyFree({ free: 0, total: 0 });
     }
     if (user?.role === 'connector' && id) fetchFreeGiven(user.id).then(setFreeGiven);
   }, [selectedConnector?.id, selectedConnector?.is_approved]);
@@ -786,7 +786,7 @@ export default function ConnectorsScreen() {
                         <Text style={styles.modalSectionTitle}>이용권 구매</Text>
                         <View style={styles.infoRow}>
                           <Text style={styles.infoLabel}>사용할 수 있는 이용권</Text>
-                          <Text style={styles.infoValue}>{myCredit}회{myFree > 0 ? ` (무료 ${Math.min(myFree, myCredit)}회 포함)` : ''}</Text>
+                          <Text style={styles.infoValue}>{myCredit}회{freeWithinAvailable(myFree.free, myFree.total, myCredit) > 0 ? ` (무료 ${freeWithinAvailable(myFree.free, myFree.total, myCredit)}회 포함)` : ''}</Text>
                         </View>
 
                         <View style={styles.buttonGroup}>

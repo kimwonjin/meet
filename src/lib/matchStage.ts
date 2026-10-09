@@ -31,3 +31,38 @@ export function needsMyConsent(m: any, me?: string) {
     ((m.connector_1_id === me && !m.connector_1_consented) || (m.connector_2_id === me && !m.connector_2_consented))
   );
 }
+
+// 매칭내역 걸러 보기: 단계 + 홈에서 쓰는 두 가지 묶음
+export type MatchFilter = MatchStage | 'overdue' | 'waiting';
+
+export const FILTER_LABEL: Record<MatchFilter, string> = {
+  ...STAGE_LABEL,
+  overdue: '지난 만남 완료 처리',
+  waiting: '답을 기다리는 매칭',
+};
+
+export const FILTERS = [...STAGE_ORDER, 'overdue', 'waiting'] as MatchFilter[];
+
+// 만남 날짜가 지났는데 내가 아직 '만남 완료'를 누르지 않은 매칭
+export function isOverdueForMe(m: any, me?: string, now = new Date()) {
+  if (!m.meeting_scheduled_at || m.meeting_status === 'completed') return false;
+  const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
+  if (new Date(m.meeting_scheduled_at) >= startOfToday) return false;
+  const mineDone = (m.connector_1_id === me && m.meeting_done_connector_1) || (m.connector_2_id === me && m.meeting_done_connector_2);
+  return !mineDone;
+}
+
+// 상대(회원·다른 파트너)가 답해야 다음으로 넘어가는 매칭 (내 차례인 것은 제외)
+export function isWaitingOnOthers(m: any, me?: string) {
+  const st = matchStage(m);
+  if (st === 'consent') return !needsMyConsent(m, me);
+  if (st === 'member') return true;
+  if (st === 'date') return schedulerOf(m) !== me;
+  return false;
+}
+
+export function passesFilter(m: any, f: MatchFilter, me?: string) {
+  if (f === 'overdue') return isOverdueForMe(m, me);
+  if (f === 'waiting') return isWaitingOnOthers(m, me);
+  return matchStage(m) === f;
+}

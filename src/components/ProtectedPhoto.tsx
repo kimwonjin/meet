@@ -1,4 +1,4 @@
-import React, { useId, useMemo } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import { Platform, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { usePreventScreenCapture } from 'expo-screen-capture';
@@ -14,7 +14,13 @@ export default function ProtectedPhoto({ uri, style, small }: { uri: string; sty
   // 같은 화면에 사진이 여러 장이어도 각자 잠그고 푼다
   const key = useId();
   if (Platform.OS !== 'web') usePreventScreenCapture(key); // 플랫폼은 실행 중 바뀌지 않으므로 훅 순서가 일정하다
-  const lines = useMemo(() => watermarkLines(user?.id), [user?.id]);
+  // 화면을 켜 둔 채 나중에 캡처해도 시각이 맞도록 1분마다 다시 그린다
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 60000);
+    return () => clearInterval(t);
+  }, []);
+  const lines = useMemo(() => watermarkLines(user?.id), [user?.id, tick]);
   return (
     <View style={[styles.wrap, style]} {...({ dataSet: { protectedPhoto: '1' } } as any)}>
       <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" draggable={false} />
