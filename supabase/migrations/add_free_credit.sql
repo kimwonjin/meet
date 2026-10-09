@@ -34,9 +34,9 @@ BEGIN
   EXCEPTION WHEN unique_violation THEN
     RETURN json_build_object('ok', false, 'reason', 'already');
   END;
-  SELECT COALESCE(c.business_name, u.name, '파트너') INTO v_name FROM users u LEFT JOIN connectors c ON c.id = u.id WHERE u.id = p_connector_id;
+  SELECT COALESCE(NULLIF(trim(u.name), ''), '담당') INTO v_name FROM users u WHERE u.id = p_connector_id;
   INSERT INTO notifications (user_id, type, title, body, deep_link_route)
-  VALUES (p_hopeful_id, 'free_credit', '무료 이용권 1회를 받았어요 🎁', v_name || '에서 소개 1회를 무료로 선물했어요', '/connectors');
+  VALUES (p_hopeful_id, 'free_credit', '무료 이용권 1회를 받았어요 🎁', v_name || ' 파트너님이 소개 1회를 무료로 선물했어요', '/connectors');
   RETURN json_build_object('ok', true);
 END;
 $$ LANGUAGE plpgsql;
