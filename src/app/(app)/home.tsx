@@ -17,7 +17,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
-import { createNotification, openNotification, timeAgo } from '@/lib/notifications';
+import { createNotification } from '@/lib/notifications';
 import { getMyConnectorCredits } from '@/lib/payments';
 import BottomSheet from '@/components/BottomSheet';
 import { formatMeetingDate } from '@/lib/format';
@@ -30,7 +30,6 @@ import MemberProfileView from '@/components/MemberProfileView';
 import SafetyActions from '@/components/SafetyActions';
 import InviteSheet from '@/components/InviteSheet';
 import { matchStage, MatchStage, needsMyConsent, schedulerOf } from '@/lib/matchStage';
-import { fetchInviteStats } from '@/lib/invite';
 import ReviewSheet from '@/components/ReviewSheet';
 import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
 
@@ -56,11 +55,9 @@ export default function HomeScreen() {
   // 파트너 홈 '내 현황': 이번 달 성사 · 출금 가능 금액 · 최근 7일 초대 링크 열람 (null = 아직 모름/준비 전)
   const [settledThisMonth, setSettledThisMonth] = useState(0);
   const [payoutAvailable, setPayoutAvailable] = useState<number | null>(null);
-  const [inviteClicks7d, setInviteClicks7d] = useState<number | null>(null);
   // 가입 신청한 사람 (최근 3명) · 최근 소식 (알림 3개) · 알림 센터 열기 신호
   const [pendingMembers, setPendingMembers] = useState<{ id: string; name: string }[]>([]);
-  const [recentNews, setRecentNews] = useState<any[]>([]);
-  const [openBell, setOpenBell] = useState(0);
+
   // 후기를 남긴 매칭 / 후기 작성 중인 매칭
   const [reviewedMatchIds, setReviewedMatchIds] = useState<string[]>([]);
   const [reviewTarget, setReviewTarget] = useState<{ matchId: string; connectorId: string } | null>(null);
@@ -103,8 +100,6 @@ export default function HomeScreen() {
         const pendIds = (pendRows || []).map((r: any) => r.hopeful_id);
         const { data: pendUsers } = pendIds.length ? await supabase.from('users').select('id, name').in('id', pendIds) : { data: [] as any[] };
         setPendingMembers(pendIds.map((id: string) => ({ id, name: (pendUsers || []).find((u: any) => u.id === id)?.name || '회원' })));
-        const { data: news } = await supabase.from('notifications').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }).limit(3);
-        setRecentNews(news || []);
         const { count: memberCount } = await supabase
           .from('hopeful_requests')
           .select('*', { count: 'exact', head: true })
@@ -164,7 +159,6 @@ export default function HomeScreen() {
           m.settlement_completed && !m.closed_reason && m.settlement_completed_at && new Date(m.settlement_completed_at) >= monthStart
         ).length);
         supabase.rpc('fn_connector_available_payout', { p_connector_id: user!.id }).then(({ data, error }) => setPayoutAvailable(error ? null : Number(data) || 0));
-        fetchInviteStats(user!.id).then((st) => setInviteClicks7d(st ? (st.daily || []).slice(-7).reduce((n, d) => n + (Number(d.CLICK) || 0), 0) : null));
 
         // 홈에는 진행 중인 매칭만 (완료·거절된 매칭 제외), 최신순
         setMatchingRequests(
@@ -488,24 +482,24 @@ export default function HomeScreen() {
       return !mineDone;
     });
     type TodoItem = { key: string; label: string; action: string; go: () => void };
-    type Todo = TodoItem & { items: TodoItem[]; total: number };
+    type Todo = TodoItem & { name: string; items: TodoItem[]; total: number };
     const goPending = () => router.push({ pathname: '/connectors', params: { tab: 'pending' } });
     const goStageList = (st: MatchStage) => () => router.push({ pathname: '/matching', params: { view: 'history', stage: st } });
     const todos: Todo[] = [
       pendingSignupCount > 0 && {
-        key: 'signup', label: `가입 신청 ${pendingSignupCount}건`, action: '승인하기', go: goPending, total: pendingSignupCount,
+        key: 'signup', name: '가입 신청', label: `가입 신청 ${pendingSignupCount}건`, action: '승인하기', go: goPending, total: pendingSignupCount,
         items: pendingMembers.map((p) => ({ key: p.id, label: `${p.name}님`, action: '확인', go: goPending })),
       },
       consentList.length > 0 && {
-        key: 'consent', label: `동맹 매칭 동의 ${consentList.length}건`, action: '확인하기', go: goStageList('consent'), total: consentList.length,
+        key: 'consent', name: '동맹 매칭 동의', label: `동맹 매칭 동의 ${consentList.length}건`, action: '확인하기', go: goStageList('consent'), total: consentList.length,
         items: consentList.slice(0, 3).map((m) => ({ key: m.id, label: pair(m), action: '동의 확인', go: focusMatch(m.id) })),
       },
       finishList.length > 0 && {
-        key: 'finish', label: `지난 만남 완료 처리 ${finishList.length}건`, action: '처리하기', go: goStageList('meeting'), total: finishList.length,
+        key: 'finish', name: '지난 만남 완료 처리', label: `지난 만남 완료 처리 ${finishList.length}건`, action: '처리하기', go: goStageList('meeting'), total: finishList.length,
         items: finishList.slice(0, 3).map((m) => ({ key: m.id, label: pair(m), action: '완료 처리', go: focusMatch(m.id) })),
       },
       scheduleList.length > 0 && {
-        key: 'date', label: `만남 날짜 정하기 ${scheduleList.length}건`, action: '정하기', go: goStageList('date'), total: scheduleList.length,
+        key: 'date', name: '만남 날짜 정하기', label: `만남 날짜 정하기 ${scheduleList.length}건`, action: '정하기', go: goStageList('date'), total: scheduleList.length,
         items: scheduleList.slice(0, 3).map((m) => ({ key: m.id, label: pair(m), action: '날짜 정하기', go: focusMatch(m.id) })),
       },
     ].filter(Boolean) as Todo[];
@@ -519,164 +513,123 @@ export default function HomeScreen() {
     // 기다리는 중: 진행 중인 매칭 가운데 '지금 할 일'에 없는 것 (회원·상대 파트너 차례)
     const myTurnIds = new Set([...consentList, ...scheduleList, ...finishList].map((m) => m.id));
     const waitingMatches = matchingRequests.filter((m) => !myTurnIds.has(m.id));
-    const WAIT_GROUPS: { key: string; label: string; stage: MatchStage; test: (m: any) => boolean }[] = [
-      { key: 'member', label: '회원 응답 대기', stage: 'member', test: (m) => matchStage(m) === 'member' },
-      { key: 'consent', label: '상대 파트너 동의 대기', stage: 'consent', test: (m) => matchStage(m) === 'consent' },
-      { key: 'date', label: '상대 파트너 날짜 정하는 중', stage: 'date', test: (m) => matchStage(m) === 'date' },
-      { key: 'meeting', label: '만남 예정', stage: 'meeting', test: (m) => matchStage(m) === 'meeting' },
-      { key: 'after', label: '애프터 응답 대기', stage: 'after', test: (m) => matchStage(m) === 'after' },
-    ];
-    const waitCounts = WAIT_GROUPS.map((g) => ({ ...g, n: waitingMatches.filter(g.test).length })).filter((g) => g.n > 0);
-    const goStage = (st: MatchStage) => router.push({ pathname: '/matching', params: { view: 'history', stage: st } });
+
+    // 시안 A: 보라 카드에 오늘 할 일 수와 가장 급한 일 하나, 나머지는 한 줄씩
+    const todoTotal = todos.reduce((n, t) => n + t.total, 0);
+    const first = todos[0];
+    const firstSub = first
+      ? first.key === 'signup'
+        ? pendingMembers.length ? `${pendingMembers[0].name}님${first.total > 1 ? ` 외 ${first.total - 1}명` : ''}` : ''
+        : first.items[0] ? `${first.items[0].label}${first.total > 1 ? ` 외 ${first.total - 1}건` : ''}` : ''
+      : '';
+    const manwon = (n: number) => (n >= 10000 ? `${Math.round(n / 1000) / 10}만원` : `${n.toLocaleString()}원`);
+    const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+    const meetTime = (iso: string) => {
+      const d = new Date(iso);
+      const h = d.getHours();
+      return `${d.getMonth() + 1}월 ${d.getDate()}일 ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}시${d.getMinutes() ? ` ${d.getMinutes()}분` : ''}`;
+    };
 
     return (
-      <ScrollView style={styles.container} refreshControl={pullRefresh}>
-        <View style={styles.header}>
-          <View style={styles.headerRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.greeting}>안녕하세요, {user?.name}님 👋</Text>
-              <Text style={styles.subGreeting}>{todos.length > 0 ? `지금 처리할 일이 ${todos.length}가지 있어요` : '지금 처리할 일이 없어요'}</Text>
-            </View>
-            <NotificationBell openRequest={openBell} />
-          </View>
+      <ScrollView style={styles.aPage} refreshControl={pullRefresh}>
+        <View style={styles.aTop}>
+          <Text style={styles.aHi}>{user?.name}님, 안녕하세요</Text>
+          <NotificationBell />
         </View>
 
-        {/* 내 현황 */}
-        <View style={styles.statusTop} accessibilityLabel="내 현황">
-          <View style={styles.statRow}>
-            <TouchableOpacity style={styles.statTile} onPress={() => router.push('/connectors')} accessibilityLabel={`내 회원 ${approvedMemberCount}명`}>
-              <Text style={styles.statValue}>{approvedMemberCount}명</Text>
-              <Text style={styles.statLabel}>내 회원</Text>
-            </TouchableOpacity>
-            <View style={styles.statTile} accessibilityLabel={`이번 달 성사 ${settledThisMonth}건`}>
-              <Text style={styles.statValue}>{settledThisMonth}건</Text>
-              <Text style={styles.statLabel}>이번 달 성사</Text>
-            </View>
-            <TouchableOpacity style={styles.statTile} onPress={() => router.push({ pathname: '/profile', params: { open: 'settlements' } })} accessibilityLabel="출금 가능 금액">
-              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{payoutAvailable === null ? '-' : `${payoutAvailable.toLocaleString()}원`}</Text>
-              <Text style={styles.statLabel}>출금 가능 ›</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 지금 할 일: 가장 급한 하나만 강조 버튼 */}
-        <View style={styles.todoBox}>
-          <Text style={styles.todoTitle}>지금 할 일</Text>
-          {todos.length === 0 ? (
-            approvedMemberCount < 2 ? (
-              <>
-                <Text style={styles.todoEmpty}>{approvedMemberCount === 0 ? '아직 내 회원이 없어요. 초대장을 보내 회원을 모아보세요' : '매칭하려면 회원이 2명 이상 필요해요'}</Text>
-                <TouchableOpacity style={styles.todoPrimary} onPress={() => setShowInvite(true)}>
-                  <Text style={styles.todoPrimaryText}>💌 초대장 보내기</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <Text style={styles.todoEmpty}>처리할 일이 없어요 👍 새 매칭을 제안해 보세요</Text>
-                <TouchableOpacity style={styles.todoPrimary} onPress={() => router.push({ pathname: '/matching', params: { view: 'active' } })}>
-                  <Text style={styles.todoPrimaryText}>매칭 제안하기</Text>
-                </TouchableOpacity>
-              </>
-            )
-          ) : (
-            todos.map((t, i) => (
-              <View key={t.key} style={i === 0 ? styles.todoFirst : styles.todoGroup}>
-                <View style={styles.todoHead}>
-                  <Text style={i === 0 ? styles.todoFirstLabel : styles.todoRowLabel}>{t.label}</Text>
-                  {i === 0 ? (
-                    <TouchableOpacity style={styles.todoFirstBtn} onPress={t.go} accessibilityLabel={`${t.label} ${t.action}`}>
-                      <Text style={styles.todoPrimaryText}>{t.action}</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity onPress={t.go} accessibilityLabel={`${t.label} ${t.action}`} style={styles.todoHeadLink}>
-                      <Text style={styles.todoRowAction}>{t.action} ›</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                {t.items.map((it) => (
-                  <TouchableOpacity key={it.key} style={styles.todoItem} onPress={it.go} accessibilityLabel={`${it.label} ${it.action}`}>
-                    <Text style={styles.todoItemLabel} numberOfLines={1}>{it.label}</Text>
-                    <Text style={styles.todoItemAction}>{it.action} ›</Text>
-                  </TouchableOpacity>
-                ))}
-                {t.total > t.items.length && (
-                  <TouchableOpacity onPress={t.go} style={styles.todoMore}>
-                    <Text style={styles.todoMoreText}>+ {t.total - t.items.length}건 더 보기</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* 다가오는 만남: 가까운 3개 (항상 표시) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>다가오는 만남</Text>
-          {upcoming.length === 0 ? (
-            <Text style={styles.placeholderText}>확정된 만남이 아직 없어요</Text>
-          ) : (
-            upcoming.map((m) => (
-              <TouchableOpacity key={m.id} style={styles.scheduleListRow} onPress={focusMatch(m.id)}>
-                <Text style={styles.scheduleListDate}>{formatMeetingDate(m.meeting_scheduled_at)}</Text>
-                <Text style={styles.scheduleListNames}>{pair(m)}</Text>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-
-        {/* 기다리는 중: 회원·상대 파트너 차례인 매칭 */}
-        {waitCounts.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>기다리는 중 {waitingMatches.length}건</Text>
-            <Text style={styles.waitHint}>회원이나 상대 파트너의 답을 기다리는 매칭이에요</Text>
-            <View style={styles.stageWrap}>
-              {waitCounts.map((g) => (
-                <TouchableOpacity key={g.key} style={styles.stageChip} onPress={() => goStage(g.stage)} accessibilityLabel={`${g.label} ${g.n}건 보기`}>
-                  <Text style={styles.stageChipText}>{g.label} <Text style={styles.stageChipCount}>{g.n}</Text></Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* 최근 소식: 알림 3개 */}
-        {recentNews.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.newsHead}>
-              <Text style={styles.sectionTitle}>최근 소식</Text>
-              <TouchableOpacity onPress={() => setOpenBell((n) => n + 1)} accessibilityLabel="알림 전체 보기">
-                <Text style={styles.newsAll}>전체 보기 ›</Text>
-              </TouchableOpacity>
-            </View>
-            {recentNews.map((n) => (
-              <TouchableOpacity
-                key={n.id}
-                style={styles.newsRow}
-                onPress={async () => {
-                  setRecentNews((prev) => prev.map((x) => (x.id === n.id ? { ...x, read_at: x.read_at || new Date().toISOString() } : x)));
-                  await openNotification(router, n);
-                }}
-              >
-                <View style={[styles.newsDot, !!n.read_at && styles.newsDotRead]} />
+        {/* 오늘 처리할 일: 보라 카드 (강조는 여기 하나) */}
+        <View style={styles.aHero}>
+          {first ? (
+            <>
+              <Text style={styles.aHeroK}>오늘 처리할 일</Text>
+              <Text style={styles.aHeroN}>{todoTotal}건</Text>
+              <View style={styles.aHeroTask}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.newsTitle, !n.read_at && styles.newsTitleUnread]} numberOfLines={1}>{n.title}</Text>
-                  {!!n.body && <Text style={styles.newsBody} numberOfLines={1}>{n.body}</Text>}
+                  <Text style={styles.aHeroTaskT}>{first.label}</Text>
+                  {!!firstSub && <Text style={styles.aHeroTaskS} numberOfLines={1}>{firstSub}</Text>}
                 </View>
-                <Text style={styles.newsTime}>{timeAgo(n.created_at)}</Text>
+                <TouchableOpacity style={styles.aHeroBtn} onPress={first.go} accessibilityLabel={`${first.label} ${first.action}`}>
+                  <Text style={styles.aHeroBtnT}>{first.action}</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.aHeroK}>오늘 처리할 일</Text>
+              <Text style={styles.aHeroEmpty}>
+                {approvedMemberCount === 0 ? '아직 내 회원이 없어요.\n초대장을 보내 회원을 모아보세요' : approvedMemberCount < 2 ? '매칭하려면 회원이 2명 이상 필요해요' : '처리할 일이 없어요 👍\n새 매칭을 제안해 보세요'}
+              </Text>
+              {approvedMemberCount < 2 ? (
+                <TouchableOpacity style={styles.aHeroBtnWide} onPress={() => setShowInvite(true)}>
+                  <Text style={styles.aHeroBtnT}>💌 초대장 보내기</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.aHeroBtnWide} onPress={() => router.push({ pathname: '/matching', params: { view: 'active' } })}>
+                  <Text style={styles.aHeroBtnT}>매칭 제안하기</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </View>
+
+        {/* 나머지 할 일: 한 줄씩 */}
+        {todos.length > 1 && (
+          <View style={styles.aList}>
+            {todos.slice(1).map((t) => (
+              <TouchableOpacity key={t.key} style={styles.aRow} onPress={t.go} accessibilityLabel={`${t.label} ${t.action}`}>
+                <Text style={styles.aRowT}>{t.name}</Text>
+                <Text style={styles.aRowC}>{t.total} <Text style={styles.aChev}>›</Text></Text>
               </TouchableOpacity>
             ))}
           </View>
         )}
 
-        {/* 초대 성과 (광고하기) */}
-        {inviteClicks7d !== null && (
-          <TouchableOpacity style={styles.inviteNudge} onPress={() => setShowInvite(true)}>
-            <Text style={styles.inviteNudgeText}>
-              {inviteClicks7d > 0 ? `💌 최근 7일 동안 ${inviteClicks7d}명이 내 초대 링크를 열어봤어요` : '💌 초대 링크로 내 회원을 모아보세요'}
-            </Text>
-            <Text style={styles.inviteNudgeLink}>광고하기 ›</Text>
+        {/* 현황 숫자 */}
+        <View style={styles.aStats} accessibilityLabel="내 현황">
+          <TouchableOpacity style={styles.aStat} onPress={() => router.push('/connectors')} accessibilityLabel={`내 회원 ${approvedMemberCount}명`}>
+            <Text style={styles.aStatV}>{approvedMemberCount}명</Text>
+            <Text style={styles.aStatL}>내 회원</Text>
+          </TouchableOpacity>
+          <View style={[styles.aStat, styles.aStatMid]} accessibilityLabel={`이번 달 성사 ${settledThisMonth}건`}>
+            <Text style={styles.aStatV}>{settledThisMonth}건</Text>
+            <Text style={styles.aStatL}>이번 달 성사</Text>
+          </View>
+          <TouchableOpacity style={styles.aStat} onPress={() => router.push({ pathname: '/profile', params: { open: 'settlements' } })} accessibilityLabel="출금 가능 금액">
+            <Text style={styles.aStatV} numberOfLines={1} adjustsFontSizeToFit>{payoutAvailable === null ? '-' : manwon(payoutAvailable)}</Text>
+            <Text style={styles.aStatL}>출금 가능</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 다가오는 만남 (2개) */}
+        <Text style={styles.aH3}>다가오는 만남</Text>
+        {upcoming.length === 0 ? (
+          <Text style={styles.aNone}>확정된 만남이 아직 없어요</Text>
+        ) : (
+          upcoming.slice(0, 2).map((m) => {
+            const d = new Date(m.meeting_scheduled_at);
+            return (
+              <TouchableOpacity key={m.id} style={styles.aMeet} onPress={focusMatch(m.id)} accessibilityLabel={`${pair(m)} 만남 보기`}>
+                <View style={styles.aDate}>
+                  <Text style={styles.aDateD}>{d.getDate()}</Text>
+                  <Text style={styles.aDateW}>{WEEK[d.getDay()]}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.aWho}>{pair(m)}</Text>
+                  <Text style={styles.aWhen}>{meetTime(m.meeting_scheduled_at)}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })
+        )}
+
+        {/* 답을 기다리는 매칭 (한 줄) */}
+        {waitingMatches.length > 0 && (
+          <TouchableOpacity style={styles.aWait} onPress={() => router.push({ pathname: '/matching', params: { view: 'history' } })} accessibilityLabel={`답을 기다리는 매칭 ${waitingMatches.length}건 보기`}>
+            <Text style={styles.aWaitT}>답을 기다리는 매칭 {waitingMatches.length}건</Text>
+            <Text style={styles.aChev}>›</Text>
           </TouchableOpacity>
         )}
+        <View style={{ height: 32 }} />
         <InviteSheet visible={showInvite} onClose={() => setShowInvite(false)} partnerName={user.name} />
       </ScrollView>
     );
@@ -1039,46 +992,39 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  statusTop: { paddingHorizontal: 20, marginBottom: 16 },
-  waitHint: { fontSize: 12, color: '#999', marginTop: -6, marginBottom: 10 },
-  todoBox: { marginHorizontal: 20, marginBottom: 16, padding: 16, borderRadius: 16, backgroundColor: '#F7F4FF' },
-  todoTitle: { fontSize: 15, fontWeight: '700', color: '#222', marginBottom: 10 },
-  todoEmpty: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 12 },
-  todoPrimary: { backgroundColor: '#5B21FF', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  todoPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  todoFirst: { backgroundColor: '#fff', borderRadius: 12, padding: 12 },
-  todoGroup: { paddingTop: 12, paddingHorizontal: 12, marginTop: 4, borderTopWidth: 1, borderTopColor: '#ECE6FF' },
-  todoHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  todoHeadLink: { paddingVertical: 4 },
-  todoItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, gap: 8 },
-  todoItemLabel: { flex: 1, fontSize: 14, color: '#555' },
-  todoItemAction: { fontSize: 13, color: '#5B21FF' },
-  todoMore: { paddingVertical: 8 },
-  todoMoreText: { fontSize: 13, color: '#888' },
-  newsHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  newsAll: { fontSize: 13, color: '#5B21FF', fontWeight: '600', paddingVertical: 4 },
-  newsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F2F2F2' },
-  newsDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#5B21FF' },
-  newsDotRead: { backgroundColor: 'transparent' },
-  newsTitle: { fontSize: 14, color: '#555' },
-  newsTitleUnread: { color: '#222', fontWeight: '600' },
-  newsBody: { fontSize: 12, color: '#999', marginTop: 2 },
-  newsTime: { fontSize: 12, color: '#aaa' },
-  todoFirstLabel: { flex: 1, fontSize: 15, fontWeight: '700', color: '#222' },
-  todoFirstBtn: { backgroundColor: '#5B21FF', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16 },
-  todoRowLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: '#333' },
-  todoRowAction: { fontSize: 14, color: '#5B21FF', fontWeight: '600' },
-  stageWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  stageChip: { borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 999, paddingVertical: 9, paddingHorizontal: 14, backgroundColor: '#fff' },
-  stageChipText: { fontSize: 13, color: '#444' },
-  stageChipCount: { fontWeight: '700', color: '#222' },
-  statRow: { flexDirection: 'row', gap: 8 },
-  statTile: { flex: 1, backgroundColor: '#F7F7F9', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center' },
-  statValue: { fontSize: 17, fontWeight: '700', color: '#222' },
-  statLabel: { fontSize: 12, color: '#888', marginTop: 4 },
-  inviteNudge: { marginHorizontal: 20, marginTop: 4, marginBottom: 32, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#ECE6FF', flexDirection: 'row', alignItems: 'center', gap: 8 },
-  inviteNudgeText: { flex: 1, fontSize: 13, color: '#444', lineHeight: 19 },
-  inviteNudgeLink: { fontSize: 13, color: '#5B21FF', fontWeight: '600' },
+  aPage: { flex: 1, backgroundColor: '#fff' },
+  aTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 22, paddingTop: 20, paddingBottom: 6 },
+  aHi: { fontSize: 15, color: '#6b6b6b' },
+  aHero: { marginHorizontal: 20, marginTop: 12, backgroundColor: '#5B21FF', borderRadius: 22, padding: 22 },
+  aHeroK: { fontSize: 14, color: 'rgba(255,255,255,0.85)' },
+  aHeroN: { fontSize: 40, fontWeight: '800', color: '#fff', marginTop: 4, marginBottom: 14 },
+  aHeroEmpty: { fontSize: 18, fontWeight: '700', color: '#fff', lineHeight: 26, marginTop: 8, marginBottom: 16 },
+  aHeroTask: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: 14, padding: 14, gap: 12 },
+  aHeroTaskT: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  aHeroTaskS: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 3 },
+  aHeroBtn: { backgroundColor: '#fff', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16 },
+  aHeroBtnWide: { backgroundColor: '#fff', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  aHeroBtnT: { color: '#5B21FF', fontSize: 14, fontWeight: '700' },
+  aList: { marginHorizontal: 20, marginTop: 10 },
+  aRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 2, borderBottomWidth: 1, borderBottomColor: '#F1F1F3' },
+  aRowT: { fontSize: 16, color: '#191919' },
+  aRowC: { fontSize: 16, fontWeight: '700', color: '#5B21FF' },
+  aChev: { fontSize: 16, fontWeight: '400', color: '#C4C4C8' },
+  aStats: { flexDirection: 'row', marginHorizontal: 20, marginTop: 24, paddingVertical: 16, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#F1F1F3' },
+  aStat: { flex: 1, alignItems: 'center' },
+  aStatMid: { borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#F1F1F3' },
+  aStatV: { fontSize: 19, fontWeight: '700', color: '#191919' },
+  aStatL: { fontSize: 12, color: '#8E8E93', marginTop: 3 },
+  aH3: { fontSize: 17, fontWeight: '700', color: '#191919', marginHorizontal: 22, marginTop: 26, marginBottom: 10 },
+  aNone: { fontSize: 14, color: '#8E8E93', marginHorizontal: 22, marginBottom: 6 },
+  aMeet: { flexDirection: 'row', alignItems: 'center', gap: 14, marginHorizontal: 20, marginBottom: 10 },
+  aDate: { width: 52, alignItems: 'center', backgroundColor: '#F4F1FF', borderRadius: 12, paddingVertical: 8 },
+  aDateD: { fontSize: 18, fontWeight: '700', color: '#5B21FF' },
+  aDateW: { fontSize: 11, color: '#5B21FF' },
+  aWho: { fontSize: 15, fontWeight: '600', color: '#191919' },
+  aWhen: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
+  aWait: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginTop: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#F1F1F3' },
+  aWaitT: { fontSize: 14, color: '#8E8E93' },
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -1106,30 +1052,6 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: 20,
     marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
-  },
-  scheduleListRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    gap: 10,
-  },
-  scheduleListDate: {
-    fontSize: 11,
-    color: '#999',
-    width: 90,
-  },
-  scheduleListNames: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
   },
   profileNudge: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#D9CCFF', backgroundColor: '#FBFAFF' },
   profileNudgeTitle: { fontSize: 14, fontWeight: '700', color: '#333' },
