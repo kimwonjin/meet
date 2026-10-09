@@ -2,6 +2,10 @@
 -- 결제 기록(payments)에 0원·1회짜리로 남기고 pg_provider = 'free_gift' 로 구분한다.
 -- 무료 이용권으로 성사된 매칭은 정산금 0원 (파트너 부담, 회사 수수료 없음). 환불 대상 아님.
 
+-- 결제 방식 허용 목록에 'free_gift' 추가 (fix_free_credit_provider.sql 과 같음)
+ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_pg_provider_check;
+ALTER TABLE payments ADD CONSTRAINT payments_pg_provider_check CHECK (pg_provider IN ('mock', 'portone', 'free_gift'));
+
 -- 같은 회원에게 두 번 줄 수 없다 (동시에 눌러도 한 번만)
 CREATE UNIQUE INDEX IF NOT EXISTS payments_free_gift_once ON payments (hopeful_id, connector_id) WHERE pg_provider = 'free_gift';
 
