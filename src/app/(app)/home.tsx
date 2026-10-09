@@ -29,7 +29,7 @@ import { Avatar } from '@/components/ProfilePhoto';
 import MemberProfileView from '@/components/MemberProfileView';
 import SafetyActions from '@/components/SafetyActions';
 import InviteSheet from '@/components/InviteSheet';
-import { matchStage, MatchStage, needsMyConsent, schedulerOf, STAGE_LABEL, STAGE_ORDER } from '@/lib/matchStage';
+import { matchStage, MatchStage, needsMyConsent, schedulerOf } from '@/lib/matchStage';
 import { fetchInviteStats } from '@/lib/invite';
 import ReviewSheet from '@/components/ReviewSheet';
 import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
@@ -516,8 +516,17 @@ export default function HomeScreen() {
       .sort((a, b) => new Date(a.meeting_scheduled_at).getTime() - new Date(b.meeting_scheduled_at).getTime())
       .slice(0, 3);
 
-    // 진행 중인 매칭: 단계별 묶음
-    const stageCounts = STAGE_ORDER.map((st) => ({ st, n: matchingRequests.filter((m) => matchStage(m) === st).length })).filter((x) => x.n > 0);
+    // 기다리는 중: 진행 중인 매칭 가운데 '지금 할 일'에 없는 것 (회원·상대 파트너 차례)
+    const myTurnIds = new Set([...consentList, ...scheduleList, ...finishList].map((m) => m.id));
+    const waitingMatches = matchingRequests.filter((m) => !myTurnIds.has(m.id));
+    const WAIT_GROUPS: { key: string; label: string; stage: MatchStage; test: (m: any) => boolean }[] = [
+      { key: 'member', label: '회원 응답 대기', stage: 'member', test: (m) => matchStage(m) === 'member' },
+      { key: 'consent', label: '상대 파트너 동의 대기', stage: 'consent', test: (m) => matchStage(m) === 'consent' },
+      { key: 'date', label: '상대 파트너 날짜 정하는 중', stage: 'date', test: (m) => matchStage(m) === 'date' },
+      { key: 'meeting', label: '만남 예정', stage: 'meeting', test: (m) => matchStage(m) === 'meeting' },
+      { key: 'after', label: '애프터 응답 대기', stage: 'after', test: (m) => matchStage(m) === 'after' },
+    ];
+    const waitCounts = WAIT_GROUPS.map((g) => ({ ...g, n: waitingMatches.filter(g.test).length })).filter((g) => g.n > 0);
     const goStage = (st: MatchStage) => router.push({ pathname: '/matching', params: { view: 'history', stage: st } });
 
     return (
@@ -529,6 +538,24 @@ export default function HomeScreen() {
               <Text style={styles.subGreeting}>{todos.length > 0 ? `지금 처리할 일이 ${todos.length}가지 있어요` : '지금 처리할 일이 없어요'}</Text>
             </View>
             <NotificationBell openRequest={openBell} />
+          </View>
+        </View>
+
+        {/* 내 현황 */}
+        <View style={styles.statusTop} accessibilityLabel="내 현황">
+          <View style={styles.statRow}>
+            <TouchableOpacity style={styles.statTile} onPress={() => router.push('/connectors')} accessibilityLabel={`내 회원 ${approvedMemberCount}명`}>
+              <Text style={styles.statValue}>{approvedMemberCount}명</Text>
+              <Text style={styles.statLabel}>내 회원</Text>
+            </TouchableOpacity>
+            <View style={styles.statTile} accessibilityLabel={`이번 달 성사 ${settledThisMonth}건`}>
+              <Text style={styles.statValue}>{settledThisMonth}건</Text>
+              <Text style={styles.statLabel}>이번 달 성사</Text>
+            </View>
+            <TouchableOpacity style={styles.statTile} onPress={() => router.push({ pathname: '/profile', params: { open: 'settlements' } })} accessibilityLabel="출금 가능 금액">
+              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{payoutAvailable === null ? '-' : `${payoutAvailable.toLocaleString()}원`}</Text>
+              <Text style={styles.statLabel}>출금 가능 ›</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -597,38 +624,20 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* 진행 중인 매칭: 단계별 묶음 */}
-        {stageCounts.length > 0 && (
+        {/* 기다리는 중: 회원·상대 파트너 차례인 매칭 */}
+        {waitCounts.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>진행 중인 매칭 {matchingRequests.length}건</Text>
+            <Text style={styles.sectionTitle}>기다리는 중 {waitingMatches.length}건</Text>
+            <Text style={styles.waitHint}>회원이나 상대 파트너의 답을 기다리는 매칭이에요</Text>
             <View style={styles.stageWrap}>
-              {stageCounts.map(({ st, n }) => (
-                <TouchableOpacity key={st} style={styles.stageChip} onPress={() => goStage(st)} accessibilityLabel={`${STAGE_LABEL[st]} ${n}건 보기`}>
-                  <Text style={styles.stageChipText}>{STAGE_LABEL[st]} <Text style={styles.stageChipCount}>{n}</Text></Text>
+              {waitCounts.map((g) => (
+                <TouchableOpacity key={g.key} style={styles.stageChip} onPress={() => goStage(g.stage)} accessibilityLabel={`${g.label} ${g.n}건 보기`}>
+                  <Text style={styles.stageChipText}>{g.label} <Text style={styles.stageChipCount}>{g.n}</Text></Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
         )}
-
-        {/* 내 현황 */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>내 현황</Text>
-          <View style={styles.statRow}>
-            <TouchableOpacity style={styles.statTile} onPress={() => router.push('/connectors')} accessibilityLabel={`내 회원 ${approvedMemberCount}명`}>
-              <Text style={styles.statValue}>{approvedMemberCount}명</Text>
-              <Text style={styles.statLabel}>내 회원</Text>
-            </TouchableOpacity>
-            <View style={styles.statTile} accessibilityLabel={`이번 달 성사 ${settledThisMonth}건`}>
-              <Text style={styles.statValue}>{settledThisMonth}건</Text>
-              <Text style={styles.statLabel}>이번 달 성사</Text>
-            </View>
-            <TouchableOpacity style={styles.statTile} onPress={() => router.push({ pathname: '/profile', params: { open: 'settlements' } })} accessibilityLabel="출금 가능 금액">
-              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{payoutAvailable === null ? '-' : `${payoutAvailable.toLocaleString()}원`}</Text>
-              <Text style={styles.statLabel}>출금 가능 ›</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
 
         {/* 최근 소식: 알림 3개 */}
         {recentNews.length > 0 && (
@@ -1030,6 +1039,8 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  statusTop: { paddingHorizontal: 20, marginBottom: 16 },
+  waitHint: { fontSize: 12, color: '#999', marginTop: -6, marginBottom: 10 },
   todoBox: { marginHorizontal: 20, marginBottom: 16, padding: 16, borderRadius: 16, backgroundColor: '#F7F4FF' },
   todoTitle: { fontSize: 15, fontWeight: '700', color: '#222', marginBottom: 10 },
   todoEmpty: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 12 },
