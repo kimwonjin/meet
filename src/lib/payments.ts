@@ -57,6 +57,34 @@ export async function purchasePackage(hopefulId: string, connectorId: string, se
 }
 
 // 새 매칭에 쓸 수 있는 이용권 수 (진행 중인 매칭에 묶인 이용권은 뺀다)
+// 파트너가 회원에게 선물한 무료 이용권 (결제 기록의 pg_provider로 구분)
+export const FREE_GIFT = 'free_gift';
+
+// 이 파트너에게 쓸 수 있는 무료 이용권 남은 횟수
+export async function getFreeCredit(hopefulId: string, connectorId: string) {
+  const { data } = await supabase
+    .from('payments')
+    .select('sessions_remaining')
+    .eq('hopeful_id', hopefulId)
+    .eq('connector_id', connectorId)
+    .eq('pg_provider', FREE_GIFT)
+    .eq('status', 'paid');
+  return (data || []).reduce((s: number, p: any) => s + (p.sessions_remaining || 0), 0);
+}
+
+// 파트너: 이미 무료 이용권을 준 회원 목록. 서버 준비 전(SQL 실행 전)이면 null → 기능을 숨긴다
+export async function fetchFreeGiven(connectorId: string): Promise<Set<string> | null> {
+  const { data, error } = await supabase.rpc('fn_free_credit_given', { p_connector_id: connectorId });
+  if (error) return null;
+  return new Set(Array.isArray(data) ? data : []);
+}
+
+export async function grantFreeCredit(connectorId: string, hopefulId: string): Promise<'ok' | 'already' | 'not_member' | 'inactive' | 'error'> {
+  const { data, error } = await supabase.rpc('fn_grant_free_credit', { p_connector_id: connectorId, p_hopeful_id: hopefulId });
+  if (error || !data) return 'error';
+  return data.ok ? 'ok' : (data.reason as any) || 'error';
+}
+
 export async function getCredit(hopefulId: string, connectorId: string) {
   const { data, error } = await supabase.rpc('fn_available_credit', { p_hopeful_id: hopefulId, p_connector_id: connectorId });
   if (error) return { credit: 0, error };
@@ -80,10 +108,14 @@ export async function getMyConnectorCredits(hopefulId: string) {
 
   const result = connectorIds.map((id) => {
     const myPayments = payments.filter((p: any) => p.connector_id === id);
-    const purchased = myPayments.reduce((sum: number, p: any) => sum + p.session_count, 0);
+    // 파트너가 선물한 무료 이용권은 '구매'에서 빼고 따로 센다
+    const gifts = myPayments.filter((p: any) => p.pg_provider === FREE_GIFT);
+    const purchased = myPayments.filter((p: any) => p.pg_provider !== FREE_GIFT).reduce((sum: number, p: any) => sum + p.session_count, 0);
+    const freeReceived = gifts.reduce((sum: number, p: any) => sum + p.session_count, 0);
+    const freeAvailable = gifts.reduce((sum: number, p: any) => sum + p.sessions_remaining, 0);
     const available = myPayments.reduce((sum: number, p: any) => sum + p.sessions_remaining, 0);
     const refunded = myPayments.reduce((sum: number, p: any) => sum + (p.refunded_sessions || 0), 0);
-    const used = purchased - available - refunded;
+    const used = purchased + freeReceived - available - refunded;
     const totalCharged = myPayments.reduce((sum: number, p: any) => sum + Number(p.amount_total), 0);
     return {
       connectorId: id,
@@ -94,6 +126,8 @@ export async function getMyConnectorCredits(hopefulId: string) {
       available,
       used,
       refunded,
+      freeReceived,
+      freeAvailable,
     };
   });
 

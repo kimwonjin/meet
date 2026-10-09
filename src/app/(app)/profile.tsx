@@ -1396,6 +1396,9 @@ export default function ProfileScreen() {
                         <Text style={styles.creditStatValueMuted}>{c.used}회</Text>
                       </View>
                     </View>
+                    {c.freeReceived > 0 && (
+                      <Text style={styles.freeNote}>🎁 선물받은 무료 이용권 {c.freeReceived}회 · {c.freeAvailable > 0 ? '먼저 사용돼요' : '사용함'}</Text>
+                    )}
                     {c.refunded > 0 && <Text style={styles.refundedNote}>환불 {c.refunded}회</Text>}
                   </View>
                 ))
@@ -1762,6 +1765,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   partnerIntro: { fontSize: 14, color: '#444', lineHeight: 21, backgroundColor: '#F7F4FF', borderRadius: 12, padding: 14, marginBottom: 16 },
+  freeNote: { fontSize: 12, color: '#5B21FF', marginTop: 8 },
   reviewBanner: { backgroundColor: '#F7F4FF', borderRadius: 12, padding: 12, marginBottom: 12 },
   reviewBannerRejected: { backgroundColor: '#FFF1F0' },
   reviewBannerTitle: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
