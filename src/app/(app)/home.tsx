@@ -29,6 +29,8 @@ import { Avatar } from '@/components/ProfilePhoto';
 import MemberProfileView from '@/components/MemberProfileView';
 import SafetyActions from '@/components/SafetyActions';
 import InviteSheet from '@/components/InviteSheet';
+import { matchStage, MatchStage, needsMyConsent, schedulerOf, STAGE_LABEL, STAGE_ORDER } from '@/lib/matchStage';
+import { fetchInviteStats } from '@/lib/invite';
 import ReviewSheet from '@/components/ReviewSheet';
 import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
 
@@ -51,6 +53,10 @@ export default function HomeScreen() {
   const [approvedMemberCount, setApprovedMemberCount] = useState(0);
   const [profileGaps, setProfileGaps] = useState<string[]>([]);
   const [showInvite, setShowInvite] = useState(false);
+  // 파트너 홈 '내 현황': 이번 달 성사 · 출금 가능 금액 · 최근 7일 초대 링크 열람 (null = 아직 모름/준비 전)
+  const [settledThisMonth, setSettledThisMonth] = useState(0);
+  const [payoutAvailable, setPayoutAvailable] = useState<number | null>(null);
+  const [inviteClicks7d, setInviteClicks7d] = useState<number | null>(null);
   // 후기를 남긴 매칭 / 후기 작성 중인 매칭
   const [reviewedMatchIds, setReviewedMatchIds] = useState<string[]>([]);
   const [reviewTarget, setReviewTarget] = useState<{ matchId: string; connectorId: string } | null>(null);
@@ -130,8 +136,19 @@ export default function HomeScreen() {
             connector_2_id: m.connector_2_id,
             connector_1_consented: m.connector_1_consented,
             connector_2_consented: m.connector_2_consented,
+            proposer_connector_id: m.proposer_connector_id,
+            meeting_done_connector_1: m.meeting_done_connector_1,
+            meeting_done_connector_2: m.meeting_done_connector_2,
           };
         });
+
+        // 이번 달 성사된 만남 (노쇼 등으로 정산 없이 끝난 건 제외)
+        const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+        setSettledThisMonth((matchData || []).filter((m: any) =>
+          m.settlement_completed && !m.closed_reason && m.settlement_completed_at && new Date(m.settlement_completed_at) >= monthStart
+        ).length);
+        supabase.rpc('fn_connector_available_payout', { p_connector_id: user!.id }).then(({ data, error }) => setPayoutAvailable(error ? null : Number(data) || 0));
+        fetchInviteStats(user!.id).then((st) => setInviteClicks7d(st ? (st.daily || []).slice(-7).reduce((n, d) => n + (Number(d.CLICK) || 0), 0) : null));
 
         // 홈에는 진행 중인 매칭만 (완료·거절된 매칭 제외), 최신순
         setMatchingRequests(
@@ -437,164 +454,147 @@ export default function HomeScreen() {
 
   // 연결자 화면
   // 연결자 홈: 매칭의 현재 단계를 한 줄로
-  function matchStatusText(m: any) {
-    const cross = m.connector_1_id !== m.connector_2_id;
-    if (cross && !(m.connector_1_consented && m.connector_2_consented)) return '파트너 동의 대기';
-    if (!(m.hopeful_1_approved && m.hopeful_2_approved)) {
-      return `회원 승인 대기 (${[m.hopeful_1_approved, m.hopeful_2_approved].filter(Boolean).length}/2)`;
-    }
-    if (!m.meeting_scheduled_at) return '만남 날짜 조율 중';
-    if (m.meeting_status !== 'completed') return `📅 ${formatMeetingDate(m.meeting_scheduled_at)} 만남 예정`;
-    if (m.after_care_hopeful_1 && m.after_care_hopeful_2) return '결과 정리 중';
-    return `애프터 응답 대기 (${[m.after_care_hopeful_1, m.after_care_hopeful_2].filter(Boolean).length}/2)`;
-  }
 
   if (user?.role === 'connector') {
-    const pendingMatchApprovalCount = matchingRequests.filter(
-      (m) => m.status !== 'rejected' && !(m.hopeful_1_approved && m.hopeful_2_approved)
-    ).length;
+    const now = new Date();
+    const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(startOfToday); weekEnd.setDate(weekEnd.getDate() + 7);
+    const me = user.id;
 
-    const scheduledMatches = [...matchingRequests]
-      .filter((m) => m.meeting_scheduled_at)
+    // 지금 할 일: 파트너가 직접 처리해야 하는 것만, 급한 순서로
+    const consentCount = matchingRequests.filter((m) => needsMyConsent(m, me)).length;
+    const toSchedule = matchingRequests.filter((m) => matchStage(m) === 'date' && schedulerOf(m) === me).length;
+    const toFinish = matchingRequests.filter((m) => {
+      if (!m.meeting_scheduled_at || m.meeting_status === 'completed') return false;
+      if (new Date(m.meeting_scheduled_at) >= startOfToday) return false;
+      const mineDone = (m.connector_1_id === me && m.meeting_done_connector_1) || (m.connector_2_id === me && m.meeting_done_connector_2);
+      return !mineDone;
+    }).length;
+    const todos: { key: string; label: string; action: string; go: () => void }[] = [
+      pendingSignupCount > 0 && { key: 'signup', label: `가입 신청 ${pendingSignupCount}건`, action: '승인하기', go: () => router.push({ pathname: '/connectors', params: { tab: 'pending' } }) },
+      consentCount > 0 && { key: 'consent', label: `동맹 매칭 동의 ${consentCount}건`, action: '확인하기', go: () => router.push({ pathname: '/matching', params: { view: 'history', stage: 'consent' } }) },
+      toFinish > 0 && { key: 'finish', label: `지난 만남 완료 처리 ${toFinish}건`, action: '처리하기', go: () => router.push({ pathname: '/matching', params: { view: 'history', stage: 'meeting' } }) },
+      toSchedule > 0 && { key: 'date', label: `만남 날짜 정하기 ${toSchedule}건`, action: '정하기', go: () => router.push({ pathname: '/matching', params: { view: 'history', stage: 'date' } }) },
+    ].filter(Boolean) as any;
+
+    // 이번 주 만남 (오늘부터 7일)
+    const weekMeetings = matchingRequests
+      .filter((m) => m.meeting_scheduled_at && m.meeting_status !== 'completed')
+      .filter((m) => { const d = new Date(m.meeting_scheduled_at); return d >= startOfToday && d < weekEnd; })
       .sort((a, b) => new Date(a.meeting_scheduled_at).getTime() - new Date(b.meeting_scheduled_at).getTime());
 
-    const now = new Date();
-    const isSameDay = (a: Date, b: Date) =>
-      a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-    const todayMatches = scheduledMatches.filter((m) => isSameDay(new Date(m.meeting_scheduled_at), now));
-
-    const weekDays = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(now);
-      d.setDate(now.getDate() + i);
-      const hasSchedule = scheduledMatches.some((m) => isSameDay(new Date(m.meeting_scheduled_at), d));
-      return { date: d, hasSchedule, isToday: i === 0 };
-    });
+    // 진행 중인 매칭: 단계별 묶음
+    const stageCounts = STAGE_ORDER.map((st) => ({ st, n: matchingRequests.filter((m) => matchStage(m) === st).length })).filter((x) => x.n > 0);
+    const goStage = (st: MatchStage) => router.push({ pathname: '/matching', params: { view: 'history', stage: st } });
 
     return (
       <ScrollView style={styles.container} refreshControl={pullRefresh}>
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.greeting}>안녕하세요, {user?.name}님 👋</Text>
-              <Text style={styles.subGreeting}>회원 매칭</Text>
+              <Text style={styles.subGreeting}>{todos.length > 0 ? `지금 처리할 일이 ${todos.length}가지 있어요` : '지금 처리할 일이 없어요'}</Text>
             </View>
             <NotificationBell />
           </View>
         </View>
 
-        {/* 처리 대기 요약 */}
-        {(pendingSignupCount > 0 || pendingMatchApprovalCount > 0) && (
-          <View style={styles.summarySection}>
-            <TouchableOpacity
-              style={styles.summaryCard}
-              onPress={() => router.push('/connectors')}
-            >
-              <Text style={styles.summaryCardValue}>{pendingSignupCount}건</Text>
-              <Text style={styles.summaryCardLabel}>가입신청 대기</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.summaryCard}
-              onPress={() => router.push({ pathname: '/matching', params: { view: 'history' } })}
-            >
-              <Text style={styles.summaryCardValue}>{pendingMatchApprovalCount}건</Text>
-              <Text style={styles.summaryCardLabel}>매칭 승인대기</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* 일정 섹션 */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>오늘의 일정</Text>
-          </View>
-          {todayMatches.length === 0 ? (
-            <Text style={styles.placeholderText}>오늘 예정된 만남이 없습니다</Text>
+        {/* 지금 할 일: 가장 급한 하나만 강조 버튼 */}
+        <View style={styles.todoBox}>
+          <Text style={styles.todoTitle}>지금 할 일</Text>
+          {todos.length === 0 ? (
+            approvedMemberCount < 2 ? (
+              <>
+                <Text style={styles.todoEmpty}>{approvedMemberCount === 0 ? '아직 내 회원이 없어요. 초대장을 보내 회원을 모아보세요' : '매칭하려면 회원이 2명 이상 필요해요'}</Text>
+                <TouchableOpacity style={styles.todoPrimary} onPress={() => setShowInvite(true)}>
+                  <Text style={styles.todoPrimaryText}>💌 초대장 보내기</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.todoEmpty}>처리할 일이 없어요 👍 새 매칭을 제안해 보세요</Text>
+                <TouchableOpacity style={styles.todoPrimary} onPress={() => router.push({ pathname: '/matching', params: { view: 'active' } })}>
+                  <Text style={styles.todoPrimaryText}>매칭 제안하기</Text>
+                </TouchableOpacity>
+              </>
+            )
           ) : (
-            todayMatches.map((m) => (
-              <View key={m.id} style={styles.scheduleCard}>
-                <Text style={styles.scheduleCardTime}>오늘</Text>
-                <Text style={styles.scheduleCardNames}>{m.hopeful_1?.name} ↔ {m.hopeful_2?.name}</Text>
-              </View>
-            ))
-          )}
-
-          <View style={styles.weekStrip}>
-            {weekDays.map(({ date, hasSchedule, isToday }, i) => (
-              <View key={i} style={styles.weekDay}>
-                <Text style={[styles.weekDayLabel, isToday && styles.weekDayLabelToday]}>
-                  {['일', '월', '화', '수', '목', '금', '토'][date.getDay()]}
-                </Text>
-                <View style={[styles.weekDayCircle, isToday && styles.weekDayCircleToday]}>
-                  <Text style={[styles.weekDayDate, isToday && styles.weekDayDateToday]}>{date.getDate()}</Text>
+            todos.map((t, i) =>
+              i === 0 ? (
+                <View key={t.key} style={styles.todoFirst}>
+                  <Text style={styles.todoFirstLabel}>{t.label}</Text>
+                  <TouchableOpacity style={styles.todoFirstBtn} onPress={t.go} accessibilityLabel={`${t.label} ${t.action}`}>
+                    <Text style={styles.todoPrimaryText}>{t.action}</Text>
+                  </TouchableOpacity>
                 </View>
-                {hasSchedule && <View style={styles.weekDayDot} />}
-              </View>
-            ))}
-          </View>
-
-          {scheduledMatches.length > 0 && (
-            <View style={{ marginTop: 12 }}>
-              <Text style={styles.scheduleListTitle}>확정 일정</Text>
-              {scheduledMatches.map((m) => (
-                <View key={m.id} style={styles.scheduleListRow}>
-                  <Text style={styles.scheduleListDate}>
-                    {formatMeetingDate(m.meeting_scheduled_at)}
-                  </Text>
-                  <Text style={styles.scheduleListNames}>{m.hopeful_1?.name} ↔ {m.hopeful_2?.name}</Text>
-                  {new Date(m.meeting_scheduled_at).setHours(0, 0, 0, 0) < new Date(now).setHours(0, 0, 0, 0) && m.meeting_status !== 'completed' && (
-                    <Text style={styles.scheduleOverdueBadge}>일정 경과</Text>
-                  )}
-                </View>
-              ))}
-            </View>
+              ) : (
+                <TouchableOpacity key={t.key} style={styles.todoRow} onPress={t.go} accessibilityLabel={`${t.label} ${t.action}`}>
+                  <Text style={styles.todoRowLabel}>{t.label}</Text>
+                  <Text style={styles.todoRowAction}>{t.action} ›</Text>
+                </TouchableOpacity>
+              )
+            )
           )}
         </View>
 
-        {/* 진행 중인 매칭 섹션 */}
-        {matchingRequests.length === 0 ? (
-          approvedMemberCount < 2 ? (
-            // 회원이 모자라면 매칭 제안 대신 회원을 모으는 방법을 먼저 안내한다
-            <View style={styles.placeholder}>
-              <Text style={styles.placeholderText}>
-                {approvedMemberCount === 0 ? '아직 내 회원이 없어요' : '매칭하려면 회원이 2명 이상 필요해요'}
-              </Text>
-              <Text style={[styles.placeholderHint, { textAlign: 'center', paddingHorizontal: 24, marginBottom: 4 }]}>초대장을 보내면 받은 사람이 가입할 때 나에게 바로 연결돼요</Text>
-              <TouchableOpacity style={styles.findPartnerBtn} onPress={() => setShowInvite(true)}>
-                <Text style={styles.findPartnerBtnText}>💌 초대장 보내기</Text>
+        {/* 이번 주 만남 (없으면 숨김) */}
+        {weekMeetings.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>이번 주 만남</Text>
+            {weekMeetings.map((m) => (
+              <TouchableOpacity
+                key={m.id}
+                style={styles.scheduleListRow}
+                onPress={() => router.push({ pathname: '/matching', params: { view: 'history', focus: m.id } })}
+              >
+                <Text style={styles.scheduleListDate}>{formatMeetingDate(m.meeting_scheduled_at)}</Text>
+                <Text style={styles.scheduleListNames}>{m.hopeful_1?.name} ↔ {m.hopeful_2?.name}</Text>
               </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* 진행 중인 매칭: 단계별 묶음 */}
+        {stageCounts.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>진행 중인 매칭 {matchingRequests.length}건</Text>
+            <View style={styles.stageWrap}>
+              {stageCounts.map(({ st, n }) => (
+                <TouchableOpacity key={st} style={styles.stageChip} onPress={() => goStage(st)} accessibilityLabel={`${STAGE_LABEL[st]} ${n}건 보기`}>
+                  <Text style={styles.stageChipText}>{STAGE_LABEL[st]} <Text style={styles.stageChipCount}>{n}</Text></Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          ) : (
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>진행 중인 매칭이 없습니다</Text>
-            <TouchableOpacity style={styles.findPartnerBtn} onPress={() => router.push({ pathname: '/matching', params: { view: 'active' } })}>
-              <Text style={styles.findPartnerBtnText}>매칭 제안하기</Text>
+          </View>
+        )}
+
+        {/* 내 현황 */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>내 현황</Text>
+          <View style={styles.statRow}>
+            <TouchableOpacity style={styles.statTile} onPress={() => router.push('/connectors')} accessibilityLabel={`내 회원 ${approvedMemberCount}명`}>
+              <Text style={styles.statValue}>{approvedMemberCount}명</Text>
+              <Text style={styles.statLabel}>내 회원</Text>
+            </TouchableOpacity>
+            <View style={styles.statTile} accessibilityLabel={`이번 달 성사 ${settledThisMonth}건`}>
+              <Text style={styles.statValue}>{settledThisMonth}건</Text>
+              <Text style={styles.statLabel}>이번 달 성사</Text>
+            </View>
+            <TouchableOpacity style={styles.statTile} onPress={() => router.push({ pathname: '/profile', params: { open: 'settlements' } })} accessibilityLabel="출금 가능 금액">
+              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{payoutAvailable === null ? '-' : `${payoutAvailable.toLocaleString()}원`}</Text>
+              <Text style={styles.statLabel}>출금 가능 ›</Text>
             </TouchableOpacity>
           </View>
-          )
-        ) : (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>진행 중인 매칭 ({matchingRequests.length})</Text>
-            {matchingRequests.map((item) => {
-              const cross = item.connector_1_id !== item.connector_2_id;
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.activeMatchRow}
-                  // 매칭 탭의 매칭내역에서 이 매칭 카드로 바로 이동
-                  onPress={() => router.push({ pathname: '/matching', params: { view: 'history', focus: item.id } })}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.activeMatchNames}>
-                      {item.hopeful_1?.name} ↔ {item.hopeful_2?.name}
-                      {cross ? '  · 동맹' : ''}
-                    </Text>
-                    <Text style={styles.activeMatchStatus}>{matchStatusText(item)}</Text>
-                  </View>
-                  <Text style={styles.activeMatchArrow}>›</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+        </View>
+
+        {/* 초대 성과 (광고하기) */}
+        {inviteClicks7d !== null && (
+          <TouchableOpacity style={styles.inviteNudge} onPress={() => setShowInvite(true)}>
+            <Text style={styles.inviteNudgeText}>
+              {inviteClicks7d > 0 ? `💌 최근 7일 동안 ${inviteClicks7d}명이 내 초대 링크를 열어봤어요` : '💌 초대 링크로 내 회원을 모아보세요'}
+            </Text>
+            <Text style={styles.inviteNudgeLink}>광고하기 ›</Text>
+          </TouchableOpacity>
         )}
         <InviteSheet visible={showInvite} onClose={() => setShowInvite(false)} partnerName={user.name} />
       </ScrollView>
@@ -958,14 +958,31 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  todoBox: { marginHorizontal: 20, marginBottom: 16, padding: 16, borderRadius: 16, backgroundColor: '#F7F4FF' },
+  todoTitle: { fontSize: 15, fontWeight: '700', color: '#222', marginBottom: 10 },
+  todoEmpty: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 12 },
+  todoPrimary: { backgroundColor: '#5B21FF', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  todoPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  todoFirst: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 12, gap: 10 },
+  todoFirstLabel: { flex: 1, fontSize: 15, fontWeight: '700', color: '#222' },
+  todoFirstBtn: { backgroundColor: '#5B21FF', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16 },
+  todoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: '#ECE6FF' },
+  todoRowLabel: { fontSize: 14, color: '#333' },
+  todoRowAction: { fontSize: 14, color: '#5B21FF', fontWeight: '600' },
+  stageWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  stageChip: { borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 999, paddingVertical: 9, paddingHorizontal: 14, backgroundColor: '#fff' },
+  stageChipText: { fontSize: 13, color: '#444' },
+  stageChipCount: { fontWeight: '700', color: '#222' },
+  statRow: { flexDirection: 'row', gap: 8 },
+  statTile: { flex: 1, backgroundColor: '#F7F7F9', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center' },
+  statValue: { fontSize: 17, fontWeight: '700', color: '#222' },
+  statLabel: { fontSize: 12, color: '#888', marginTop: 4 },
+  inviteNudge: { marginHorizontal: 20, marginTop: 4, marginBottom: 32, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#ECE6FF', flexDirection: 'row', alignItems: 'center', gap: 8 },
+  inviteNudgeText: { flex: 1, fontSize: 13, color: '#444', lineHeight: 19 },
+  inviteNudgeLink: { fontSize: 13, color: '#5B21FF', fontWeight: '600' },
   container: {
     flex: 1,
     backgroundColor: '#fff',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   header: {
     paddingHorizontal: 20,
@@ -991,106 +1008,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 20,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#333',
-  },
-  summarySection: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: '#F1ECFF',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  summaryCardValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#5B21FF',
-    marginBottom: 4,
-  },
-  summaryCardLabel: {
-    fontSize: 12,
-    color: '#666',
-  },
-  scheduleCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F1ECFF',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 8,
-    gap: 10,
-  },
-  scheduleCardTime: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#5B21FF',
-  },
-  scheduleCardNames: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-  },
-  weekStrip: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 14,
-  },
-  weekDay: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  weekDayLabel: {
-    fontSize: 11,
-    color: '#999',
-  },
-  weekDayLabelToday: {
-    color: '#5B21FF',
-    fontWeight: '700',
-  },
-  weekDayCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  weekDayCircleToday: {
-    backgroundColor: '#5B21FF',
-  },
-  weekDayDate: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-  },
-  weekDayDateToday: {
-    color: '#fff',
-  },
-  weekDayDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#5B21FF',
-  },
-  scheduleListTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#666',
-    marginBottom: 8,
   },
   scheduleListRow: {
     flexDirection: 'row',
@@ -1110,22 +1031,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     flex: 1,
-  },
-  scheduleOverdueBadge: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#E53935',
-  },
-  matchBtn: {
-    backgroundColor: '#5B21FF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  matchBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 12,
   },
   profileNudge: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#D9CCFF', backgroundColor: '#FBFAFF' },
   profileNudgeTitle: { fontSize: 14, fontWeight: '700', color: '#333' },
@@ -1177,37 +1082,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#333',
-  },
-  selectedCard: {
-    backgroundColor: '#F0E8FF',
-    borderWidth: 2,
-    borderColor: '#5B21FF',
-  },
-  checkmark: {
-    fontSize: 20,
-    color: '#5B21FF',
-    fontWeight: '700',
-  },
-  matchCard: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#5B21FF',
-  },
-  matchHeader: {
-    marginBottom: 12,
-  },
-  matchTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 4,
-  },
-  matchDate: {
-    fontSize: 12,
-    color: '#999',
   },
   requestCard: {
     backgroundColor: '#F7F4FF',
@@ -1401,30 +1275,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 10,
     fontWeight: '500',
-  },
-  activeMatchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9F9F9',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginTop: 8,
-  },
-  activeMatchNames: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#333',
-  },
-  activeMatchStatus: {
-    fontSize: 13,
-    color: '#5B21FF',
-    marginTop: 4,
-  },
-  activeMatchArrow: {
-    fontSize: 22,
-    color: '#bbb',
-    marginLeft: 8,
   },
   afterCareDeadline: {
     fontSize: 12,

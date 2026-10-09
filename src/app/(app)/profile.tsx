@@ -131,6 +131,10 @@ export default function ProfileScreen() {
     } else if (open === 'profile') {
       setShowProfileModal(true);
       router.setParams({ open: undefined });
+    } else if (open === 'settlements') {
+      // 파트너 홈 '출금 가능'에서 들어오면 정산관리를 바로 연다
+      setShowSettlementsModal(true);
+      router.setParams({ open: undefined });
     }
   }, [open]);
 

@@ -95,7 +95,14 @@ export default function ConnectorsScreen() {
   const pullRefresh = usePullRefresh(() => fetchConnectors());
 
   // 초대 링크로 들어온 회원: 초대한 파트너 정보를 바로 열어 준다
-  const params = useLocalSearchParams<{ open?: string }>();
+  const params = useLocalSearchParams<{ open?: string; tab?: string }>();
+  // 홈 '지금 할 일'의 가입 신청에서 들어오면 대기중 목록을 연다
+  useEffect(() => {
+    if (params.tab === 'pending' || params.tab === 'approved') {
+      setTabStatus(params.tab);
+      router.setParams({ tab: undefined });
+    }
+  }, [params.tab]);
   useEffect(() => {
     if (!params.open || user?.role !== 'hopeful' || loading) return;
     const target = connectors.find((c) => c.id === params.open);
