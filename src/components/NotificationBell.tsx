@@ -4,10 +4,9 @@ import BottomSheet from './BottomSheet';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { fetchNotifications, markAllRead, markOneRead, getUnreadNotificationCount, openNotification } from '@/lib/notifications';
+import { fetchNotifications, markAllRead, markOneRead, getUnreadNotificationCount, openNotification, timeAgo } from '@/lib/notifications';
 
-// openRequest: 숫자가 바뀔 때마다 알림 센터를 연다 (홈 '최근 소식 › 전체 보기')
-export default function NotificationBell({ openRequest = 0 }: { openRequest?: number }) {
+export default function NotificationBell() {
   const { user } = useAuth();
   const router = useRouter();
   const toast = useToast();
@@ -24,10 +23,6 @@ export default function NotificationBell({ openRequest = 0 }: { openRequest?: nu
     const interval = setInterval(poll, 20000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [user?.id]);
-
-  useEffect(() => {
-    if (openRequest > 0) openCenter();
-  }, [openRequest]);
 
   async function openCenter() {
     if (!user) return;
@@ -91,7 +86,7 @@ export default function NotificationBell({ openRequest = 0 }: { openRequest?: nu
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemTitle}>{item.title}</Text>
                   {item.body && <Text style={styles.itemBody}>{item.body}</Text>}
-                  <Text style={styles.itemDate}>{new Date(item.created_at).toLocaleString('ko-KR')}</Text>
+                  <Text style={styles.itemDate}>{timeAgo(item.created_at)}</Text>
                 </View>
               </TouchableOpacity>
             ))}
