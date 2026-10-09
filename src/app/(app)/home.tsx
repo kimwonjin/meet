@@ -17,7 +17,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
-import { createNotification } from '@/lib/notifications';
+import { createNotification, openNotification, timeAgo } from '@/lib/notifications';
 import { getMyConnectorCredits } from '@/lib/payments';
 import BottomSheet from '@/components/BottomSheet';
 import { formatMeetingDate } from '@/lib/format';
@@ -57,6 +57,10 @@ export default function HomeScreen() {
   const [settledThisMonth, setSettledThisMonth] = useState(0);
   const [payoutAvailable, setPayoutAvailable] = useState<number | null>(null);
   const [inviteClicks7d, setInviteClicks7d] = useState<number | null>(null);
+  // 가입 신청한 사람 (최근 3명) · 최근 소식 (알림 3개) · 알림 센터 열기 신호
+  const [pendingMembers, setPendingMembers] = useState<{ id: string; name: string }[]>([]);
+  const [recentNews, setRecentNews] = useState<any[]>([]);
+  const [openBell, setOpenBell] = useState(0);
   // 후기를 남긴 매칭 / 후기 작성 중인 매칭
   const [reviewedMatchIds, setReviewedMatchIds] = useState<string[]>([]);
   const [reviewTarget, setReviewTarget] = useState<{ matchId: string; connectorId: string } | null>(null);
@@ -89,6 +93,18 @@ export default function HomeScreen() {
           .eq('connector_id', user!.id)
           .eq('status', 'pending');
         setPendingSignupCount(pendingCount || 0);
+        const { data: pendRows } = await supabase
+          .from('hopeful_requests')
+          .select('hopeful_id, created_at')
+          .eq('connector_id', user!.id)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
+          .limit(3);
+        const pendIds = (pendRows || []).map((r: any) => r.hopeful_id);
+        const { data: pendUsers } = pendIds.length ? await supabase.from('users').select('id, name').in('id', pendIds) : { data: [] as any[] };
+        setPendingMembers(pendIds.map((id: string) => ({ id, name: (pendUsers || []).find((u: any) => u.id === id)?.name || '회원' })));
+        const { data: news } = await supabase.from('notifications').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }).limit(3);
+        setRecentNews(news || []);
         const { count: memberCount } = await supabase
           .from('hopeful_requests')
           .select('*', { count: 'exact', head: true })
@@ -458,30 +474,47 @@ export default function HomeScreen() {
   if (user?.role === 'connector') {
     const now = new Date();
     const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
-    const weekEnd = new Date(startOfToday); weekEnd.setDate(weekEnd.getDate() + 7);
     const me = user.id;
 
-    // 지금 할 일: 파트너가 직접 처리해야 하는 것만, 급한 순서로
-    const consentCount = matchingRequests.filter((m) => needsMyConsent(m, me)).length;
-    const toSchedule = matchingRequests.filter((m) => matchStage(m) === 'date' && schedulerOf(m) === me).length;
-    const toFinish = matchingRequests.filter((m) => {
+    // 지금 할 일: 파트너가 직접 처리해야 하는 것만, 급한 순서로. 건마다 최대 3개를 바로 보여준다
+    const pair = (m: any) => `${m.hopeful_1?.name ?? '회원'} ↔ ${m.hopeful_2?.name ?? '회원'}`;
+    const focusMatch = (id: string) => () => router.push({ pathname: '/matching', params: { view: 'history', focus: id } });
+    const consentList = matchingRequests.filter((m) => needsMyConsent(m, me));
+    const scheduleList = matchingRequests.filter((m) => matchStage(m) === 'date' && schedulerOf(m) === me);
+    const finishList = matchingRequests.filter((m) => {
       if (!m.meeting_scheduled_at || m.meeting_status === 'completed') return false;
       if (new Date(m.meeting_scheduled_at) >= startOfToday) return false;
       const mineDone = (m.connector_1_id === me && m.meeting_done_connector_1) || (m.connector_2_id === me && m.meeting_done_connector_2);
       return !mineDone;
-    }).length;
-    const todos: { key: string; label: string; action: string; go: () => void }[] = [
-      pendingSignupCount > 0 && { key: 'signup', label: `가입 신청 ${pendingSignupCount}건`, action: '승인하기', go: () => router.push({ pathname: '/connectors', params: { tab: 'pending' } }) },
-      consentCount > 0 && { key: 'consent', label: `동맹 매칭 동의 ${consentCount}건`, action: '확인하기', go: () => router.push({ pathname: '/matching', params: { view: 'history', stage: 'consent' } }) },
-      toFinish > 0 && { key: 'finish', label: `지난 만남 완료 처리 ${toFinish}건`, action: '처리하기', go: () => router.push({ pathname: '/matching', params: { view: 'history', stage: 'meeting' } }) },
-      toSchedule > 0 && { key: 'date', label: `만남 날짜 정하기 ${toSchedule}건`, action: '정하기', go: () => router.push({ pathname: '/matching', params: { view: 'history', stage: 'date' } }) },
-    ].filter(Boolean) as any;
+    });
+    type TodoItem = { key: string; label: string; action: string; go: () => void };
+    type Todo = TodoItem & { items: TodoItem[]; total: number };
+    const goPending = () => router.push({ pathname: '/connectors', params: { tab: 'pending' } });
+    const goStageList = (st: MatchStage) => () => router.push({ pathname: '/matching', params: { view: 'history', stage: st } });
+    const todos: Todo[] = [
+      pendingSignupCount > 0 && {
+        key: 'signup', label: `가입 신청 ${pendingSignupCount}건`, action: '승인하기', go: goPending, total: pendingSignupCount,
+        items: pendingMembers.map((p) => ({ key: p.id, label: `${p.name}님`, action: '확인', go: goPending })),
+      },
+      consentList.length > 0 && {
+        key: 'consent', label: `동맹 매칭 동의 ${consentList.length}건`, action: '확인하기', go: goStageList('consent'), total: consentList.length,
+        items: consentList.slice(0, 3).map((m) => ({ key: m.id, label: pair(m), action: '동의 확인', go: focusMatch(m.id) })),
+      },
+      finishList.length > 0 && {
+        key: 'finish', label: `지난 만남 완료 처리 ${finishList.length}건`, action: '처리하기', go: goStageList('meeting'), total: finishList.length,
+        items: finishList.slice(0, 3).map((m) => ({ key: m.id, label: pair(m), action: '완료 처리', go: focusMatch(m.id) })),
+      },
+      scheduleList.length > 0 && {
+        key: 'date', label: `만남 날짜 정하기 ${scheduleList.length}건`, action: '정하기', go: goStageList('date'), total: scheduleList.length,
+        items: scheduleList.slice(0, 3).map((m) => ({ key: m.id, label: pair(m), action: '날짜 정하기', go: focusMatch(m.id) })),
+      },
+    ].filter(Boolean) as Todo[];
 
-    // 이번 주 만남 (오늘부터 7일)
-    const weekMeetings = matchingRequests
-      .filter((m) => m.meeting_scheduled_at && m.meeting_status !== 'completed')
-      .filter((m) => { const d = new Date(m.meeting_scheduled_at); return d >= startOfToday && d < weekEnd; })
-      .sort((a, b) => new Date(a.meeting_scheduled_at).getTime() - new Date(b.meeting_scheduled_at).getTime());
+    // 다가오는 만남: 날짜와 상관없이 가까운 3개
+    const upcoming = matchingRequests
+      .filter((m) => m.meeting_scheduled_at && m.meeting_status !== 'completed' && new Date(m.meeting_scheduled_at) >= startOfToday)
+      .sort((a, b) => new Date(a.meeting_scheduled_at).getTime() - new Date(b.meeting_scheduled_at).getTime())
+      .slice(0, 3);
 
     // 진행 중인 매칭: 단계별 묶음
     const stageCounts = STAGE_ORDER.map((st) => ({ st, n: matchingRequests.filter((m) => matchStage(m) === st).length })).filter((x) => x.n > 0);
@@ -495,7 +528,7 @@ export default function HomeScreen() {
               <Text style={styles.greeting}>안녕하세요, {user?.name}님 👋</Text>
               <Text style={styles.subGreeting}>{todos.length > 0 ? `지금 처리할 일이 ${todos.length}가지 있어요` : '지금 처리할 일이 없어요'}</Text>
             </View>
-            <NotificationBell />
+            <NotificationBell openRequest={openBell} />
           </View>
         </View>
 
@@ -519,40 +552,50 @@ export default function HomeScreen() {
               </>
             )
           ) : (
-            todos.map((t, i) =>
-              i === 0 ? (
-                <View key={t.key} style={styles.todoFirst}>
-                  <Text style={styles.todoFirstLabel}>{t.label}</Text>
-                  <TouchableOpacity style={styles.todoFirstBtn} onPress={t.go} accessibilityLabel={`${t.label} ${t.action}`}>
-                    <Text style={styles.todoPrimaryText}>{t.action}</Text>
-                  </TouchableOpacity>
+            todos.map((t, i) => (
+              <View key={t.key} style={i === 0 ? styles.todoFirst : styles.todoGroup}>
+                <View style={styles.todoHead}>
+                  <Text style={i === 0 ? styles.todoFirstLabel : styles.todoRowLabel}>{t.label}</Text>
+                  {i === 0 ? (
+                    <TouchableOpacity style={styles.todoFirstBtn} onPress={t.go} accessibilityLabel={`${t.label} ${t.action}`}>
+                      <Text style={styles.todoPrimaryText}>{t.action}</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity onPress={t.go} accessibilityLabel={`${t.label} ${t.action}`} style={styles.todoHeadLink}>
+                      <Text style={styles.todoRowAction}>{t.action} ›</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-              ) : (
-                <TouchableOpacity key={t.key} style={styles.todoRow} onPress={t.go} accessibilityLabel={`${t.label} ${t.action}`}>
-                  <Text style={styles.todoRowLabel}>{t.label}</Text>
-                  <Text style={styles.todoRowAction}>{t.action} ›</Text>
-                </TouchableOpacity>
-              )
-            )
+                {t.items.map((it) => (
+                  <TouchableOpacity key={it.key} style={styles.todoItem} onPress={it.go} accessibilityLabel={`${it.label} ${it.action}`}>
+                    <Text style={styles.todoItemLabel} numberOfLines={1}>{it.label}</Text>
+                    <Text style={styles.todoItemAction}>{it.action} ›</Text>
+                  </TouchableOpacity>
+                ))}
+                {t.total > t.items.length && (
+                  <TouchableOpacity onPress={t.go} style={styles.todoMore}>
+                    <Text style={styles.todoMoreText}>+ {t.total - t.items.length}건 더 보기</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))
           )}
         </View>
 
-        {/* 이번 주 만남 (없으면 숨김) */}
-        {weekMeetings.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>이번 주 만남</Text>
-            {weekMeetings.map((m) => (
-              <TouchableOpacity
-                key={m.id}
-                style={styles.scheduleListRow}
-                onPress={() => router.push({ pathname: '/matching', params: { view: 'history', focus: m.id } })}
-              >
+        {/* 다가오는 만남: 가까운 3개 (항상 표시) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>다가오는 만남</Text>
+          {upcoming.length === 0 ? (
+            <Text style={styles.placeholderText}>확정된 만남이 아직 없어요</Text>
+          ) : (
+            upcoming.map((m) => (
+              <TouchableOpacity key={m.id} style={styles.scheduleListRow} onPress={focusMatch(m.id)}>
                 <Text style={styles.scheduleListDate}>{formatMeetingDate(m.meeting_scheduled_at)}</Text>
-                <Text style={styles.scheduleListNames}>{m.hopeful_1?.name} ↔ {m.hopeful_2?.name}</Text>
+                <Text style={styles.scheduleListNames}>{pair(m)}</Text>
               </TouchableOpacity>
-            ))}
-          </View>
-        )}
+            ))
+          )}
+        </View>
 
         {/* 진행 중인 매칭: 단계별 묶음 */}
         {stageCounts.length > 0 && (
@@ -586,6 +629,35 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* 최근 소식: 알림 3개 */}
+        {recentNews.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.newsHead}>
+              <Text style={styles.sectionTitle}>최근 소식</Text>
+              <TouchableOpacity onPress={() => setOpenBell((n) => n + 1)} accessibilityLabel="알림 전체 보기">
+                <Text style={styles.newsAll}>전체 보기 ›</Text>
+              </TouchableOpacity>
+            </View>
+            {recentNews.map((n) => (
+              <TouchableOpacity
+                key={n.id}
+                style={styles.newsRow}
+                onPress={async () => {
+                  setRecentNews((prev) => prev.map((x) => (x.id === n.id ? { ...x, read_at: x.read_at || new Date().toISOString() } : x)));
+                  await openNotification(router, n);
+                }}
+              >
+                <View style={[styles.newsDot, !!n.read_at && styles.newsDotRead]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.newsTitle, !n.read_at && styles.newsTitleUnread]} numberOfLines={1}>{n.title}</Text>
+                  {!!n.body && <Text style={styles.newsBody} numberOfLines={1}>{n.body}</Text>}
+                </View>
+                <Text style={styles.newsTime}>{timeAgo(n.created_at)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* 초대 성과 (광고하기) */}
         {inviteClicks7d !== null && (
@@ -963,11 +1035,27 @@ const styles = StyleSheet.create({
   todoEmpty: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 12 },
   todoPrimary: { backgroundColor: '#5B21FF', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   todoPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  todoFirst: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 12, gap: 10 },
+  todoFirst: { backgroundColor: '#fff', borderRadius: 12, padding: 12 },
+  todoGroup: { paddingTop: 12, paddingHorizontal: 12, marginTop: 4, borderTopWidth: 1, borderTopColor: '#ECE6FF' },
+  todoHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  todoHeadLink: { paddingVertical: 4 },
+  todoItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, gap: 8 },
+  todoItemLabel: { flex: 1, fontSize: 14, color: '#555' },
+  todoItemAction: { fontSize: 13, color: '#5B21FF' },
+  todoMore: { paddingVertical: 8 },
+  todoMoreText: { fontSize: 13, color: '#888' },
+  newsHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  newsAll: { fontSize: 13, color: '#5B21FF', fontWeight: '600', paddingVertical: 4 },
+  newsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F2F2F2' },
+  newsDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#5B21FF' },
+  newsDotRead: { backgroundColor: 'transparent' },
+  newsTitle: { fontSize: 14, color: '#555' },
+  newsTitleUnread: { color: '#222', fontWeight: '600' },
+  newsBody: { fontSize: 12, color: '#999', marginTop: 2 },
+  newsTime: { fontSize: 12, color: '#aaa' },
   todoFirstLabel: { flex: 1, fontSize: 15, fontWeight: '700', color: '#222' },
   todoFirstBtn: { backgroundColor: '#5B21FF', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16 },
-  todoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: '#ECE6FF' },
-  todoRowLabel: { fontSize: 14, color: '#333' },
+  todoRowLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: '#333' },
   todoRowAction: { fontSize: 14, color: '#5B21FF', fontWeight: '600' },
   stageWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   stageChip: { borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 999, paddingVertical: 9, paddingHorizontal: 14, backgroundColor: '#fff' },

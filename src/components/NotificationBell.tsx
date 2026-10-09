@@ -4,9 +4,10 @@ import BottomSheet from './BottomSheet';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { fetchNotifications, markAllRead, markOneRead, getUnreadNotificationCount } from '@/lib/notifications';
+import { fetchNotifications, markAllRead, markOneRead, getUnreadNotificationCount, openNotification } from '@/lib/notifications';
 
-export default function NotificationBell() {
+// openRequest: 숫자가 바뀔 때마다 알림 센터를 연다 (홈 '최근 소식 › 전체 보기')
+export default function NotificationBell({ openRequest = 0 }: { openRequest?: number }) {
   const { user } = useAuth();
   const router = useRouter();
   const toast = useToast();
@@ -23,6 +24,10 @@ export default function NotificationBell() {
     const interval = setInterval(poll, 20000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [user?.id]);
+
+  useEffect(() => {
+    if (openRequest > 0) openCenter();
+  }, [openRequest]);
 
   async function openCenter() {
     if (!user) return;
@@ -48,11 +53,7 @@ export default function NotificationBell() {
       setNotifications((prev) => prev.map((item) => (item.id === n.id ? { ...item, read_at: new Date().toISOString() } : item)));
     }
     setVisible(false);
-    if (n.deep_link_route) {
-      // 매칭 관련 알림은 매칭 탭의 '매칭내역'으로 연다
-      const params = { ...(n.deep_link_params || {}), ...(n.deep_link_route === '/matching' ? { view: 'history' } : {}) };
-      router.push({ pathname: n.deep_link_route, params });
-    }
+    await openNotification(router, { ...n, read_at: n.read_at || 'done' });
   }
 
   return (
