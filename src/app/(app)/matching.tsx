@@ -58,6 +58,10 @@ export default function MatchingScreen() {
   const memberFilter = useMemberFilter();
   // 회원별 최근 매칭 제안 날짜 · 진행 중 여부 (오래 쉰 회원을 먼저 찾기 위해)
   const [lastMatch, setLastMatch] = useState<Record<string, { at: string; active: boolean }>>({});
+  // 두 회원이 예전에 엮였던 기록 ('작은id|큰id' → 이미 만남 / 지난번 거절)
+  const [pairHistory, setPairHistory] = useState<Record<string, 'met' | 'rejected'>>({});
+  // 회원별 남은 이용권 (회원의 담당 파트너 기준). 불러오기 전에는 비어 있어 막지 않는다
+  const [credits, setCredits] = useState<Record<string, number> | null>(null);
   const router = useRouter();
   // 알림에서 들어오면 해당 칸(예: 동맹매칭)을 바로 연다
   // 동맹 매칭 알림으로 들어오면 동맹 회원까지 펼쳐서 보여준다
@@ -267,13 +271,28 @@ export default function MatchingScreen() {
     if (!ids.length) return;
     (async () => {
       const cols = 'hopeful_1_id, hopeful_2_id, created_at, status, settlement_completed';
-      const [a, b] = await Promise.all([
+      const [a, b, pay] = await Promise.all([
         supabase.from('match_requests').select(cols).in('hopeful_1_id', ids),
         supabase.from('match_requests').select(cols).in('hopeful_2_id', ids),
+        supabase.from('payments').select('hopeful_id, connector_id, sessions_remaining').eq('status', 'paid').in('hopeful_id', ids),
       ]);
+      // 만남중 회원은 따로 막으므로, 남은 이용권은 담당 파트너에게 산 이용권의 남은 횟수로 충분하다
+      if (!pay.error) {
+        const partnerOf: Record<string, string> = {};
+        for (const m of ownMembers) partnerOf[m.id] = user?.id || '';
+        for (const g of allyMembers) for (const m of g.members) partnerOf[m.id] = g.connector.id;
+        const cr: Record<string, number> = {};
+        for (const id of ids) cr[id] = 0;
+        for (const r of (pay.data || []) as any[]) if (partnerOf[r.hopeful_id] === r.connector_id) cr[r.hopeful_id] += Number(r.sessions_remaining) || 0;
+        setCredits(cr);
+      }
+      const pairs: Record<string, 'met' | 'rejected'> = {};
       const map: Record<string, { at: string; active: boolean }> = {};
       for (const m of [...(a.data || []), ...(b.data || [])] as any[]) {
         const active = m.status !== 'rejected' && !m.settlement_completed;
+        const pk = [m.hopeful_1_id, m.hopeful_2_id].sort().join('|');
+        if (m.settlement_completed) pairs[pk] = 'met';
+        else if (m.status === 'rejected' && pairs[pk] !== 'met') pairs[pk] = 'rejected';
         for (const id of [m.hopeful_1_id, m.hopeful_2_id]) {
           if (!ids.includes(id)) continue;
           const cur = map[id];
@@ -281,16 +300,39 @@ export default function MatchingScreen() {
         }
       }
       setLastMatch(map);
+      setPairHistory(pairs);
     })();
   }, [ownMembers, allyMembersForRest, matchRequests.length]);
 
-  // 회원 탭에서 골라 온 회원이 만남중이면 선택을 풀고 알려준다
+  // 회원 탭에서 골라 온 회원이 만남중이거나 이용권이 없으면 선택을 풀고 알려준다
   useEffect(() => {
-    const busy = selectedForMatch.filter((x) => lastMatch[x.id]?.active);
-    if (!busy.length) return;
-    setSelectedForMatch(selectedForMatch.filter((x) => !lastMatch[x.id]?.active));
-    toast.show('만남이 진행 중인 회원이에요. 만남이 끝나면 고를 수 있어요', 'info');
-  }, [lastMatch]);
+    const bad = selectedForMatch.find((x) => lastMatch[x.id]?.active || credits?.[x.id] === 0);
+    if (!bad) return;
+    setSelectedForMatch(selectedForMatch.filter((x) => x.id !== bad.id));
+    toast.show(BLOCK_MESSAGE[lastMatch[bad.id]?.active ? '만남중' : '이용권 없음'], 'info');
+  }, [lastMatch, credits]);
+
+  // 지금 고를 수 없는 이유 (없으면 null). 같은 성별·동맹끼리는 한 명을 고른 뒤에만 따진다
+  function blockReason(id: string, connectorId: string): BlockLabel | null {
+    if (selectedForMatch.some((x) => x.id === id)) return null;
+    if (lastMatch[id]?.active) return '만남중';
+    if (credits && credits[id] === 0) return '이용권 없음';
+    const first = selectedForMatch.length === 1 ? selectedForMatch[0] : null;
+    if (!first) return null;
+    const all = [...ownMembers, ...allyMembers.flatMap((g) => g.members)];
+    const g1 = all.find((m) => m.id === first.id)?.gender, g2 = all.find((m) => m.id === id)?.gender;
+    if (g1 && g2 && g1 === g2) return '같은 성별';
+    if (connectorId !== user?.id && first.connectorId !== user?.id) return '내 회원과만 가능';
+    return null;
+  }
+
+  // 고를 수는 있지만 알아두면 좋은 것: 먼저 고른 회원과 예전에 엮였던 사이
+  function pairHint(id: string) {
+    const first = selectedForMatch.length === 1 ? selectedForMatch[0] : null;
+    if (!first || first.id === id) return null;
+    const h = pairHistory[[first.id, id].sort().join('|')];
+    return h === 'met' ? '이미 만남' : h === 'rejected' ? '지난번 거절' : null;
+  }
 
   function restLabel(id: string) {
     const lm = lastMatch[id];
@@ -307,9 +349,9 @@ export default function MatchingScreen() {
       setSelectedForMatch(prev.filter((s) => s.id !== memberId));
       return;
     }
-    // 진행 중인 매칭이 있는 회원은 그 만남이 끝날 때까지 고를 수 없다
-    if (lastMatch[memberId]?.active) {
-      toast.show('만남이 진행 중인 회원이에요. 만남이 끝나면 고를 수 있어요', 'info');
+    const block = blockReason(memberId, connectorId);
+    if (block) {
+      toast.show(BLOCK_MESSAGE[block], 'info');
       return;
     }
     if (prev.length >= 2) {
@@ -722,7 +764,8 @@ export default function MatchingScreen() {
     const members = allMembers.filter((m) => memberFilter.passes(m, selectedForMatch.map((x) => x.id)));
     // 오래 쉰 회원 먼저 (기본): 이력 없음 → 오래전 매칭 → 최근 매칭, 진행 중인 회원은 맨 뒤
     {
-      const key = (id: string) => { const lm = lastMatch[id]; return !lm ? 0 : lm.active ? 3e15 : new Date(lm.at).getTime(); };
+      // 지금 고를 수 없는 회원(만남중·이용권 없음·같은 성별 등)은 맨 뒤로
+      const key = (id: string) => { const lm = lastMatch[id]; return (blockReason(id, connectorId) ? 6e15 : 0) + (!lm ? 0 : lm.active ? 3e15 : new Date(lm.at).getTime()); };
       members.sort((x, y) => key(x.id) - key(y.id));
     }
     if (members.length === 0) return <Text style={styles.emptyCreateText}>조건에 맞는 회원이 없습니다</Text>;
@@ -730,21 +773,28 @@ export default function MatchingScreen() {
       <View style={styles.memberList}>
         {members.map((m) => {
           const isSelected = selectedForMatch.some((s) => s.id === m.id);
-          const busy = !isSelected && !!lastMatch[m.id]?.active;
+          const block = blockReason(m.id, connectorId);
+          const busy = !!block;
+          const hint = busy ? null : pairHint(m.id);
           const summary = memberSummary(m);
           return (
             <View key={m.id} style={[styles.memberRow, isSelected && styles.memberRowSelected, busy && styles.memberRowBusy]}>
               <TouchableOpacity onPress={() => setPreviewMember({ member: m, connectorId })} accessibilityLabel={`${m.name} 프로필 보기`}>
                 <Avatar photoUrls={m.photo_urls} size={48} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.memberRowBody} onPress={() => toggleSelectForMatch(m.id, connectorId)} disabled={busy} accessibilityLabel={busy ? `${m.name} 만남중` : `${m.name} 선택`}>
+              <TouchableOpacity style={styles.memberRowBody} onPress={() => toggleSelectForMatch(m.id, connectorId)} disabled={busy} accessibilityLabel={busy ? `${m.name} ${block}` : `${m.name} 선택`}>
                 <View style={styles.memberRowText}>
                   <Text style={styles.memberRowName}>{m.name}</Text>
                   {!!summary && <Text style={styles.memberRowSub}>{summary}</Text>}
-                  {!busy && <Text style={[styles.memberRowRest, !lastMatch[m.id] && styles.memberRowRestNew]}>{restLabel(m.id)}</Text>}
+                  {!busy && (
+                    <Text style={[styles.memberRowRest, !lastMatch[m.id] && styles.memberRowRestNew]}>
+                      {hint && <Text style={styles.pairHint}>{hint} · </Text>}
+                      {restLabel(m.id)}
+                    </Text>
+                  )}
                 </View>
                 {busy ? (
-                  <View style={styles.busyBadge}><Text style={styles.busyBadgeText}>만남중</Text></View>
+                  <View style={styles.busyBadge}><Text style={styles.busyBadgeText}>{block}</Text></View>
                 ) : (
                   <View style={[styles.memberCheck, isSelected && styles.memberCheckOn]}>
                     {isSelected && <Text style={styles.memberCheckMark}>✓</Text>}
@@ -1220,7 +1270,8 @@ export default function MatchingScreen() {
         {previewMember && (() => {
           const { member, connectorId } = previewMember;
           const isSelected = selectedForMatch.some((s) => s.id === member.id);
-          const busy = !isSelected && !!lastMatch[member.id]?.active;
+          const block = blockReason(member.id, connectorId);
+          const busy = !!block;
           return (
             <>
               <MemberProfileView member={member} showBirthDate />
@@ -1232,7 +1283,7 @@ export default function MatchingScreen() {
                   setPreviewMember(null);
                 }}
               >
-                <Text style={styles.proposeBtnText}>{busy ? '만남중이라 고를 수 없어요' : isSelected ? '선택 해제' : '이 회원 선택'}</Text>
+                <Text style={styles.proposeBtnText}>{busy ? `고를 수 없어요 · ${block}` : isSelected ? '선택 해제' : '이 회원 선택'}</Text>
               </TouchableOpacity>
             </>
           );
@@ -1242,7 +1293,16 @@ export default function MatchingScreen() {
   );
 }
 
+type BlockLabel = '만남중' | '이용권 없음' | '같은 성별' | '내 회원과만 가능';
+const BLOCK_MESSAGE: Record<BlockLabel, string> = {
+  만남중: '만남이 진행 중인 회원이에요. 만남이 끝나면 고를 수 있어요',
+  '이용권 없음': '남은 이용권이 없는 회원이에요. 이용권을 산 뒤에 고를 수 있어요',
+  '같은 성별': '먼저 고른 회원과 같은 성별이에요',
+  '내 회원과만 가능': '동맹 회원끼리는 매칭할 수 없어요. 내 회원을 한 명 포함해주세요',
+};
+
 const styles = StyleSheet.create({
+  pairHint: { color: '#333', fontWeight: '700' },
   memberRowBusy: { opacity: 0.5 },
   busyBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: '#EFEFF2' },
   busyBadgeText: { fontSize: 12, fontWeight: '700', color: '#666' },
