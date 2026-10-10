@@ -1479,17 +1479,17 @@ export default function ProfileScreen() {
                       <Text style={[styles.statValue, { color: '#5B21FF' }]}>{available.toLocaleString()}원</Text>
                     </View>
                   </View>
-                  {inProgress > 0 && <Text style={styles.chargeNotice}>입금 준비 중: {inProgress.toLocaleString()}원 (운영자가 이체하면 '내 통장 입금'으로 옮겨져요)</Text>}
-                  <Text style={styles.chargeNotice}>만남이 끝날 때마다 정산금이 쌓이고, 출금 신청을 해야 통장으로 들어와요.</Text>
                   {available > 0 && (
                     <TouchableOpacity
-                      style={[styles.modalBtn, { marginBottom: 8 }]}
+                      style={styles.payoutBtn}
                       onPress={() => { setShowSettlementsModal(false); setShowBankModal(true); }}
                       accessibilityLabel="출금 신청하러 가기"
                     >
-                      <Text style={styles.modalBtnText}>{available.toLocaleString()}원 출금 신청하기</Text>
+                      <Text style={styles.payoutBtnText}>{available.toLocaleString()}원 출금 신청하기</Text>
                     </TouchableOpacity>
                   )}
+                  {inProgress > 0 && <Text style={styles.chargeNotice}>입금 준비 중: {inProgress.toLocaleString()}원 (운영자가 이체하면 '내 통장 입금'으로 옮겨져요)</Text>}
+                  <Text style={[styles.chargeNotice, { marginBottom: 20 }]}>만남이 끝날 때마다 정산금이 쌓이고, 출금 신청을 해야 통장으로 들어와요.</Text>
                 </>
               );
             })()}
@@ -2215,6 +2215,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
+  payoutBtn: { backgroundColor: '#5B21FF', borderRadius: 12, minHeight: 52, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  payoutBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   chargeNotice: {
     fontSize: 11,
     color: '#999',
