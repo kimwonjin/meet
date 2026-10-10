@@ -70,6 +70,8 @@ export default function HomeScreen() {
   const [pendingMembers, setPendingMembers] = useState<{ id: string; name: string }[]>([]);
   // 새 파트너 시작 가이드: 매칭을 제안해 본 적 · 만남이 성사된 적이 있는지 (null = 아직 모름)
   const [startState, setStartState] = useState<{ proposed: boolean; settled: boolean } | null>(null);
+  // 시작 가이드 '동맹 파트너 맺기': 맺은 동맹이 있는지, 보낸·받은 신청이 기다리는 중인지
+  const [allyState, setAllyState] = useState<{ active: boolean; pending: boolean }>({ active: false, pending: false });
 
   // 후기를 남긴 매칭 / 후기 작성 중인 매칭
   const [reviewedMatchIds, setReviewedMatchIds] = useState<string[]>([]);
@@ -173,10 +175,17 @@ export default function HomeScreen() {
           };
         });
 
-        setStartState({
-          proposed: (matchData || []).length > 0,
-          settled: (matchData || []).some((m: any) => m.settlement_completed && !m.closed_reason),
-        });
+        const settledOnce = (matchData || []).some((m: any) => m.settlement_completed && !m.closed_reason);
+        setStartState({ proposed: (matchData || []).length > 0, settled: settledOnce });
+        if (!settledOnce) {
+          supabase.from('connector_alliances').select('status')
+            .or(`connector_1_id.eq.${user.id},connector_2_id.eq.${user.id}`)
+            .in('status', ['PENDING', 'ACTIVE'])
+            .then(({ data }) => setAllyState({
+              active: (data || []).some((a: any) => a.status === 'ACTIVE'),
+              pending: (data || []).some((a: any) => a.status === 'PENDING'),
+            }));
+        }
 
         // 이번 달 성사된 만남 (노쇼 등으로 정산 없이 끝난 건 제외)
         const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
@@ -616,6 +625,7 @@ export default function HomeScreen() {
           const GOAL = 5;
           const steps = [
             { label: `회원 ${GOAL}명 초대하기`, sub: `지금 ${approvedMemberCount}명`, done: approvedMemberCount >= GOAL, go: () => setShowInvite(true) },
+            { label: '동맹 파트너 맺기', sub: allyState.pending ? '동맹 신청이 진행 중이에요. 수락되면 완료' : '다른 파트너 회원과도 소개할 수 있어요', done: allyState.active, go: () => router.push('/alliances') },
             { label: '첫 매칭 제안하기', sub: '어울릴 두 사람을 골라 제안해요', done: startState.proposed, go: () => router.push({ pathname: '/matching', params: { view: 'active' } }) },
             { label: '첫 만남 성사', sub: '만남 뒤 두 회원이 애프터를 고르면 완료', done: false, go: () => router.push({ pathname: '/matching', params: { view: 'history' } }) },
           ];
