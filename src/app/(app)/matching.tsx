@@ -108,6 +108,8 @@ export default function MatchingScreen() {
   const [allyMembers, setAllyMembers] = useState<{ connector: { id: string; name: string }; members: Member[] }[]>([]);
   // 프로필을 크게 보고 있는 후보 회원
   const [previewMember, setPreviewMember] = useState<{ member: Member; connectorId: string } | null>(null);
+  // 매칭내역에서 두 회원 프로필 보기 (동의 전 확인용)
+  const [viewMember, setViewMember] = useState<{ member: any; partner?: string } | null>(null);
   const [selectedForMatch, setSelectedForMatch] = useState<{ id: string; connectorId: string }[]>([]);
   const [proposing, setProposing] = useState(false);
 
@@ -785,6 +787,28 @@ export default function MatchingScreen() {
             {new Date(item.created_at).toLocaleDateString('ko-KR')}
           </Text>
         </View>
+        {/* 두 회원 프로필: 누르면 시트로 열린다 */}
+        <View style={styles.pairRow}>
+          {([['hopeful_1', item.connector_1_name], ['hopeful_2', item.connector_2_name]] as const).map(([k, partner]) => {
+            const m = (item as any)[k];
+            if (!m) return null;
+            return (
+              <TouchableOpacity
+                key={k}
+                style={[styles.pairChip, needsMyConsent && styles.pairChipStrong]}
+                onPress={() => setViewMember({ member: m, partner: crossConnector ? partner : undefined })}
+                accessibilityLabel={`${m.name} 프로필 보기`}
+              >
+                <Avatar photoUrls={m.photo_urls} size={28} />
+                <Text style={styles.pairChipText} numberOfLines={1}>
+                  {[m.name, m.gender === 'M' ? '남' : m.gender === 'F' ? '여' : null, m.age && `${m.age}세`, m.location].filter(Boolean).join(' · ')}
+                  {partner && crossConnector ? <Text style={styles.pairChipSub}>  {partner}</Text> : null}
+                </Text>
+                <Text style={styles.pairChipLink}>보기 ›</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
         {/* 소개팅 상태 타임라인 */}
         <View style={styles.timeline}>
@@ -877,6 +901,7 @@ export default function MatchingScreen() {
         {!consentDone ? (
           needsMyConsent ? (
             <>
+              <Text style={styles.consentHint}>위 두 회원 프로필을 눌러 확인한 뒤 동의해 주세요</Text>
               <TouchableOpacity
                 style={[styles.actionBtn, processingId === item.id && styles.buttonDisabled]}
                 onPress={() => handleConsentApprove(item.id)}
@@ -1112,6 +1137,10 @@ export default function MatchingScreen() {
         onClose={() => setScheduleMatchId(null)}
         onConfirm={(date) => scheduleMatchId && handleSetSchedule(scheduleMatchId, date)}
       />
+
+      <BottomSheet visible={viewMember !== null} onClose={() => setViewMember(null)} title={viewMember?.partner ? `${viewMember.partner} 파트너의 회원` : '회원 프로필'}>
+        {viewMember && <MemberProfileView member={viewMember.member} showBirthDate />}
+      </BottomSheet>
 
       <BottomSheet visible={previewMember !== null} onClose={() => setPreviewMember(null)} title="회원 프로필">
         {previewMember && (() => {
@@ -1382,6 +1411,13 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
+  pairRow: { gap: 6, marginTop: 10, marginBottom: 12 },
+  pairChip: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 8, borderRadius: 10, borderWidth: 1, borderColor: '#E5E5EA', backgroundColor: '#fff' },
+  pairChipStrong: { borderColor: '#5B21FF' },
+  pairChipText: { flex: 1, fontSize: 13, color: '#333', fontWeight: '600' },
+  pairChipLink: { fontSize: 12, color: '#5B21FF' },
+  pairChipSub: { fontSize: 12, color: '#8E8E93', fontWeight: '400' },
+  consentHint: { fontSize: 12, color: '#8E8E93', textAlign: 'center', marginBottom: 8 },
   matchDate: {
     fontSize: 12,
     color: '#999',
