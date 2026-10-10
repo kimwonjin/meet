@@ -754,7 +754,8 @@ export default function MatchingScreen() {
     <View style={styles.createSection}>
       {/* 제목 한 줄 + 오른쪽 '동맹 회원 포함' 칩 (동맹이 있을 때만) */}
       <View style={styles.createHeader}>
-        <Text style={styles.createTitle}>회원 2명을 골라 제안하세요</Text>
+        <Text style={styles.createTitle} numberOfLines={1}>회원 2명 고르기</Text>
+        <View style={styles.createTools}>
         {allyConnectors.length > 0 && (
           <TouchableOpacity
             style={[styles.allyChip, includeAllies && styles.allyChipOn]}
@@ -767,16 +768,18 @@ export default function MatchingScreen() {
             accessibilityState={{ checked: includeAllies }}
             accessibilityLabel="동맹 회원 포함"
           >
-            <Text style={[styles.allyChipText, includeAllies && styles.allyChipTextOn]}>{includeAllies ? '✓ ' : '+ '}동맹 회원 포함</Text>
+            <Text style={[styles.allyChipText, includeAllies && styles.allyChipTextOn]}>{includeAllies ? '✓ ' : '+ '}동맹 포함</Text>
           </TouchableOpacity>
         )}
+        {(ownMembers.length > 0 || includeAllies) && memberFilter.renderToggle()}
+        </View>
       </View>
 
       {/* 회원 필터: 이름·성별·나이·지역 */}
       {/* 고를 회원이 없으면 검색·필터는 숨긴다 */}
       {(() => {
         const candidates = [...ownMembers, ...(includeAllies ? allyMembers.flatMap((g) => g.members) : [])];
-        return candidates.length > 0 ? memberFilter.render(candidates) : null;
+        return candidates.length > 0 ? memberFilter.render(candidates, false) : null;
       })()}
 
       <Text style={styles.groupTitle}>내 회원</Text>
@@ -1295,9 +1298,10 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 10,
   },
-  allyChip: { borderWidth: 1, borderColor: '#E0E0E6', borderRadius: 16, paddingHorizontal: 12, minHeight: 34, justifyContent: 'center' },
+  createTools: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  allyChip: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, paddingHorizontal: 12, minHeight: 38, justifyContent: 'center' },
   allyChipOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
-  allyChipText: { fontSize: 13, color: '#666' },
+  allyChipText: { fontSize: 14, color: '#666' },
   allyChipTextOn: { color: '#5B21FF', fontWeight: '600' },
   groupTitle: {
     fontSize: 13,

@@ -37,8 +37,24 @@ export function useMemberFilter() {
     setRegions([]);
   }
 
+  // '필터' 버튼만 따로 (다른 줄에 놓고 싶을 때)
+  function renderToggle() {
+    return (
+      <TouchableOpacity
+        style={[styles.toggle, (open || chipCount > 0) && styles.toggleOn]}
+        onPress={() => setOpen(!open)}
+        accessibilityLabel={open ? '필터 접기' : '필터 펼치기'}
+      >
+        <Text style={[styles.toggleText, (open || chipCount > 0) && styles.toggleTextOn]}>
+          필터{chipCount > 0 ? ` ${chipCount}` : ''} {open ? '▴' : '▾'}
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+
   // candidates: 지역 버튼을 만들 기준 회원들 (있는 지역만 보여준다)
-  function render(candidates: FilterableMember[]) {
+  // withToggle=false: 필터 버튼은 renderToggle()로 다른 곳에 따로 놓는다
+  function render(candidates: FilterableMember[], withToggle = true) {
     const regionOptions = [...new Set(candidates.map((m) => m.location).filter(Boolean) as string[])].sort();
     const chip = (label: string, on: boolean, onPress: () => void) => (
       <TouchableOpacity key={label} style={[styles.chip, on && styles.chipOn]} onPress={onPress}>
@@ -56,15 +72,7 @@ export function useMemberFilter() {
             value={query}
             onChangeText={setQuery}
           />
-          <TouchableOpacity
-            style={[styles.toggle, (open || chipCount > 0) && styles.toggleOn]}
-            onPress={() => setOpen(!open)}
-            accessibilityLabel={open ? '필터 접기' : '필터 펼치기'}
-          >
-            <Text style={[styles.toggleText, (open || chipCount > 0) && styles.toggleTextOn]}>
-              필터{chipCount > 0 ? ` ${chipCount}` : ''} {open ? '▴' : '▾'}
-            </Text>
-          </TouchableOpacity>
+          {withToggle && renderToggle()}
         </View>
         {open && (
           <>
@@ -91,7 +99,7 @@ export function useMemberFilter() {
     );
   }
 
-  return { active, passes, render, reset };
+  return { active, passes, render, renderToggle, reset };
 }
 
 const styles = StyleSheet.create({
