@@ -29,7 +29,7 @@ import { fetchConnectorReviews, Review } from '@/lib/reviews';
 
 // 회당 금액: 가격은 파트너가 정하되, 0원·오타(자릿수 실수)만 막는다
 const FEE_MIN = 1000;
-const FEE_MAX = 3000000;
+const FEE_MAX = 10000000;
 const feeDigits = (v: any) => String(v ?? '').replace(/[^0-9]/g, '');
 
 export default function ProfileScreen() {
