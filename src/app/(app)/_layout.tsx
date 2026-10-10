@@ -3,7 +3,7 @@ import { Redirect, Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUnreadCount } from '@/lib/chat';
-import { consumeJustSignedUp, takePendingInvite, trackInvite } from '@/lib/invite';
+import { consumeJustSignedUp, takePendingInvite, takePendingPartnerApply, trackInvite } from '@/lib/invite';
 import { requestJoin } from '@/lib/join';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -32,6 +32,16 @@ export default function AppLayout() {
       } else {
         setTimeout(() => router.push(inv.code ? `/c/${inv.code}` : { pathname: '/invite', params: { p: inv.id } }), 300);
       }
+    });
+  }, [user?.id]);
+
+  // 파트너 모집 페이지(/partner)에서 '파트너 신청하기'를 누르고 가입·로그인한 경우: 신청서를 바로 연다
+  useEffect(() => {
+    if (!user || user.role === 'operator') return;
+    takePendingPartnerApply().then((want) => {
+      if (!want) return;
+      if (user.role === 'connector') { toast.show('이미 파트너로 활동 중이에요', 'info'); return; }
+      setTimeout(() => router.push({ pathname: '/profile', params: { open: 'partner' } }), 300);
     });
   }, [user?.id]);
 

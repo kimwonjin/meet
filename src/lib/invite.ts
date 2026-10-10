@@ -144,3 +144,18 @@ export async function fetchShareTemplates(): Promise<ShareTemplate[]> {
 export function fillTemplate(body: string, link: string) {
   return body.includes('{link}') ? body.split('{link}').join(link) : `${body}\n${link}`;
 }
+
+// 파트너 모집 페이지(/partner)에서 '파트너 신청하기'를 누르고 가입·로그인하는 동안 기억해 둔다
+const PARTNER_APPLY_KEY = 'pendingPartnerApply';
+export async function savePendingPartnerApply() {
+  try { await AsyncStorage.setItem(PARTNER_APPLY_KEY, String(Date.now())); } catch {}
+}
+export async function takePendingPartnerApply(): Promise<boolean> {
+  try {
+    const v = await AsyncStorage.getItem(PARTNER_APPLY_KEY);
+    await AsyncStorage.removeItem(PARTNER_APPLY_KEY);
+    return !!v && Date.now() - Number(v) < INVITE_TTL_MS;
+  } catch {
+    return false;
+  }
+}

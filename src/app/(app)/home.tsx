@@ -68,6 +68,8 @@ export default function HomeScreen() {
   const [payoutAvailable, setPayoutAvailable] = useState<number | null>(null);
   // 가입 신청한 사람 (최근 3명) · 최근 소식 (알림 3개) · 알림 센터 열기 신호
   const [pendingMembers, setPendingMembers] = useState<{ id: string; name: string }[]>([]);
+  // 새 파트너 시작 가이드: 매칭을 제안해 본 적 · 만남이 성사된 적이 있는지 (null = 아직 모름)
+  const [startState, setStartState] = useState<{ proposed: boolean; settled: boolean } | null>(null);
 
   // 후기를 남긴 매칭 / 후기 작성 중인 매칭
   const [reviewedMatchIds, setReviewedMatchIds] = useState<string[]>([]);
@@ -169,6 +171,11 @@ export default function HomeScreen() {
             available_dates_1: m.available_dates_1,
             available_dates_2: m.available_dates_2,
           };
+        });
+
+        setStartState({
+          proposed: (matchData || []).length > 0,
+          settled: (matchData || []).some((m: any) => m.settlement_completed && !m.closed_reason),
         });
 
         // 이번 달 성사된 만남 (노쇼 등으로 정산 없이 끝난 건 제외)
@@ -603,6 +610,37 @@ export default function HomeScreen() {
             ))}
           </View>
         )}
+
+        {/* 새 파트너 시작 가이드: 첫 만남이 성사되면 사라진다 */}
+        {startState && !startState.settled && (() => {
+          const GOAL = 5;
+          const steps = [
+            { label: `회원 ${GOAL}명 초대하기`, sub: `지금 ${approvedMemberCount}명`, done: approvedMemberCount >= GOAL, go: () => setShowInvite(true) },
+            { label: '첫 매칭 제안하기', sub: '어울릴 두 사람을 골라 제안해요', done: startState.proposed, go: () => router.push({ pathname: '/matching', params: { view: 'active' } }) },
+            { label: '첫 만남 성사', sub: '만남 뒤 두 회원이 애프터를 고르면 완료', done: false, go: () => router.push({ pathname: '/matching', params: { view: 'history' } }) },
+          ];
+          const current = steps.findIndex((st) => !st.done);
+          return (
+            <View style={styles.guide} accessibilityLabel="시작 가이드">
+              <View style={styles.guideHead}>
+                <Text style={styles.guideTitle}>시작 가이드</Text>
+                <Text style={styles.guideCount}>{steps.filter((st) => st.done).length}/{steps.length}</Text>
+              </View>
+              {steps.map((st, i) => (
+                <TouchableOpacity key={st.label} style={styles.guideRow} onPress={st.go} disabled={st.done} accessibilityLabel={`시작 가이드 ${st.label}`}>
+                  <View style={[styles.guideNum, st.done && styles.guideNumDone, i === current && styles.guideNumNow]}>
+                    <Text style={[styles.guideNumT, st.done && styles.guideDoneT, i === current && styles.guideNumNowT]}>{st.done ? '✓' : i + 1}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.guideLabel, st.done && styles.guideDoneT, i === current && styles.guideLabelNow]}>{st.label}</Text>
+                    {!st.done && <Text style={styles.guideSub}>{st.sub}</Text>}
+                  </View>
+                  {i === current && <Text style={styles.aChev}>›</Text>}
+                </TouchableOpacity>
+              ))}
+            </View>
+          );
+        })()}
 
         {/* 현황 숫자 */}
         <View style={styles.aStats} accessibilityLabel="내 현황">
@@ -1235,6 +1273,20 @@ const styles = StyleSheet.create({
   aWhen: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
   aWait: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginTop: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#F1F1F3' },
   aWaitT: { fontSize: 14, color: '#8E8E93', flexShrink: 1 },
+  guide: { marginHorizontal: 20, marginTop: 18, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#E9E2FF', backgroundColor: '#FBFAFF' },
+  guideHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  guideTitle: { fontSize: 15, fontWeight: '700', color: '#191919' },
+  guideCount: { fontSize: 13, fontWeight: '700', color: '#5B21FF' },
+  guideRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9 },
+  guideNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#EEEEF0', alignItems: 'center', justifyContent: 'center' },
+  guideNumDone: { backgroundColor: '#EEEEF0' },
+  guideNumNow: { backgroundColor: '#5B21FF' },
+  guideNumT: { fontSize: 13, fontWeight: '700', color: '#8E8E93' },
+  guideNumNowT: { color: '#fff' },
+  guideLabel: { fontSize: 15, color: '#555' },
+  guideLabelNow: { color: '#191919', fontWeight: '700' },
+  guideDoneT: { color: '#B0B0B5' },
+  guideSub: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
   aMeetMore: { marginHorizontal: 22, paddingVertical: 6 },
   mBadge: { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.22)', color: '#fff', fontSize: 11, fontWeight: '800', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, marginBottom: 8, overflow: 'hidden' },
   mHeroT: { fontSize: 26, fontWeight: '800', color: '#fff', marginTop: 6, marginBottom: 14, lineHeight: 34 },

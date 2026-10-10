@@ -137,6 +137,10 @@ export default function ProfileScreen() {
     } else if (open === 'profile') {
       setShowProfileModal(true);
       router.setParams({ open: undefined });
+    } else if (open === 'partner') {
+      // 파트너 모집 페이지에서 '파트너 신청하기'로 들어오면 신청서를 바로 연다
+      setShowConnectorModal(true);
+      router.setParams({ open: undefined });
     } else if (open === 'settlements') {
       // 파트너 홈 '출금 가능'에서 들어오면 정산관리를 바로 연다
       setShowSettlementsModal(true);
