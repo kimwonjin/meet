@@ -284,10 +284,18 @@ export default function MatchingScreen() {
     })();
   }, [ownMembers, allyMembersForRest, matchRequests.length]);
 
+  // 회원 탭에서 골라 온 회원이 만남중이면 선택을 풀고 알려준다
+  useEffect(() => {
+    const busy = selectedForMatch.filter((x) => lastMatch[x.id]?.active);
+    if (!busy.length) return;
+    setSelectedForMatch(selectedForMatch.filter((x) => !lastMatch[x.id]?.active));
+    toast.show('만남이 진행 중인 회원이에요. 만남이 끝나면 고를 수 있어요', 'info');
+  }, [lastMatch]);
+
   function restLabel(id: string) {
     const lm = lastMatch[id];
     if (!lm) return '매칭 이력 없음';
-    if (lm.active) return '매칭 진행 중';
+    if (lm.active) return '만남중';
     const days = Math.max(0, Math.floor((Date.now() - new Date(lm.at).getTime()) / 86400000));
     return days === 0 ? '오늘 매칭 제안' : `최근 매칭 ${days}일 전`;
   }
@@ -297,6 +305,11 @@ export default function MatchingScreen() {
     const prev = selectedForMatch;
     if (prev.some((s) => s.id === memberId)) {
       setSelectedForMatch(prev.filter((s) => s.id !== memberId));
+      return;
+    }
+    // 진행 중인 매칭이 있는 회원은 그 만남이 끝날 때까지 고를 수 없다
+    if (lastMatch[memberId]?.active) {
+      toast.show('만남이 진행 중인 회원이에요. 만남이 끝나면 고를 수 있어요', 'info');
       return;
     }
     if (prev.length >= 2) {
@@ -717,21 +730,26 @@ export default function MatchingScreen() {
       <View style={styles.memberList}>
         {members.map((m) => {
           const isSelected = selectedForMatch.some((s) => s.id === m.id);
+          const busy = !isSelected && !!lastMatch[m.id]?.active;
           const summary = memberSummary(m);
           return (
-            <View key={m.id} style={[styles.memberRow, isSelected && styles.memberRowSelected]}>
+            <View key={m.id} style={[styles.memberRow, isSelected && styles.memberRowSelected, busy && styles.memberRowBusy]}>
               <TouchableOpacity onPress={() => setPreviewMember({ member: m, connectorId })} accessibilityLabel={`${m.name} 프로필 보기`}>
                 <Avatar photoUrls={m.photo_urls} size={48} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.memberRowBody} onPress={() => toggleSelectForMatch(m.id, connectorId)}>
+              <TouchableOpacity style={styles.memberRowBody} onPress={() => toggleSelectForMatch(m.id, connectorId)} disabled={busy} accessibilityLabel={busy ? `${m.name} 만남중` : `${m.name} 선택`}>
                 <View style={styles.memberRowText}>
                   <Text style={styles.memberRowName}>{m.name}</Text>
                   {!!summary && <Text style={styles.memberRowSub}>{summary}</Text>}
-                  <Text style={[styles.memberRowRest, !lastMatch[m.id] && styles.memberRowRestNew]}>{restLabel(m.id)}</Text>
+                  {!busy && <Text style={[styles.memberRowRest, !lastMatch[m.id] && styles.memberRowRestNew]}>{restLabel(m.id)}</Text>}
                 </View>
-                <View style={[styles.memberCheck, isSelected && styles.memberCheckOn]}>
-                  {isSelected && <Text style={styles.memberCheckMark}>✓</Text>}
-                </View>
+                {busy ? (
+                  <View style={styles.busyBadge}><Text style={styles.busyBadgeText}>만남중</Text></View>
+                ) : (
+                  <View style={[styles.memberCheck, isSelected && styles.memberCheckOn]}>
+                    {isSelected && <Text style={styles.memberCheckMark}>✓</Text>}
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
           );
@@ -1202,17 +1220,19 @@ export default function MatchingScreen() {
         {previewMember && (() => {
           const { member, connectorId } = previewMember;
           const isSelected = selectedForMatch.some((s) => s.id === member.id);
+          const busy = !isSelected && !!lastMatch[member.id]?.active;
           return (
             <>
               <MemberProfileView member={member} showBirthDate />
               <TouchableOpacity
-                style={styles.proposeBtn}
+                style={[styles.proposeBtn, busy && styles.buttonDisabled]}
+                disabled={busy}
                 onPress={() => {
                   toggleSelectForMatch(member.id, connectorId);
                   setPreviewMember(null);
                 }}
               >
-                <Text style={styles.proposeBtnText}>{isSelected ? '선택 해제' : '이 회원 선택'}</Text>
+                <Text style={styles.proposeBtnText}>{busy ? '만남중이라 고를 수 없어요' : isSelected ? '선택 해제' : '이 회원 선택'}</Text>
               </TouchableOpacity>
             </>
           );
@@ -1223,6 +1243,9 @@ export default function MatchingScreen() {
 }
 
 const styles = StyleSheet.create({
+  memberRowBusy: { opacity: 0.5 },
+  busyBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: '#EFEFF2' },
+  busyBadgeText: { fontSize: 12, fontWeight: '700', color: '#666' },
   stageBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F7F4FF', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12 },
   stageBarText: { fontSize: 13, color: '#333', fontWeight: '600' },
   stageBarAll: { fontSize: 13, color: '#5B21FF', fontWeight: '600', paddingVertical: 4 },
