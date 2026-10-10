@@ -1046,7 +1046,9 @@ export default function HomeScreen() {
               </View>
             ) : (
               <Text style={styles.mHeroSub} numberOfLines={2}>
-                {firstItem.partner?.name ? `${firstItem.partner.name}님과의 소개` : ''}{firstTask.items.length > 1 ? ` 외 ${firstTask.items.length - 1}건` : ''}
+                {firstTask.k === 'review'
+                  ? `${partnerOf(firstItem) ? `${partnerOf(firstItem)} 파트너` : '파트너'}가 ${firstItem.partner?.name ? `${firstItem.partner.name}님을 ` : ''}소개해 줬어요`
+                  : firstItem.partner?.name ? `${firstItem.partner.name}님과의 소개` : ''}{firstTask.items.length > 1 ? ` 외 ${firstTask.items.length - 1}건` : ''}
               </Text>
             )}
             <TouchableOpacity
@@ -1166,6 +1168,7 @@ export default function HomeScreen() {
       <ReviewSheet
         visible={reviewTarget !== null}
         partnerName={reviewPartnerName}
+        metName={reviewTarget ? receivedMatches.find((m: any) => m.id === reviewTarget.matchId)?.partner?.name : undefined}
         onClose={() => setReviewTarget(null)}
         onSubmit={async (rating, content) => {
           if (!reviewTarget || !user) return;

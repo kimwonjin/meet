@@ -5,12 +5,14 @@ import BottomSheet from './BottomSheet';
 interface ReviewSheetProps {
   visible: boolean;
   partnerName?: string;
+  // 만난 사람 이름: 후기 대상(파트너)과 헷갈리지 않게 '누구를 소개해 준 파트너'인지 알려준다
+  metName?: string;
   onClose: () => void;
   onSubmit: (rating: number, content: string) => Promise<void>;
 }
 
 // 매칭을 마친 회원이 자기 파트너에게 남기는 후기 (별점 + 한 줄 후기)
-export default function ReviewSheet({ visible, partnerName, onClose, onSubmit }: ReviewSheetProps) {
+export default function ReviewSheet({ visible, partnerName, metName, onClose, onSubmit }: ReviewSheetProps) {
   const [rating, setRating] = useState(0);
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -33,7 +35,10 @@ export default function ReviewSheet({ visible, partnerName, onClose, onSubmit }:
 
   return (
     <BottomSheet visible={visible} onClose={onClose} title="파트너 후기 남기기">
-      <Text style={styles.label}>{partnerName ? `${partnerName}의 도움은 어떠셨나요?` : '파트너의 도움은 어떠셨나요?'}</Text>
+      <Text style={styles.label}>{partnerName ? `${partnerName} 파트너의 소개는 어떠셨나요?` : '파트너의 소개는 어떠셨나요?'}</Text>
+      <Text style={styles.about}>
+        {metName ? `${metName}님을 소개해 준 파트너에 대한 후기예요.` : '나를 소개해 준 파트너에 대한 후기예요.'} 만난 분에 대한 평가가 아니에요.
+      </Text>
       <View style={styles.stars}>
         {[1, 2, 3, 4, 5].map((n) => (
           <TouchableOpacity key={n} onPress={() => setRating(n)} style={styles.starBtn} accessibilityLabel={`별 ${n}개`}>
@@ -43,7 +48,7 @@ export default function ReviewSheet({ visible, partnerName, onClose, onSubmit }:
       </View>
       <TextInput
         style={styles.input}
-        placeholder="다른 회원에게 도움이 될 한마디를 남겨주세요 (선택)"
+        placeholder="파트너의 소개·연락·배려는 어땠나요? (선택)"
         placeholderTextColor="#999"
         value={content}
         onChangeText={setContent}
@@ -63,7 +68,8 @@ export default function ReviewSheet({ visible, partnerName, onClose, onSubmit }:
 }
 
 const styles = StyleSheet.create({
-  label: { fontSize: 15, fontWeight: '600', color: '#222', marginBottom: 12 },
+  about: { fontSize: 13, color: '#888', marginTop: 4, marginBottom: 12, lineHeight: 19 },
+  label: { fontSize: 15, fontWeight: '600', color: '#222' },
   stars: { flexDirection: 'row', justifyContent: 'center', gap: 4, marginBottom: 16 },
   starBtn: { padding: 6 },
   star: { fontSize: 36, color: '#DDD' },
