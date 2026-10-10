@@ -8,7 +8,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  FlatList,
 } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
@@ -33,6 +32,13 @@ import { isOverdueForMe, isWaitingOnOthers, matchStage, MatchStage, needsMyConse
 import ReviewSheet from '@/components/ReviewSheet';
 import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
 
+const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+const meetTime = (iso: string) => {
+  const d = new Date(iso);
+  const h = d.getHours();
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}시${d.getMinutes() ? ` ${d.getMinutes()}분` : ''}`;
+};
+
 export default function HomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
@@ -48,7 +54,12 @@ export default function HomeScreen() {
   // Hopeful states
   const [receivedMatches, setReceivedMatches] = useState<any[]>([]);
   const [remainingSessions, setRemainingSessions] = useState<number | null>(null);
-  const [profilePartner, setProfilePartner] = useState<any | null>(null);
+  // 회원 홈 시트: 소개 카드 목록(ids), profileOf가 있으면 그 소개의 상대 프로필
+  const [matchSheet, setMatchSheet] = useState<{ title: string; ids: string[]; profileOf?: string } | null>(null);
+  const [freeSessions, setFreeSessions] = useState(0);
+  const [partnerNames, setPartnerNames] = useState<Record<string, string>>({});
+  // 내 파트너 가입 상태: 승인된 파트너 수 · 신청(대기 포함) 수
+  const [myPartners, setMyPartners] = useState({ approved: 0, requested: 0 });
   const [approvedMemberCount, setApprovedMemberCount] = useState(0);
   const [profileGaps, setProfileGaps] = useState<string[]>([]);
   const [showInvite, setShowInvite] = useState(false);
@@ -76,6 +87,11 @@ export default function HomeScreen() {
       fetchDashboard();
     }
   }, [user]);
+
+  // 열어 둔 소개가 사라지면 (거절·취소) 시트를 닫는다
+  useEffect(() => {
+    if (matchSheet && !receivedMatches.some((m) => matchSheet.ids.includes(m.id))) setMatchSheet(null);
+  }, [receivedMatches]);
 
   useFocusPolling(() => fetchDashboard(), 15000, !!user);
   const pullRefresh = usePullRefresh(() => fetchDashboard());
@@ -243,6 +259,19 @@ export default function HomeScreen() {
 
         const { data: credits } = await getMyConnectorCredits(user!.id);
         setRemainingSessions((credits || []).reduce((sum: number, c: any) => sum + c.available, 0));
+        setFreeSessions((credits || []).reduce((sum: number, c: any) => sum + Math.min(c.freeAvailable || 0, c.available), 0));
+
+        // 소개해 준 파트너 이름 (카드에 '○○ 추천')
+        const connIds = [...new Set(matches.map((m: any) => (m.isHopeful1 ? m.connector_1_id : m.connector_2_id)).filter(Boolean))];
+        if (connIds.length) {
+          const { data: conns } = await supabase.from('connectors').select('id, business_name').in('id', connIds);
+          setPartnerNames(Object.fromEntries((conns || []).map((c: any) => [c.id, c.business_name || '파트너'])));
+        }
+        const { data: reqs } = await supabase.from('hopeful_requests').select('status').eq('hopeful_id', user!.id);
+        setMyPartners({
+          approved: (reqs || []).filter((r: any) => r.status === 'approved').length,
+          requested: (reqs || []).filter((r: any) => r.status === 'approved' || r.status === 'pending').length,
+        });
       }
     } catch (error) {
       console.error('fetchDashboard error:', error);
@@ -518,12 +547,6 @@ export default function HomeScreen() {
         : first.items[0] ? `${first.items[0].label}${first.total > 1 ? ` 외 ${first.total - 1}건` : ''}` : ''
       : '';
     const manwon = (n: number) => (n >= 10000 ? `${Math.round(n / 1000) / 10}만원` : `${n.toLocaleString()}원`);
-    const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
-    const meetTime = (iso: string) => {
-      const d = new Date(iso);
-      const h = d.getHours();
-      return `${d.getMonth() + 1}월 ${d.getDate()}일 ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}시${d.getMinutes() ? ` ${d.getMinutes()}분` : ''}`;
-    };
 
     return (
       <ScrollView style={styles.aPage} refreshControl={pullRefresh}>
@@ -630,315 +653,475 @@ export default function HomeScreen() {
     );
   }
 
-  // 회원 화면
-  return (
-    <ScrollView style={styles.container} refreshControl={pullRefresh}>
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.greeting}>안녕하세요, {user?.name}님 👋</Text>
-            <Text style={styles.subGreeting}>받은 매칭 제안</Text>
+  // 회원 화면 (시안: 맨 위 보라 카드에 지금 할 일 하나, 나머지는 한 줄씩)
+  type Kind = 'answer' | 'after' | 'reselect' | 'review';
+  const myView = receivedMatches.map((item) => {
+    const myApproved = item.isHopeful1 ? item.hopeful_1_approved : item.hopeful_2_approved;
+    const myAfterCare = item.isHopeful1 ? item.after_care_hopeful_1 : item.after_care_hopeful_2;
+    const bothApproved = item.hopeful_1_approved && item.hopeful_2_approved;
+    const noDateOverlap = !item.meeting_scheduled_at && item.available_dates_1?.length > 0 && item.available_dates_2?.length > 0 &&
+      !earliestCommonDate(item.available_dates_1, item.available_dates_2);
+    const ended = item.settlement_completed || !!item.closed_reason;
+    const kind: Kind | null = ended ? null
+      : !myApproved ? 'answer'
+      : bothApproved && noDateOverlap ? 'reselect'
+      : item.meeting_status === 'completed' && !myAfterCare ? 'after'
+      : null;
+    const review = item.meeting_status === 'completed' && !!myAfterCare && !reviewedMatchIds.includes(item.id);
+    const upcoming = !ended && !kind && !!item.meeting_scheduled_at && item.meeting_status !== 'completed';
+    return { item, kind, review, ended, upcoming, waiting: !ended && !kind && !upcoming };
+  });
+  const KIND: Record<Kind, { title: string; row: string; btn: string }> = {
+    answer: { title: '새 소개가 왔어요', row: '새 소개', btn: '프로필 보고 답하기' },
+    after: { title: '소개팅 어떠셨나요?', row: '소개팅 어떠셨나요?', btn: '답하기' },
+    reselect: { title: '날짜를 다시 골라 주세요', row: '날짜 다시 고르기', btn: '날짜 다시 고르기' },
+    review: { title: '파트너 후기를 남겨 주세요', row: '파트너 후기 남기기', btn: '후기 남기기' },
+  };
+  const ORDER: Kind[] = ['answer', 'after', 'reselect', 'review'];
+  // 같은 할 일은 오래 기다린 것부터
+  const byKind = (k: Kind) => myView.filter((v) => (k === 'review' ? v.review && !v.kind : v.kind === k)).map((v) => v.item)
+    .sort((x, y) => new Date(x.created_at).getTime() - new Date(y.created_at).getTime());
+  const tasks = ORDER.map((k) => ({ k, items: byKind(k) })).filter((t) => t.items.length > 0);
+  const firstTask = tasks[0];
+  const firstItem = firstTask?.items[0];
+  const upcomingList = myView.filter((v) => v.upcoming).map((v) => v.item)
+    .sort((a, b) => new Date(a.meeting_scheduled_at).getTime() - new Date(b.meeting_scheduled_at).getTime());
+  const waitingList = myView.filter((v) => v.waiting && !(v.review)).map((v) => v.item);
+  const pastList = myView.filter((v) => v.ended).map((v) => v.item);
+  const partnerOf = (item: any) => partnerNames[item.isHopeful1 ? item.connector_1_id : item.connector_2_id];
+  const isNew = receivedMatches.length === 0;
+  const openTask = (k: Kind, item: any) => {
+    if (k === 'answer') return setMatchSheet({ title: '새 소개', ids: [item.id], profileOf: item.id });
+    if (k === 'reselect') return setDatesTarget({ matchId: item.id, mode: 'reselect' });
+    setMatchSheet({ title: k === 'review' ? '소개 결과' : KIND[k].row, ids: [item.id] });
+  };
+  const openRow = (k: Kind, items: any[]) =>
+    items.length === 1 ? openTask(k, items[0]) : setMatchSheet({ title: `${KIND[k].row} ${items.length}건`, ids: items.map((m) => m.id) });
+
+  // 할 일이 없을 때: 처음 온 회원은 시작 순서대로 안내
+  const idle = !firstTask
+    ? isNew && profileGaps.length > 0
+      ? { title: '프로필을 채워 주세요', sub: '사진과 자기소개가 있으면\n파트너가 소개하기 훨씬 쉬워요.', btn: '프로필 채우기', go: () => router.push({ pathname: '/profile', params: { open: 'profile' } }) }
+      : myPartners.requested === 0
+        ? { title: '파트너를 찾아보세요', sub: '파트너에게 가입 신청하면\n맞는 분을 소개받을 수 있어요.', btn: '파트너 찾아보기', go: () => router.push('/connectors') }
+        : myPartners.approved === 0
+          ? { title: '파트너 승인을 기다리고 있어요', sub: '승인되면 알림으로 알려드릴게요.' }
+          : remainingSessions === 0
+            ? { title: '이용권을 준비해 주세요', sub: '이용권이 있어야 파트너가\n소개를 시작할 수 있어요.', btn: '이용권 구매하기', go: () => router.push('/connectors') }
+            : { title: '지금은 할 일이 없어요', sub: '파트너가 맞는 분을 찾고 있어요.\n새 소개가 오면 알림으로 알려드릴게요.' }
+    : null;
+  const steps = [
+    { label: '프로필 채우기', done: profileGaps.length === 0 },
+    { label: '파트너에게 가입 신청', done: myPartners.requested > 0 },
+    { label: '이용권 준비하고 소개받기', done: (remainingSessions || 0) > 0 },
+  ];
+  const sheetItems = matchSheet ? receivedMatches.filter((m) => matchSheet.ids.includes(m.id)) : [];
+  const sheetProfile = matchSheet?.profileOf ? receivedMatches.find((m) => m.id === matchSheet.profileOf) : null;
+
+  const renderMatchCard = (item: any) => {
+      const myApproved = item.isHopeful1 ? item.hopeful_1_approved : item.hopeful_2_approved;
+      const myAfterCare = item.isHopeful1 ? item.after_care_hopeful_1 : item.after_care_hopeful_2;
+      const noDateOverlap = !item.meeting_scheduled_at && item.available_dates_1?.length > 0 && item.available_dates_2?.length > 0 &&
+        !earliestCommonDate(item.available_dates_1, item.available_dates_2);
+      const bothApproved = item.hopeful_1_approved && item.hopeful_2_approved;
+
+      return (
+        <View style={styles.requestCard}>
+          <View style={styles.requestHeader}>
+            <Text style={styles.requestTitle}>
+              {item.closed_reason
+                ? '매칭 종료'
+                : item.settlement_completed
+                  ? '✓ 소개팅 완료'
+                  : item.meeting_status === 'completed'
+                    ? '💬 소개팅 어떠셨나요?'
+                    : item.meeting_scheduled_at
+                      ? '📅 소개팅 예정'
+                      : '🤝 매칭 제안'}
+            </Text>
+            <Text style={styles.requestDate}>
+              {new Date(item.created_at).toLocaleDateString('ko-KR')}
+            </Text>
           </View>
-          <NotificationBell />
+
+          {item.partner && (
+            <TouchableOpacity style={styles.partnerInfo} onPress={() => setMatchSheet((cur) => (cur ? { ...cur, profileOf: item.id } : cur))}>
+              <Avatar photoUrls={item.partner.photo_urls} size={48} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.partnerName}>{item.partner.name}</Text>
+                <Text style={styles.partnerDetail}>
+                  {[item.partner.age && `${item.partner.age}세`, item.partner.location].filter(Boolean).join(' · ')}
+                </Text>
+              </View>
+              <Text style={styles.partnerProfileLink}>프로필 보기 ›</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Timeline */}
+          <View style={styles.timeline}>
+            {/* 1단계: 매칭 */}
+            <View style={styles.timelineStep}>
+              <View style={[styles.timelineCircle, styles.timelineComplete]}>
+                <Text style={styles.timelineIcon}>✓</Text>
+              </View>
+              <Text style={styles.timelineLabel}>제안</Text>
+            </View>
+
+            <View style={styles.timelineLine} />
+
+            {/* 2단계: 참여 의사 */}
+            <View style={styles.timelineStep}>
+              <View
+                style={[
+                  styles.timelineCircle,
+                  myApproved ? styles.timelineComplete : styles.timelinePending,
+                ]}
+              >
+                <Text style={styles.timelineIcon}>{myApproved ? '✓' : '•'}</Text>
+              </View>
+              <Text style={styles.timelineLabel}>참여</Text>
+            </View>
+
+            <View style={styles.timelineLine} />
+
+            {/* 3단계: 애프터의사 */}
+            <View style={styles.timelineStep}>
+              <View
+                style={[
+                  styles.timelineCircle,
+                  !bothApproved
+                    ? styles.timelineDisabled
+                    : myAfterCare
+                      ? styles.timelineComplete
+                      : styles.timelinePending,
+                ]}
+              >
+                <Text style={styles.timelineIcon}>
+                  {!bothApproved ? '-' : myAfterCare ? '✓' : '•'}
+                </Text>
+              </View>
+              <Text style={styles.timelineLabel}>애프터</Text>
+            </View>
+
+            <View style={styles.timelineLine} />
+
+            {/* 4단계: 종료 */}
+            <View style={styles.timelineStep}>
+              <View
+                style={[
+                  styles.timelineCircle,
+                  !bothApproved
+                    ? styles.timelineDisabled
+                    : item.settlement_completed
+                      ? styles.timelineComplete
+                      : styles.timelinePending,
+                ]}
+              >
+                <Text style={styles.timelineIcon}>
+                  {!bothApproved ? '-' : item.settlement_completed ? '✓' : '•'}
+                </Text>
+              </View>
+              <Text style={styles.timelineLabel}>종료</Text>
+            </View>
+          </View>
+
+          {/* 2단계: 참여 의사 버튼 */}
+          {!myApproved && (
+            <View style={styles.requestActions}>
+              <TouchableOpacity
+                style={[styles.approveBtn, processingId === item.id && styles.buttonDisabled]}
+                onPress={() => { setMatchSheet(null); setDatesTarget({ matchId: item.id, mode: 'approve' }); }}
+                disabled={processingId !== null}
+              >
+                <Text style={styles.approveBtnText}>
+                  {processingId === item.id ? '처리 중...' : '승인'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.rejectBtn, processingId === item.id && styles.buttonDisabled]}
+                onPress={async () => {
+                  if (await confirm({ title: '매칭을 거절할까요?', message: '거절하면 되돌릴 수 없습니다.', confirmText: '거절', destructive: true })) handleRejectMatch(item.id);
+                }}
+                disabled={processingId !== null}
+              >
+                <Text style={styles.rejectBtnText}>
+                  {processingId === item.id ? '처리 중...' : '거절'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* 참여 의사 대기 */}
+          {myApproved && !bothApproved && (
+            <View style={styles.waitingMessage}>
+              <Text style={styles.waitingText}>✓ 승인했습니다. 상대방의 승인을 기다리는 중입니다.</Text>
+            </View>
+          )}
+
+          {/* 날짜가 겹치지 않음: 다시 고르기 */}
+          {bothApproved && noDateOverlap && (
+            <View style={styles.afterCareSection}>
+              <Text style={styles.afterCareLabel}>상대와 가능한 날짜가 겹치지 않아요</Text>
+              <TouchableOpacity
+                style={[styles.findPartnerBtn, { marginTop: 10, alignSelf: 'stretch', alignItems: 'center' }, processingId === item.id && styles.buttonDisabled]}
+                onPress={() => { setMatchSheet(null); setDatesTarget({ matchId: item.id, mode: 'reselect' }); }}
+                disabled={processingId !== null}
+              >
+                <Text style={styles.findPartnerBtnText}>날짜 다시 고르기</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* 3단계: 소개팅 진행 대기 */}
+          {bothApproved && !noDateOverlap && item.meeting_status !== 'completed' && !item.after_care_hopeful_1 && !item.after_care_hopeful_2 && (
+            item.meeting_scheduled_at ? (
+              // 연락처는 화면에 보여주지 않고 담당 파트너와의 채팅으로만 전달된다
+              <View style={styles.meetingBox}>
+                <Text style={styles.meetingDate}>📅 {formatMeetingDate(item.meeting_scheduled_at)} 소개팅</Text>
+                <Text style={styles.meetingHint}>상대 연락처를 채팅으로 보내드렸어요. 시간과 장소는 서로 연락해 정해주세요.</Text>
+                <TouchableOpacity
+                  style={styles.openChatBtn}
+                  // 연락처가 온 담당 파트너와의 대화방을 바로 연다
+                  onPress={() => { setMatchSheet(null); router.push({ pathname: '/chat', params: { with: item.isHopeful1 ? item.connector_1_id : item.connector_2_id } }); }}
+                >
+                  <Text style={styles.openChatBtnText}>채팅 확인하기</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.waitingMessage}>
+                <Text style={styles.waitingText}>
+                  🎯 파트너가 소개팅 날짜를 정하는 중입니다
+                </Text>
+              </View>
+            )
+          )}
+
+          {/* 3단계: 애프터의사 버튼 (소개팅 완료 후, 본인이 아직 선택 안 함) */}
+          {item.meeting_status === 'completed' && !item.settlement_completed &&
+          ((item.isHopeful1 && !item.after_care_hopeful_1) ||
+            (!item.isHopeful1 && !item.after_care_hopeful_2)) && (
+            <View style={styles.afterCareSection}>
+              <Text style={styles.afterCareLabel}>소개팅은 어떠셨나요? 두 분 모두 고른 뒤에 결과를 알려드려요</Text>
+              {!!item.meeting_completed_at && (
+                <Text style={styles.afterCareDeadline}>
+                  {formatDeadline(afterCareDeadline(item.meeting_completed_at))}까지 고르지 않으면 '이번이 마지막이에요'로 처리돼요
+                </Text>
+              )}
+              <View style={styles.afterCareButtons}>
+                <TouchableOpacity
+                  style={[styles.afterCareBtn, styles.afterCarePrimary, processingId === item.id && styles.buttonDisabled]}
+                  onPress={() => handleSubmitAfterCare(item.id, '신청')}
+                  disabled={processingId !== null}
+                >
+                  <Text style={styles.afterCareBtnText}>
+                    {processingId === item.id ? '처리 중...' : '또 만나고 싶어요'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.afterCareBtn, processingId === item.id && styles.buttonDisabled]}
+                  onPress={() => handleSubmitAfterCare(item.id, '미신청')}
+                  disabled={processingId !== null}
+                >
+                  <Text style={styles.afterCareBtnText}>
+                    {processingId === item.id ? '처리 중...' : '이번이 마지막이에요'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.afterCareBtn, styles.afterCareDanger, processingId === item.id && styles.buttonDisabled]}
+                  onPress={async () => {
+                    if (await confirm({ title: '노쇼로 신고할까요?', message: '상대가 약속 장소에 나오지 않은 경우에만 신고해주세요. 신고 후에는 취소할 수 없습니다.', confirmText: '신고', destructive: true })) handleSubmitAfterCare(item.id, '노쇼신고');
+                  }}
+                  disabled={processingId !== null}
+                >
+                  <Text style={styles.afterCareBtnText}>
+                    {processingId === item.id ? '처리 중...' : '상대가 안 나왔어요'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* 애프터의사 완료 메시지 (본인이 이미 선택했을 때) */}
+          {item.meeting_status === 'completed' &&
+          (item.settlement_completed || (item.isHopeful1 && item.after_care_hopeful_1) || (!item.isHopeful1 && item.after_care_hopeful_2)) && (
+            <View style={styles.waitingMessage}>
+              <Text style={styles.waitingText}>
+                {item.settlement_completed
+                  ? item.closed_reason === 'no_show'
+                    ? (item.isHopeful1 ? item.after_care_hopeful_1 : item.after_care_hopeful_2) === '노쇼신고'
+                      ? '노쇼 신고가 접수되어 매칭이 종료되었어요. 이용권은 차감되지 않았어요.'
+                      : '매칭이 종료되었어요. 이용권은 차감되지 않았어요.'
+                    : item.after_care_hopeful_1 === '신청' && item.after_care_hopeful_2 === '신청'
+                      ? '💞 상대도 다시 만나고 싶어해요! 채팅에서 받은 연락처로 다시 연락해보세요.'
+                      : '이번 만남은 여기서 마무리되었어요. 좋은 인연을 계속 응원할게요.'
+                  : item.after_care_hopeful_1 && item.after_care_hopeful_2
+                    ? '두 분 모두 골랐어요. 결과를 정리하고 있으니 잠시 후 다시 확인해주세요.'
+                    : `✓ 의사를 전달했어요. 상대방도 고르면 결과를 알려드릴게요.${item.meeting_completed_at ? ` (늦어도 ${formatDeadline(afterCareDeadline(item.meeting_completed_at))})` : ''}`}
+              </Text>
+            </View>
+          )}
+
+          {/* 파트너 후기: 내 애프터 의사를 낸 뒤 한 번 남길 수 있다 */}
+          {item.meeting_status === 'completed' && !!myAfterCare && (
+            reviewedMatchIds.includes(item.id) ? (
+              <Text style={styles.reviewDoneText}>✓ 파트너 후기를 남겼어요</Text>
+            ) : (
+              <TouchableOpacity
+                style={styles.reviewBtn}
+                onPress={() => { setMatchSheet(null); setReviewTarget({ matchId: item.id, connectorId: item.isHopeful1 ? item.connector_1_id : item.connector_2_id }); }}
+              >
+                <Text style={styles.reviewBtnText}>파트너 후기 남기기</Text>
+              </TouchableOpacity>
+            )
+          )}
         </View>
+      );
+  };
+
+  return (
+    <ScrollView style={styles.aPage} refreshControl={pullRefresh}>
+      <View style={styles.aTop}>
+        <Text style={styles.aHi}>{user?.name}님, {isNew && profileGaps.length > 0 ? '반가워요 👋' : '안녕하세요'}</Text>
+        <NotificationBell />
       </View>
 
+      {/* 지금 할 일: 보라 카드 (강조는 여기 하나) */}
+      <View style={styles.aHero}>
+        {isNew && idle?.btn && profileGaps.length > 0 && <Text style={styles.mBadge}>시작하기</Text>}
+        <Text style={styles.aHeroK}>지금 할 일</Text>
+        {firstTask ? (
+          <>
+            <Text style={styles.mHeroT}>{KIND[firstTask.k].title}</Text>
+            {firstTask.k === 'answer' && firstItem.partner ? (
+              <View style={styles.aHeroTask}>
+                <Avatar photoUrls={firstItem.partner.photo_urls} size={52} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.aHeroTaskT} numberOfLines={1}>
+                    {firstItem.partner.name}님{firstItem.partner.age ? ` · ${firstItem.partner.age}세` : ''}
+                  </Text>
+                  <Text style={styles.aHeroTaskS} numberOfLines={1}>
+                    {[firstItem.partner.job, firstItem.partner.location, partnerOf(firstItem) && `${partnerOf(firstItem)} 추천`].filter(Boolean).join(' · ')}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.mHeroSub} numberOfLines={2}>
+                {firstItem.partner?.name ? `${firstItem.partner.name}님과의 소개` : ''}{firstTask.items.length > 1 ? ` 외 ${firstTask.items.length - 1}건` : ''}
+              </Text>
+            )}
+            <TouchableOpacity
+              style={[styles.aHeroBtnWide, { marginTop: 14 }]}
+              onPress={() => openTask(firstTask.k, firstItem)}
+              accessibilityLabel={KIND[firstTask.k].btn}
+            >
+              <Text style={styles.mHeroBtnT}>{KIND[firstTask.k].btn}</Text>
+            </TouchableOpacity>
+          </>
+        ) : idle && (
+          <>
+            <Text style={styles.mHeroT}>{idle.title}</Text>
+            <Text style={styles.mHeroSub}>{idle.sub}</Text>
+            {idle.btn && (
+              <TouchableOpacity style={[styles.aHeroBtnWide, { marginTop: 16 }]} onPress={idle.go} accessibilityLabel={idle.btn}>
+                <Text style={styles.mHeroBtnT}>{idle.btn}</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+      </View>
+
+      {/* 나머지 할 일: 한 줄씩 (첫 할 일의 남은 건도 포함) */}
+      {firstTask && (tasks.length > 1 || firstTask.items.length > 1) && (
+        <View style={styles.aList}>
+          {tasks.map((t, i) => {
+            const rest = i === 0 ? t.items.slice(1) : t.items;
+            if (rest.length === 0) return null;
+            return (
+              <TouchableOpacity key={t.k} style={styles.aRow} onPress={() => openRow(t.k, rest)} accessibilityLabel={`${KIND[t.k].row} ${rest.length}건`}>
+                <Text style={styles.aRowT}>{KIND[t.k].row}</Text>
+                <Text style={styles.aRowC}>{rest.length} <Text style={styles.aChev}>›</Text></Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      {/* 처음 온 회원: 시작 순서 */}
+      {isNew && (
+        <View style={styles.mSteps}>
+          {steps.map((st, i) => (
+            <View key={st.label} style={styles.mStep}>
+              <View style={[styles.mStepNum, st.done && styles.mStepNumDone]}>
+                <Text style={[styles.mStepNumT, st.done && styles.mStepDoneT]}>{st.done ? '✓' : i + 1}</Text>
+              </View>
+              <Text style={[styles.mStepT, st.done && styles.mStepDoneT]}>{st.label}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* 남은 이용권 (2단계 안에 확인) */}
       <TouchableOpacity
-        style={styles.creditRow}
+        style={styles.mCredit}
         onPress={() => router.push({ pathname: '/profile', params: { open: 'credits' } })}
+        accessibilityLabel={`남은 이용권 ${remainingSessions ?? 0}회`}
       >
-        <Text style={styles.creditLabel}>남은 이용권</Text>
-        <Text style={styles.creditValue}>
-          {remainingSessions === null ? '-' : `${remainingSessions}회`} ›
+        <Text style={styles.mCreditL}>남은 이용권</Text>
+        <Text style={styles.mCreditV}>
+          {remainingSessions === null ? '-' : `${remainingSessions}회`}
+          {freeSessions > 0 && <Text style={styles.mCreditS}>  무료 {freeSessions}회 포함</Text>} ›
         </Text>
       </TouchableOpacity>
 
-      {profileGaps.length > 0 && (
-        <TouchableOpacity style={styles.profileNudge} onPress={() => router.push({ pathname: '/profile', params: { open: 'profile' } })}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.profileNudgeTitle}>프로필을 채우면 소개받기 쉬워요</Text>
-            <Text style={styles.profileNudgeSub}>아직 비어 있어요: {profileGaps.join(' · ')}</Text>
-          </View>
-          <Text style={styles.profileNudgeLink}>채우기 ›</Text>
+      {/* 프로필이 비어 있으면 (보라 카드에서 안내하지 않을 때만) 한 줄로 */}
+      {!isNew && profileGaps.length > 0 && (
+        <TouchableOpacity style={styles.aWait} onPress={() => router.push({ pathname: '/profile', params: { open: 'profile' } })} accessibilityLabel="프로필 채우기">
+          <Text style={styles.aWaitT}>프로필을 채우면 소개받기 쉬워요 · {profileGaps.join(' · ')}</Text>
+          <Text style={styles.aChev}>›</Text>
         </TouchableOpacity>
       )}
 
-      {receivedMatches.length === 0 ? (
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderText}>받은 매칭이 없습니다</Text>
-          <Text style={styles.placeholderHint}>파트너에게 연락하면 맞는 분을 소개받을 수 있어요</Text>
-          <TouchableOpacity style={styles.findPartnerBtn} onPress={() => router.push('/connectors')}>
-            <Text style={styles.findPartnerBtnText}>파트너 찾아보기</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={styles.section}>
-          <FlatList
-            data={receivedMatches}
-            scrollEnabled={false}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => {
-              const myApproved = item.isHopeful1 ? item.hopeful_1_approved : item.hopeful_2_approved;
-              const myAfterCare = item.isHopeful1 ? item.after_care_hopeful_1 : item.after_care_hopeful_2;
-              const noDateOverlap = !item.meeting_scheduled_at && item.available_dates_1?.length > 0 && item.available_dates_2?.length > 0 &&
-                !earliestCommonDate(item.available_dates_1, item.available_dates_2);
-              const bothApproved = item.hopeful_1_approved && item.hopeful_2_approved;
-
-              return (
-                <View style={styles.requestCard}>
-                  <View style={styles.requestHeader}>
-                    <Text style={styles.requestTitle}>
-                      {item.closed_reason
-                        ? '매칭 종료'
-                        : item.settlement_completed
-                          ? '✓ 소개팅 완료'
-                          : item.meeting_status === 'completed'
-                            ? '💬 소개팅 어떠셨나요?'
-                            : item.meeting_scheduled_at
-                              ? '📅 소개팅 예정'
-                              : '🤝 매칭 제안'}
-                    </Text>
-                    <Text style={styles.requestDate}>
-                      {new Date(item.created_at).toLocaleDateString('ko-KR')}
-                    </Text>
-                  </View>
-
-                  {item.partner && (
-                    <TouchableOpacity style={styles.partnerInfo} onPress={() => setProfilePartner(item.partner)}>
-                      <Avatar photoUrls={item.partner.photo_urls} size={48} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.partnerName}>{item.partner.name}</Text>
-                        <Text style={styles.partnerDetail}>
-                          {[item.partner.age && `${item.partner.age}세`, item.partner.location].filter(Boolean).join(' · ')}
-                        </Text>
-                      </View>
-                      <Text style={styles.partnerProfileLink}>프로필 보기 ›</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {/* Timeline */}
-                  <View style={styles.timeline}>
-                    {/* 1단계: 매칭 */}
-                    <View style={styles.timelineStep}>
-                      <View style={[styles.timelineCircle, styles.timelineComplete]}>
-                        <Text style={styles.timelineIcon}>✓</Text>
-                      </View>
-                      <Text style={styles.timelineLabel}>제안</Text>
-                    </View>
-
-                    <View style={styles.timelineLine} />
-
-                    {/* 2단계: 참여 의사 */}
-                    <View style={styles.timelineStep}>
-                      <View
-                        style={[
-                          styles.timelineCircle,
-                          myApproved ? styles.timelineComplete : styles.timelinePending,
-                        ]}
-                      >
-                        <Text style={styles.timelineIcon}>{myApproved ? '✓' : '•'}</Text>
-                      </View>
-                      <Text style={styles.timelineLabel}>참여</Text>
-                    </View>
-
-                    <View style={styles.timelineLine} />
-
-                    {/* 3단계: 애프터의사 */}
-                    <View style={styles.timelineStep}>
-                      <View
-                        style={[
-                          styles.timelineCircle,
-                          !bothApproved
-                            ? styles.timelineDisabled
-                            : myAfterCare
-                              ? styles.timelineComplete
-                              : styles.timelinePending,
-                        ]}
-                      >
-                        <Text style={styles.timelineIcon}>
-                          {!bothApproved ? '-' : myAfterCare ? '✓' : '•'}
-                        </Text>
-                      </View>
-                      <Text style={styles.timelineLabel}>애프터</Text>
-                    </View>
-
-                    <View style={styles.timelineLine} />
-
-                    {/* 4단계: 종료 */}
-                    <View style={styles.timelineStep}>
-                      <View
-                        style={[
-                          styles.timelineCircle,
-                          !bothApproved
-                            ? styles.timelineDisabled
-                            : item.settlement_completed
-                              ? styles.timelineComplete
-                              : styles.timelinePending,
-                        ]}
-                      >
-                        <Text style={styles.timelineIcon}>
-                          {!bothApproved ? '-' : item.settlement_completed ? '✓' : '•'}
-                        </Text>
-                      </View>
-                      <Text style={styles.timelineLabel}>종료</Text>
-                    </View>
-                  </View>
-
-                  {/* 2단계: 참여 의사 버튼 */}
-                  {!myApproved && (
-                    <View style={styles.requestActions}>
-                      <TouchableOpacity
-                        style={[styles.approveBtn, processingId === item.id && styles.buttonDisabled]}
-                        onPress={() => setDatesTarget({ matchId: item.id, mode: 'approve' })}
-                        disabled={processingId !== null}
-                      >
-                        <Text style={styles.approveBtnText}>
-                          {processingId === item.id ? '처리 중...' : '승인'}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.rejectBtn, processingId === item.id && styles.buttonDisabled]}
-                        onPress={async () => {
-                          if (await confirm({ title: '매칭을 거절할까요?', message: '거절하면 되돌릴 수 없습니다.', confirmText: '거절', destructive: true })) handleRejectMatch(item.id);
-                        }}
-                        disabled={processingId !== null}
-                      >
-                        <Text style={styles.rejectBtnText}>
-                          {processingId === item.id ? '처리 중...' : '거절'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                  {/* 참여 의사 대기 */}
-                  {myApproved && !bothApproved && (
-                    <View style={styles.waitingMessage}>
-                      <Text style={styles.waitingText}>✓ 승인했습니다. 상대방의 승인을 기다리는 중입니다.</Text>
-                    </View>
-                  )}
-
-                  {/* 날짜가 겹치지 않음: 다시 고르기 */}
-                  {bothApproved && noDateOverlap && (
-                    <View style={styles.afterCareSection}>
-                      <Text style={styles.afterCareLabel}>상대와 가능한 날짜가 겹치지 않아요</Text>
-                      <TouchableOpacity
-                        style={[styles.findPartnerBtn, { marginTop: 10, alignSelf: 'stretch', alignItems: 'center' }, processingId === item.id && styles.buttonDisabled]}
-                        onPress={() => setDatesTarget({ matchId: item.id, mode: 'reselect' })}
-                        disabled={processingId !== null}
-                      >
-                        <Text style={styles.findPartnerBtnText}>날짜 다시 고르기</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                  {/* 3단계: 소개팅 진행 대기 */}
-                  {bothApproved && !noDateOverlap && item.meeting_status !== 'completed' && !item.after_care_hopeful_1 && !item.after_care_hopeful_2 && (
-                    item.meeting_scheduled_at ? (
-                      // 연락처는 화면에 보여주지 않고 담당 파트너와의 채팅으로만 전달된다
-                      <View style={styles.meetingBox}>
-                        <Text style={styles.meetingDate}>📅 {formatMeetingDate(item.meeting_scheduled_at)} 소개팅</Text>
-                        <Text style={styles.meetingHint}>상대 연락처를 채팅으로 보내드렸어요. 시간과 장소는 서로 연락해 정해주세요.</Text>
-                        <TouchableOpacity
-                          style={styles.openChatBtn}
-                          // 연락처가 온 담당 파트너와의 대화방을 바로 연다
-                          onPress={() => router.push({ pathname: '/chat', params: { with: item.isHopeful1 ? item.connector_1_id : item.connector_2_id } })}
-                        >
-                          <Text style={styles.openChatBtnText}>채팅 확인하기</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <View style={styles.waitingMessage}>
-                        <Text style={styles.waitingText}>
-                          🎯 파트너가 소개팅 날짜를 정하는 중입니다
-                        </Text>
-                      </View>
-                    )
-                  )}
-
-                  {/* 3단계: 애프터의사 버튼 (소개팅 완료 후, 본인이 아직 선택 안 함) */}
-                  {item.meeting_status === 'completed' && !item.settlement_completed &&
-                  ((item.isHopeful1 && !item.after_care_hopeful_1) ||
-                    (!item.isHopeful1 && !item.after_care_hopeful_2)) && (
-                    <View style={styles.afterCareSection}>
-                      <Text style={styles.afterCareLabel}>소개팅은 어떠셨나요? 두 분 모두 고른 뒤에 결과를 알려드려요</Text>
-                      {!!item.meeting_completed_at && (
-                        <Text style={styles.afterCareDeadline}>
-                          {formatDeadline(afterCareDeadline(item.meeting_completed_at))}까지 고르지 않으면 '이번이 마지막이에요'로 처리돼요
-                        </Text>
-                      )}
-                      <View style={styles.afterCareButtons}>
-                        <TouchableOpacity
-                          style={[styles.afterCareBtn, styles.afterCarePrimary, processingId === item.id && styles.buttonDisabled]}
-                          onPress={() => handleSubmitAfterCare(item.id, '신청')}
-                          disabled={processingId !== null}
-                        >
-                          <Text style={styles.afterCareBtnText}>
-                            {processingId === item.id ? '처리 중...' : '또 만나고 싶어요'}
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.afterCareBtn, processingId === item.id && styles.buttonDisabled]}
-                          onPress={() => handleSubmitAfterCare(item.id, '미신청')}
-                          disabled={processingId !== null}
-                        >
-                          <Text style={styles.afterCareBtnText}>
-                            {processingId === item.id ? '처리 중...' : '이번이 마지막이에요'}
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.afterCareBtn, styles.afterCareDanger, processingId === item.id && styles.buttonDisabled]}
-                          onPress={async () => {
-                            if (await confirm({ title: '노쇼로 신고할까요?', message: '상대가 약속 장소에 나오지 않은 경우에만 신고해주세요. 신고 후에는 취소할 수 없습니다.', confirmText: '신고', destructive: true })) handleSubmitAfterCare(item.id, '노쇼신고');
-                          }}
-                          disabled={processingId !== null}
-                        >
-                          <Text style={styles.afterCareBtnText}>
-                            {processingId === item.id ? '처리 중...' : '상대가 안 나왔어요'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-
-                  {/* 애프터의사 완료 메시지 (본인이 이미 선택했을 때) */}
-                  {item.meeting_status === 'completed' &&
-                  (item.settlement_completed || (item.isHopeful1 && item.after_care_hopeful_1) || (!item.isHopeful1 && item.after_care_hopeful_2)) && (
-                    <View style={styles.waitingMessage}>
-                      <Text style={styles.waitingText}>
-                        {item.settlement_completed
-                          ? item.closed_reason === 'no_show'
-                            ? (item.isHopeful1 ? item.after_care_hopeful_1 : item.after_care_hopeful_2) === '노쇼신고'
-                              ? '노쇼 신고가 접수되어 매칭이 종료되었어요. 이용권은 차감되지 않았어요.'
-                              : '매칭이 종료되었어요. 이용권은 차감되지 않았어요.'
-                            : item.after_care_hopeful_1 === '신청' && item.after_care_hopeful_2 === '신청'
-                              ? '💞 상대도 다시 만나고 싶어해요! 채팅에서 받은 연락처로 다시 연락해보세요.'
-                              : '이번 만남은 여기서 마무리되었어요. 좋은 인연을 계속 응원할게요.'
-                          : item.after_care_hopeful_1 && item.after_care_hopeful_2
-                            ? '두 분 모두 골랐어요. 결과를 정리하고 있으니 잠시 후 다시 확인해주세요.'
-                            : `✓ 의사를 전달했어요. 상대방도 고르면 결과를 알려드릴게요.${item.meeting_completed_at ? ` (늦어도 ${formatDeadline(afterCareDeadline(item.meeting_completed_at))})` : ''}`}
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* 파트너 후기: 내 애프터 의사를 낸 뒤 한 번 남길 수 있다 */}
-                  {item.meeting_status === 'completed' && !!myAfterCare && (
-                    reviewedMatchIds.includes(item.id) ? (
-                      <Text style={styles.reviewDoneText}>✓ 파트너 후기를 남겼어요</Text>
-                    ) : (
-                      <TouchableOpacity
-                        style={styles.reviewBtn}
-                        onPress={() => setReviewTarget({ matchId: item.id, connectorId: item.isHopeful1 ? item.connector_1_id : item.connector_2_id })}
-                      >
-                        <Text style={styles.reviewBtnText}>파트너 후기 남기기</Text>
-                      </TouchableOpacity>
-                    )
-                  )}
+      {/* 다가오는 소개팅 */}
+      {upcomingList.length > 0 && (
+        <>
+          <Text style={styles.aH3}>다가오는 소개팅</Text>
+          {upcomingList.slice(0, 2).map((m) => {
+            const d = new Date(m.meeting_scheduled_at);
+            return (
+              <TouchableOpacity key={m.id} style={styles.aMeet} onPress={() => setMatchSheet({ title: '소개팅 예정', ids: [m.id] })} accessibilityLabel={`${m.partner?.name ?? '상대'}님 소개팅 보기`}>
+                <View style={styles.aDate}>
+                  <Text style={styles.aDateD}>{d.getDate()}</Text>
+                  <Text style={styles.aDateW}>{WEEK[d.getDay()]}</Text>
                 </View>
-              );
-            }}
-          />
-        </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.aWho}>{m.partner?.name ?? '상대'}님</Text>
+                  <Text style={styles.aWhen}>{meetTime(m.meeting_scheduled_at)} · 연락처는 채팅에</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+          {upcomingList.length > 2 && (
+            <TouchableOpacity style={styles.aMeetMore} onPress={() => setMatchSheet({ title: `다가오는 소개팅 ${upcomingList.length}건`, ids: upcomingList.map((m) => m.id) })}>
+              <Text style={styles.aWaitT}>+ {upcomingList.length - 2}건 더 보기</Text>
+            </TouchableOpacity>
+          )}
+        </>
       )}
+
+      {/* 답을 기다리는 소개 · 지난 소개 (회색 한 줄) */}
+      {waitingList.length > 0 && (
+        <TouchableOpacity style={styles.aWait} onPress={() => setMatchSheet({ title: `답을 기다리는 소개 ${waitingList.length}건`, ids: waitingList.map((m) => m.id) })} accessibilityLabel={`답을 기다리는 소개 ${waitingList.length}건 보기`}>
+          <Text style={styles.aWaitT}>답을 기다리는 소개 {waitingList.length}건</Text>
+          <Text style={styles.aChev}>›</Text>
+        </TouchableOpacity>
+      )}
+      {pastList.length > 0 && (
+        <TouchableOpacity style={styles.aWait} onPress={() => setMatchSheet({ title: `지난 소개 ${pastList.length}건`, ids: pastList.map((m) => m.id) })} accessibilityLabel={`지난 소개 ${pastList.length}건 보기`}>
+          <Text style={styles.aWaitT}>지난 소개 {pastList.length}건</Text>
+          <Text style={styles.aChev}>›</Text>
+        </TouchableOpacity>
+      )}
+      <View style={{ height: 32 }} />
 
       <ReviewSheet
         visible={reviewTarget !== null}
@@ -974,12 +1157,42 @@ export default function HomeScreen() {
         }}
       />
 
-      <BottomSheet visible={profilePartner !== null} onClose={() => setProfilePartner(null)} title="소개팅 상대">
-        {profilePartner && (
+      {/* 소개 카드 / 상대 프로필 시트 */}
+      <BottomSheet visible={matchSheet !== null} onClose={() => setMatchSheet(null)} title={sheetProfile ? '소개팅 상대' : matchSheet?.title}>
+        {sheetProfile ? (
           <>
-            <MemberProfileView member={profilePartner} />
-            <SafetyActions targetId={profilePartner.id} targetName={profilePartner.name} context="match" />
+            {matchSheet && matchSheet.ids.length > 0 && !(matchSheet.ids.length === 1 && matchSheet.profileOf && sheetItems[0] && !(sheetItems[0].isHopeful1 ? sheetItems[0].hopeful_1_approved : sheetItems[0].hopeful_2_approved)) && (
+              <TouchableOpacity onPress={() => setMatchSheet({ ...matchSheet, profileOf: undefined })} style={styles.mBack} accessibilityLabel="소개 카드로 돌아가기">
+                <Text style={styles.mBackT}>‹ 소개 카드로</Text>
+              </TouchableOpacity>
+            )}
+            {sheetProfile.partner && <MemberProfileView member={sheetProfile.partner} />}
+            {/* 아직 답하지 않은 소개: 프로필을 보고 바로 답한다 */}
+            {!(sheetProfile.isHopeful1 ? sheetProfile.hopeful_1_approved : sheetProfile.hopeful_2_approved) && (
+              <View style={[styles.requestActions, { marginTop: 16 }]}>
+                <TouchableOpacity
+                  style={[styles.approveBtn, processingId === sheetProfile.id && styles.buttonDisabled]}
+                  onPress={() => { const id = sheetProfile.id; setMatchSheet(null); setDatesTarget({ matchId: id, mode: 'approve' }); }}
+                  disabled={processingId !== null}
+                >
+                  <Text style={styles.approveBtnText}>{processingId === sheetProfile.id ? '처리 중...' : '승인'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.rejectBtn, processingId === sheetProfile.id && styles.buttonDisabled]}
+                  onPress={async () => {
+                    const id = sheetProfile.id;
+                    if (await confirm({ title: '매칭을 거절할까요?', message: '거절하면 되돌릴 수 없습니다.', confirmText: '거절', destructive: true })) { setMatchSheet(null); handleRejectMatch(id); }
+                  }}
+                  disabled={processingId !== null}
+                >
+                  <Text style={styles.rejectBtnText}>{processingId === sheetProfile.id ? '처리 중...' : '거절'}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {sheetProfile.partner && <SafetyActions targetId={sheetProfile.partner.id} targetName={sheetProfile.partner.name} context="match" />}
           </>
+        ) : (
+          sheetItems.map((item) => <View key={item.id}>{renderMatchCard(item)}</View>)
         )}
       </BottomSheet>
     </ScrollView>
@@ -1019,54 +1232,25 @@ const styles = StyleSheet.create({
   aWho: { fontSize: 15, fontWeight: '600', color: '#191919' },
   aWhen: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
   aWait: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginTop: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#F1F1F3' },
-  aWaitT: { fontSize: 14, color: '#8E8E93' },
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  greeting: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 4,
-  },
-  subGreeting: {
-    fontSize: 14,
-    color: '#666',
-  },
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  profileNudge: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#D9CCFF', backgroundColor: '#FBFAFF' },
-  profileNudgeTitle: { fontSize: 14, fontWeight: '700', color: '#333' },
-  profileNudgeSub: { fontSize: 12, color: '#888', marginTop: 3 },
-  profileNudgeLink: { fontSize: 13, fontWeight: '700', color: '#5B21FF' },
-  placeholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  placeholderText: {
-    fontSize: 16,
-    color: '#999',
-  },
-  placeholderHint: {
-    fontSize: 13,
-    color: '#bbb',
-    marginTop: 6,
-  },
+  aWaitT: { fontSize: 14, color: '#8E8E93', flexShrink: 1 },
+  aMeetMore: { marginHorizontal: 22, paddingVertical: 6 },
+  mBadge: { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.22)', color: '#fff', fontSize: 11, fontWeight: '800', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, marginBottom: 8, overflow: 'hidden' },
+  mHeroT: { fontSize: 26, fontWeight: '800', color: '#fff', marginTop: 6, marginBottom: 14, lineHeight: 34 },
+  mHeroSub: { fontSize: 14, color: 'rgba(255,255,255,0.9)', lineHeight: 21 },
+  mHeroBtnT: { color: '#5B21FF', fontSize: 15, fontWeight: '700' },
+  mSteps: { marginHorizontal: 20, marginTop: 14 },
+  mStep: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  mStepNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#F4F1FF', alignItems: 'center', justifyContent: 'center' },
+  mStepNumDone: { backgroundColor: '#EEEEF0' },
+  mStepNumT: { fontSize: 13, fontWeight: '700', color: '#5B21FF' },
+  mStepT: { fontSize: 15, color: '#555' },
+  mStepDoneT: { color: '#B0B0B5' },
+  mCredit: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginTop: 18, paddingVertical: 16, paddingHorizontal: 18, borderRadius: 16, backgroundColor: '#F7F7F9' },
+  mCreditL: { fontSize: 15, color: '#555' },
+  mCreditV: { fontSize: 16, fontWeight: '700', color: '#191919' },
+  mCreditS: { fontSize: 12, fontWeight: '400', color: '#8E8E93' },
+  mBack: { paddingVertical: 6, marginBottom: 6, alignSelf: 'flex-start' },
+  mBackT: { fontSize: 14, color: '#5B21FF', fontWeight: '600' },
   findPartnerBtn: {
     backgroundColor: '#5B21FF',
     borderRadius: 10,
@@ -1078,26 +1262,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '700',
-  },
-  creditRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#F9F9F9',
-    borderRadius: 12,
-  },
-  creditLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  creditValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#333',
   },
   requestCard: {
     backgroundColor: '#F7F4FF',
