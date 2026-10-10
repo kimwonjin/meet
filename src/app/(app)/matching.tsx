@@ -752,25 +752,25 @@ export default function MatchingScreen() {
 
   const createSection = (
     <View style={styles.createSection}>
+      {/* 제목 한 줄 + 오른쪽 '동맹 회원 포함' 칩 (동맹이 있을 때만) */}
       <View style={styles.createHeader}>
-        <Text style={styles.createTitle}>회원 2명을 선택해 매칭을 제안하세요</Text>
+        <Text style={styles.createTitle}>회원 2명을 골라 제안하세요</Text>
+        {allyConnectors.length > 0 && (
+          <TouchableOpacity
+            style={[styles.allyChip, includeAllies && styles.allyChipOn]}
+            onPress={() => {
+              // 끄면 고르던 동맹 회원 선택도 비운다
+              if (includeAllies) setSelectedForMatch((prev) => prev.filter((p) => p.connectorId === user?.id));
+              setIncludeAllies(!includeAllies);
+            }}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: includeAllies }}
+            accessibilityLabel="동맹 회원 포함"
+          >
+            <Text style={[styles.allyChipText, includeAllies && styles.allyChipTextOn]}>{includeAllies ? '✓ ' : '+ '}동맹 회원 포함</Text>
+          </TouchableOpacity>
+        )}
       </View>
-      <TouchableOpacity
-        style={styles.allyToggle}
-        onPress={() => {
-          // 끄면 고르던 동맹 회원 선택도 비운다
-          if (includeAllies) setSelectedForMatch((prev) => prev.filter((p) => p.connectorId === user?.id));
-          setIncludeAllies(!includeAllies);
-        }}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: includeAllies }}
-      >
-        <View style={[styles.memberCheck, includeAllies && styles.memberCheckOn]}>
-          {includeAllies && <Text style={styles.memberCheckMark}>✓</Text>}
-        </View>
-        <Text style={styles.allyToggleText}>동맹 회원 포함</Text>
-        {allyConnectors.length === 0 && <Text style={styles.allyToggleHint}>(마이 › 동맹 관리에서 동맹을 맺을 수 있어요)</Text>}
-      </TouchableOpacity>
 
       {/* 회원 필터: 이름·성별·나이·지역 */}
       {/* 고를 회원이 없으면 검색·필터는 숨긴다 */}
@@ -1242,11 +1242,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f0f0f0',
   },
   createTitle: {
+    flexShrink: 1,
     fontSize: 13,
     fontWeight: '700',
     color: '#333',
-    marginTop: 12,
-    marginBottom: 10,
   },
   emptyCreateText: {
     fontSize: 13,
@@ -1289,25 +1288,17 @@ const styles = StyleSheet.create({
     color: '#5B21FF',
   },
   createHeader: {
-    marginBottom: 4,
-  },
-  allyToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 8,
-    paddingVertical: 8,
-    marginBottom: 4,
+    marginTop: 12,
+    marginBottom: 10,
   },
-  allyToggleText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  allyToggleHint: {
-    fontSize: 12,
-    color: '#999',
-  },
+  allyChip: { borderWidth: 1, borderColor: '#E0E0E6', borderRadius: 16, paddingHorizontal: 12, minHeight: 34, justifyContent: 'center' },
+  allyChipOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
+  allyChipText: { fontSize: 13, color: '#666' },
+  allyChipTextOn: { color: '#5B21FF', fontWeight: '600' },
   groupTitle: {
     fontSize: 13,
     fontWeight: '600',
