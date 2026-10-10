@@ -16,7 +16,7 @@ import BottomSheet from '@/components/BottomSheet';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { formatRegions } from '@/lib/format';
+import { formatRegions, partnerIntro } from '@/lib/format';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { createNotification } from '@/lib/notifications';
 import PartnerComposition from '@/components/PartnerComposition';
@@ -88,7 +88,7 @@ export default function AlliancesScreen() {
   };
   const q = query.trim().toLowerCase();
   const shownConnectors = otherConnectors
-    .filter((c) => !q || [c.name, c.business_name, formatRegions(c.main_region)].some((v) => (v || '').toLowerCase().includes(q)))
+    .filter((c) => !q || [c.name, c.business_name, formatRegions(c.main_region), partnerIntro(c)].some((v) => (v || '').toLowerCase().includes(q)))
     .sort((a, b) => rank(a) - rank(b));
 
   async function handleRequestAlliance(otherId: string) {
@@ -365,8 +365,8 @@ export default function AlliancesScreen() {
                     <Text style={styles.infoValue}>{value || '-'}</Text>
                   </View>
                 ))}
-                {!!selectedAlly?.service_description && (
-                  <Text style={styles.serviceDesc}>{selectedAlly.service_description}</Text>
+                {!!partnerIntro(selectedAlly) && (
+                  <Text style={styles.serviceDesc}>{partnerIntro(selectedAlly)}</Text>
                 )}
               </View>
 

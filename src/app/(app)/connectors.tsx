@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { requestJoin } from '@/lib/join';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { formatRegions } from '@/lib/format';
+import { formatRegions, partnerIntro } from '@/lib/format';
 import { fetchConnectorReviews, fetchReviewSummaries, Review, ReviewSummary } from '@/lib/reviews';
 import ReviewList from '@/components/ReviewList';
 import SafetyActions from '@/components/SafetyActions';
@@ -593,7 +593,7 @@ export default function ConnectorsScreen() {
   // 회원 구성 그래프 (내 회원 / 동맹 포함 공용)
   const query = search.trim();
   const visiblePartners = query
-    ? connectors.filter((c) => [c.business_name, formatRegions(c.main_region), c.service_description].some((v) => v?.includes(query)))
+    ? connectors.filter((c) => [c.business_name, formatRegions(c.main_region), partnerIntro(c)].some((v) => v?.includes(query)))
     : connectors;
 
   return (
@@ -670,10 +670,10 @@ export default function ConnectorsScreen() {
 
                     <View style={styles.modalSection}>
                       <Text style={styles.modalSectionTitle}>파트너 소개</Text>
-                      {selectedConnector.career || selectedConnector.intro ? (
+                      {selectedConnector.career || partnerIntro(selectedConnector) ? (
                         <>
                           {!!selectedConnector.career && <Text style={styles.careerText}>경력 · {selectedConnector.career}</Text>}
-                          {!!selectedConnector.intro && <Text style={styles.bioText}>{selectedConnector.intro}</Text>}
+                          {!!partnerIntro(selectedConnector) && <Text style={styles.bioText}>{partnerIntro(selectedConnector)}</Text>}
                         </>
                       ) : (
                         <Text style={styles.bioText}>아직 소개를 작성하지 않았어요. 궁금한 점은 채팅으로 물어보세요.</Text>
@@ -722,12 +722,6 @@ export default function ConnectorsScreen() {
                       </View>
                     )}
 
-                    {selectedConnector.service_description && (
-                      <View style={styles.modalSection}>
-                        <Text style={styles.modalSectionTitle}>서비스 설명</Text>
-                        <Text style={styles.bioText}>{selectedConnector.service_description}</Text>
-                      </View>
-                    )}
 
                     <View style={styles.modalSection}>
                       <Text style={styles.modalSectionTitle}>후기</Text>

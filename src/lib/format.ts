@@ -16,3 +16,14 @@ export function formatRegions(value?: string | null) {
     return value;
   }
 }
+
+// 파트너 소개: 예전 '서비스 설명' 칸을 '파트너 소개' 하나로 합쳤다.
+// 예전 글이 남아 있으면 소개 뒤에 붙여 보여주고, 이미 소개에 들어 있으면 다시 붙이지 않는다.
+export function partnerIntro(c?: { intro?: string | null; service_description?: string | null } | null) {
+  const intro = (c?.intro || '').trim();
+  const service = (c?.service_description || '').trim();
+  if (!service || intro.includes(service)) return intro;
+  return intro ? `${intro}\n\n${service}` : service;
+}
+// 합친 뒤 저장할 때 예전 '서비스 설명' 칸을 비우는 값 (빈 칸을 허용하지 않는 DB에서도 저장되도록 공백 한 칸)
+export const CLEARED_SERVICE_DESCRIPTION = ' ';

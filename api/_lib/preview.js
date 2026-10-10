@@ -34,7 +34,7 @@ export async function loadPartner(code, fetchImpl = fetch) {
   if (!link || !link.is_active) return null;
   const id = encodeURIComponent(link.connector_id);
   const [conns, users] = await Promise.all([
-    rest(`connectors?select=business_name,verified,main_region,fee_per_session,career,intro,status&id=eq.${id}`, fetchImpl),
+    rest(`connectors?select=business_name,verified,main_region,fee_per_session,career,intro,service_description,status&id=eq.${id}`, fetchImpl),
     rest(`users?select=name,withdrawn_at,suspended_at&id=eq.${id}`, fetchImpl),
   ]);
   const c = Array.isArray(conns) ? conns[0] : null;
@@ -52,7 +52,7 @@ export async function loadPartner(code, fetchImpl = fetch) {
     regions,
     fee: Number(c.fee_per_session) || 0,
     career: c.career || '',
-    intro: c.intro || '',
+    intro: [c.intro, c.service_description].map((v) => (v || '').trim()).filter(Boolean)[0] || '',
   };
 }
 

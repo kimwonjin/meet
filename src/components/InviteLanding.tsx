@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { Avatar } from './ProfilePhoto';
 import BusinessInfo from './BusinessInfo';
-import { formatRegions } from '@/lib/format';
+import { formatRegions, partnerIntro } from '@/lib/format';
 import { savePendingInvite, trackInvite } from '@/lib/invite';
 import { getJoinState, JoinState, requestJoin } from '@/lib/join';
 import { adsAllowed, useBusiness } from '@/lib/business';
@@ -140,8 +140,7 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
                   </View>
                 </View>
                 {!!partner.career && <Text style={styles.career}>경력 · {partner.career}</Text>}
-                {!!partner.intro && <Text style={styles.intro}>{partner.intro}</Text>}
-                {!!partner.service_description && <Text style={styles.intro}>{partner.service_description}</Text>}
+                {!!partnerIntro(partner) && <Text style={styles.intro}>{partnerIntro(partner)}</Text>}
                 <View style={styles.facts}>
                   {!!formatRegions(partner.main_region) && (
                     <View style={styles.fact}>

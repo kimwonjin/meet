@@ -4,6 +4,7 @@ import WatermarkLookupSheet from '@/components/WatermarkLookupSheet';
 import BusinessInfo from '@/components/BusinessInfo';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { partnerIntro, CLEARED_SERVICE_DESCRIPTION } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -299,13 +300,17 @@ export default function ProfileScreen() {
         } catch {
           setSelectedRegions([]);
         }
+        // 서비스 설명은 파트너 소개로 합쳤다 (예전 글은 소개 뒤에 붙여 보여준다)
         const approved = {
           career: connectorData.career || '',
-          intro: connectorData.intro || '',
-          service_description: connectorData.service_description || '',
+          intro: partnerIntro(connectorData),
+          service_description: '',
         };
         // 검수 대기(또는 반려된) 수정본이 있으면 입력칸에는 그것을 보여준다
-        const pending = (connectorData as any).pending_profile as Partial<typeof approved> | null;
+        const rawPending = (connectorData as any).pending_profile as Partial<typeof approved> | null;
+        const pending = rawPending
+          ? { ...rawPending, ...('intro' in rawPending || 'service_description' in rawPending ? { intro: partnerIntro({ intro: rawPending.intro ?? connectorData.intro, service_description: rawPending.service_description ?? connectorData.service_description }) } : {}), service_description: '' }
+          : null;
         setProfileReview({
           status: (connectorData as any).profile_status || 'APPROVED',
           reason: (connectorData as any).profile_reject_reason || null,
@@ -426,7 +431,7 @@ export default function ProfileScreen() {
     const text = {
       career: storeData.career.trim(),
       intro: storeData.intro.trim(),
-      service_description: storeData.service_description.trim(),
+      service_description: '',
     };
     const base = {
       main_region: JSON.stringify(selectedRegions),
@@ -455,7 +460,7 @@ export default function ProfileScreen() {
         if (resubmitRejected) {
           // 반려 상태 유지 (글은 그대로)
         } else if (textChanged) {
-          Object.assign(update, { pending_profile: text, profile_status: 'PENDING', profile_reject_reason: null });
+          Object.assign(update, { pending_profile: { ...text, service_description: CLEARED_SERVICE_DESCRIPTION }, profile_status: 'PENDING', profile_reject_reason: null });
         } else if (profileReview.status !== 'APPROVED') {
           // 승인본과 같게 되돌렸다면 대기본을 지운다
           Object.assign(update, { pending_profile: null, profile_status: 'APPROVED', profile_reject_reason: null });
@@ -476,7 +481,7 @@ export default function ProfileScreen() {
         // 검수 컬럼이 아직 없으면 예전처럼 바로 저장
         const { error } = await supabase
           .from('connectors')
-          .update({ ...base, career: text.career || null, intro: text.intro || null, service_description: text.service_description })
+          .update({ ...base, career: text.career || null, intro: text.intro || null, service_description: CLEARED_SERVICE_DESCRIPTION })
           .eq('id', user!.id);
         if (error) throw error;
       }
@@ -1261,15 +1266,15 @@ export default function ProfileScreen() {
           <Text style={styles.formLabel}>파트너 소개</Text>
           <TextInput
             style={[styles.formInput, { height: 100, textAlignVertical: 'top' }]}
-            placeholder="어떤 분들을 주로 소개하는지, 소개 방식, 회원에게 하고 싶은 말을 적어주세요"
+            placeholder="어떤 분들을 주로 소개하는지, 소개 방식과 진행 과정, 회원에게 하고 싶은 말을 적어주세요"
             placeholderTextColor="#ddd"
             multiline
             numberOfLines={5}
             value={storeData.intro}
             onChangeText={(text) => setStoreData({ ...storeData, intro: text })}
-            maxLength={500}
+            maxLength={1000}
           />
-          <Text style={styles.formHint}>회원이 파트너 정보에서 가입 여부를 정할 때 보는 내용이에요. 경력·소개·서비스 설명은 운영자 확인 후 공개되고, '보장·100%·확실' 같은 과장 표현은 쓸 수 없어요.</Text>
+          <Text style={styles.formHint}>회원이 파트너 정보에서 가입 여부를 정할 때 보는 내용이에요. 경력·소개는 운영자 확인 후 공개되고, '보장·100%·확실' 같은 과장 표현은 쓸 수 없어요.</Text>
         </View>
 
         {/* 주요지역 선택 - 버튼형 (중복 선택 가능) */}
@@ -1313,18 +1318,6 @@ export default function ProfileScreen() {
           />
         </View>
 
-        <View style={styles.profileFormSection}>
-          <Text style={styles.formLabel}>서비스 설명</Text>
-          <TextInput
-            style={[styles.formInput, {height: 100, textAlignVertical: 'top'}]}
-            placeholder="서비스에 대해 설명해주세요"
-            placeholderTextColor="#ddd"
-            multiline
-            numberOfLines={5}
-            value={storeData.service_description}
-            onChangeText={(text) => setStoreData({...storeData, service_description: text})}
-          />
-        </View>
 
         <TouchableOpacity
           style={[styles.storeSaveBtn, loading && styles.storeSaveBtnDisabled]}

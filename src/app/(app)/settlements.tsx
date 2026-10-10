@@ -4,6 +4,7 @@ import SkeletonScreen from '@/components/Skeleton';
 import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, TextInput } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import { partnerIntro } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -548,15 +549,22 @@ export default function SettlementsScreen() {
                   {profileReviews.map((c) => (
                     <View key={`review-${c.id}`} style={styles.card}>
                       <Text style={styles.cardTitle}>{c.name}</Text>
-                      {(['career', 'intro', 'service_description'] as const)
-                        .filter((k) => k in (c.pending_profile || {}) && (c.pending_profile[k] || '') !== (c[k] || ''))
-                        .map((k) => (
-                          <View key={k} style={styles.reviewField}>
-                            <Text style={styles.reviewLabel}>{k === 'career' ? '경력' : k === 'intro' ? '파트너 소개' : '서비스 설명'}</Text>
-                            <Text style={styles.reviewOld} numberOfLines={3}>지금: {c[k] || '(비어 있음)'}</Text>
-                            <Text style={styles.reviewNew}>바뀔 글: {c.pending_profile[k] || '(비움)'}</Text>
-                          </View>
-                        ))}
+                      {(['career', 'intro'] as const)
+                        .map((k) => {
+                          const p = c.pending_profile || {};
+                          if (!(k in p) && !(k === 'intro' && 'service_description' in p)) return null;
+                          // 소개는 예전 '서비스 설명'까지 합쳐서 비교한다
+                          const now = k === 'intro' ? partnerIntro(c) : (c[k] || '').trim();
+                          const next = k === 'intro' ? partnerIntro({ intro: p.intro ?? c.intro, service_description: p.service_description ?? c.service_description }) : (p[k] || '').trim();
+                          if (now === next) return null;
+                          return (
+                            <View key={k} style={styles.reviewField}>
+                              <Text style={styles.reviewLabel}>{k === 'career' ? '경력' : '파트너 소개'}</Text>
+                              <Text style={styles.reviewOld} numberOfLines={3}>지금: {now || '(비어 있음)'}</Text>
+                              <Text style={styles.reviewNew}>바뀔 글: {next || '(비움)'}</Text>
+                            </View>
+                          );
+                        })}
                       <View style={styles.approvalBtnRow}>
                         <TouchableOpacity
                           style={[styles.approveBtn, processingId === c.id && styles.buttonDisabled]}
