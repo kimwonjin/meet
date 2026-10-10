@@ -35,6 +35,12 @@ export default function AlliancesScreen() {
   const [allianceProcessingId, setAllianceProcessingId] = useState<string | null>(null);
   // 다른 파트너 찾기: 이름·회사명·지역
   const [query, setQuery] = useState('');
+  // 회원 구성으로 찾기: 파트너별 회원 수·성별·연령대·지역 (null = SQL 실행 전이라 지역만)
+  const [directory, setDirectory] = useState<Record<string, any> | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [fGender, setFGender] = useState<'all' | 'M' | 'F'>('all');
+  const [fAges, setFAges] = useState<number[]>([]); // 20, 30, 40(=40대 이상)
+  const [fRegions, setFRegions] = useState<string[]>([]);
 
   useEffect(() => {
     fetchAlliances();
@@ -60,6 +66,9 @@ export default function AlliancesScreen() {
         .filter((c: any) => c.id !== user.id && !(otherConnUsers || []).find((u: any) => u.id === c.id)?.withdrawn_at)
         .map((c: any) => ({ ...c, name: (otherConnUsers || []).find((u: any) => u.id === c.id)?.name }));
       setOtherConnectors(others);
+      supabase.rpc('fn_partner_directory').then(({ data, error }) => {
+        setDirectory(error || !Array.isArray(data) ? null : Object.fromEntries(data.map((d: any) => [d.id, d])));
+      });
 
       const { data: allianceRows } = await supabase
         .from('connector_alliances')
@@ -87,9 +96,39 @@ export default function AlliancesScreen() {
     return 3;
   };
   const q = query.trim().toLowerCase();
+  const toggleIn = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+  const filterCount = (fGender !== 'all' ? 1 : 0) + fAges.length + fRegions.length;
+  // 찾는 조건(성별·연령대)에 맞는 회원 수. 연령대는 회원이 적은 파트너는 공개하지 않아 null
+  const matchCount = (c: any): number | null => {
+    const d = directory?.[c.id];
+    if (!d) return null;
+    if (!fAges.length) return fGender === 'M' ? d.male : fGender === 'F' ? d.female : d.total;
+    if (!d.ages) return null;
+    return (d.ages as any[])
+      .filter((a) => (fGender === 'all' || a.gender === fGender) && fAges.includes(Math.min(40, a.decade)))
+      .reduce((n, a) => n + a.count, 0);
+  };
+  // 지역: 파트너 활동 지역 또는 회원 지역
+  const inRegions = (c: any) => {
+    if (!fRegions.length) return true;
+    const own = formatRegions(c.main_region) || '';
+    const memberRegions = ((directory?.[c.id]?.regions as any[]) || []).map((r) => r.label as string);
+    return fRegions.some((r) => own.includes(r) || memberRegions.some((m) => m.includes(r)));
+  };
+  const composing = fGender !== 'all' || fAges.length > 0;
   const shownConnectors = otherConnectors
     .filter((c) => !q || [c.name, c.business_name, formatRegions(c.main_region), partnerIntro(c)].some((v) => (v || '').toLowerCase().includes(q)))
-    .sort((a, b) => rank(a) - rank(b));
+    .filter(inRegions)
+    .filter((c) => !composing || (matchCount(c) ?? 0) > 0)
+    // 조건을 고르면 맞는 회원이 많은 순, 아니면 받은 요청 → 동맹 중 → 보낸 요청 → 나머지
+    .sort((a, b) => (composing ? (matchCount(b) ?? 0) - (matchCount(a) ?? 0) : 0) || rank(a) - rank(b));
+  const hiddenSmall = composing && fAges.length ? otherConnectors.filter((c) => directory?.[c.id] && !directory[c.id].ages).length : 0;
+  const REGIONS = ['서울', '경기', '인천', '강원', '충청', '전라', '경상', '제주'];
+  const chip = (label: string, on: boolean, onPress: () => void) => (
+    <TouchableOpacity key={label} style={[styles.fChip, on && styles.fChipOn]} onPress={onPress} accessibilityLabel={`필터 ${label}`} accessibilityState={{ selected: on }}>
+      <Text style={[styles.fChipText, on && styles.fChipTextOn]}>{label}</Text>
+    </TouchableOpacity>
+  );
 
   async function handleRequestAlliance(otherId: string) {
     if (!user) return;
@@ -239,6 +278,38 @@ export default function AlliancesScreen() {
             onChangeText={setQuery}
             accessibilityLabel="파트너 찾기"
           />
+          <TouchableOpacity
+            style={[styles.fToggle, (filterOpen || filterCount > 0) && styles.fToggleOn]}
+            onPress={() => setFilterOpen(!filterOpen)}
+            accessibilityLabel={filterOpen ? '필터 접기' : '필터 펼치기'}
+          >
+            <Text style={[styles.fToggleText, (filterOpen || filterCount > 0) && styles.fToggleTextOn]}>
+              필터{filterCount > 0 ? ` ${filterCount}` : ''} {filterOpen ? '▴' : '▾'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {filterOpen && (
+        <View style={styles.fBox}>
+          {directory && (
+            <>
+              <Text style={styles.fLabel}>찾는 회원</Text>
+              <View style={styles.fRow}>
+                {chip('전체', fGender === 'all', () => setFGender('all'))}
+                {chip('남성', fGender === 'M', () => setFGender('M'))}
+                {chip('여성', fGender === 'F', () => setFGender('F'))}
+                <View style={styles.fDivider} />
+                {[20, 30, 40].map((d) => chip(d === 40 ? '40대+' : `${d}대`, fAges.includes(d), () => setFAges(toggleIn(fAges, d))))}
+              </View>
+            </>
+          )}
+          <Text style={styles.fLabel}>지역 (활동 지역·회원 지역)</Text>
+          <View style={styles.fRow}>{REGIONS.map((r) => chip(r, fRegions.includes(r), () => setFRegions(toggleIn(fRegions, r))))}</View>
+          {filterCount > 0 && (
+            <TouchableOpacity onPress={() => { setFGender('all'); setFAges([]); setFRegions([]); }} style={{ alignSelf: 'flex-start', paddingVertical: 4 }}>
+              <Text style={styles.fReset}>필터 초기화</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -249,7 +320,8 @@ export default function AlliancesScreen() {
       ) : (
         <FlatList
           data={shownConnectors}
-          ListEmptyComponent={<Text style={[styles.placeholderText, { textAlign: 'center', marginTop: 40 }]}>'{query}'에 맞는 파트너가 없어요</Text>}
+          ListEmptyComponent={<Text style={[styles.placeholderText, { textAlign: 'center', marginTop: 40 }]}>{q ? `'${query}'에 ` : '조건에 '}맞는 파트너가 없어요</Text>}
+          ListFooterComponent={hiddenSmall > 0 ? <Text style={styles.fFoot}>회원이 적어 연령대를 공개하지 않은 파트너 {hiddenSmall}곳은 빠졌어요</Text> : null}
           keyExtractor={(item) => item.id}
           refreshControl={pullRefresh}
           style={{ flex: 1 }}
@@ -272,6 +344,12 @@ export default function AlliancesScreen() {
                       <Text style={styles.desc} numberOfLines={1}>
                         {[item.business_name && item.name, formatRegions(item.main_region), item.fee_per_session && `1회 ${Number(item.fee_per_session).toLocaleString()}원`].filter(Boolean).join(' · ')}
                       </Text>
+                      {!!directory?.[item.id] && (
+                        <Text style={styles.desc}>
+                          회원 {directory[item.id].total}명 · 남 {directory[item.id].male} · 여 {directory[item.id].female}
+                          {composing && matchCount(item) !== null ? <Text style={styles.fMatch}>  조건에 맞는 회원 {matchCount(item)}명</Text> : null}
+                        </Text>
+                      )}
                       <Text style={styles.desc}>{isActive ? '동맹 중 · ' : isIncoming ? '동맹 요청이 왔어요 · ' : ''}프로필 보기 ›</Text>
                     </View>
                   </View>
@@ -415,8 +493,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
   },
-  searchWrap: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8 },
-  search: { borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 12, paddingHorizontal: 14, minHeight: 46, fontSize: 16, color: '#191919', backgroundColor: '#fff' },
+  searchWrap: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8, flexDirection: 'row', gap: 8, alignItems: 'center' },
+  fToggle: { borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 12, paddingHorizontal: 14, minHeight: 46, justifyContent: 'center' },
+  fToggleOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
+  fToggleText: { fontSize: 14, color: '#666' },
+  fToggleTextOn: { color: '#5B21FF', fontWeight: '600' },
+  fBox: { paddingHorizontal: 20, paddingBottom: 8, gap: 6 },
+  fLabel: { fontSize: 12, color: '#8E8E93', marginTop: 4 },
+  fRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  fChip: { borderWidth: 1, borderColor: '#E0E0E6', borderRadius: 16, paddingHorizontal: 12, minHeight: 34, justifyContent: 'center' },
+  fChipOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
+  fChipText: { fontSize: 13, color: '#666' },
+  fChipTextOn: { color: '#5B21FF', fontWeight: '600' },
+  fDivider: { width: 1, height: 18, backgroundColor: '#E5E5EA', marginHorizontal: 2 },
+  fReset: { fontSize: 12, color: '#999', textDecorationLine: 'underline' },
+  fFoot: { fontSize: 12, color: '#8E8E93', textAlign: 'center', marginTop: 12 },
+  fMatch: { color: '#5B21FF', fontWeight: '600' },
+  search: { flex: 1,  borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 12, paddingHorizontal: 14, minHeight: 46, fontSize: 16, color: '#191919', backgroundColor: '#fff' },
   list: {
     paddingHorizontal: 20,
     paddingBottom: 20,
