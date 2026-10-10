@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
+  TextInput,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import BottomSheet from '@/components/BottomSheet';
@@ -31,6 +32,8 @@ export default function AlliancesScreen() {
   const [poolStats, setPoolStats] = useState<any | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [allianceProcessingId, setAllianceProcessingId] = useState<string | null>(null);
+  // 다른 파트너 찾기: 이름·회사명·지역
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     fetchAlliances();
@@ -73,6 +76,19 @@ export default function AlliancesScreen() {
   function getAllianceWith(otherId: string) {
     return alliances.find((a) => a.connector_1_id === otherId || a.connector_2_id === otherId);
   }
+
+  // 받은 요청 → 동맹 중 → 보낸 요청 → 나머지 순, 검색어로 거른다
+  const rank = (c: any) => {
+    const a = getAllianceWith(c.id);
+    if (a?.status === 'PENDING' && a.requested_by !== user?.id) return 0;
+    if (a?.status === 'ACTIVE') return 1;
+    if (a?.status === 'PENDING') return 2;
+    return 3;
+  };
+  const q = query.trim().toLowerCase();
+  const shownConnectors = otherConnectors
+    .filter((c) => !q || [c.name, c.business_name, formatRegions(c.main_region)].some((v) => (v || '').toLowerCase().includes(q)))
+    .sort((a, b) => rank(a) - rank(b));
 
   async function handleRequestAlliance(otherId: string) {
     if (!user) return;
@@ -214,13 +230,27 @@ export default function AlliancesScreen() {
         <Text style={styles.title}>동맹 관리</Text>
       </View>
 
+      {otherConnectors.length > 0 && (
+        <View style={styles.searchWrap}>
+          <TextInput
+            style={styles.search}
+            placeholder="🔍 이름·회사명·지역으로 찾기"
+            placeholderTextColor="#aaa"
+            value={query}
+            onChangeText={setQuery}
+            accessibilityLabel="파트너 찾기"
+          />
+        </View>
+      )}
+
       {otherConnectors.length === 0 ? (
         <View style={styles.emptyTab}>
           <Text style={styles.placeholderText}>동맹을 맺을 수 있는 다른 파트너가 없습니다</Text>
         </View>
       ) : (
         <FlatList
-          data={otherConnectors}
+          data={shownConnectors}
+          ListEmptyComponent={<Text style={[styles.placeholderText, { textAlign: 'center', marginTop: 40 }]}>'{query}'에 맞는 파트너가 없어요</Text>}
           keyExtractor={(item) => item.id}
           refreshControl={pullRefresh}
           style={{ flex: 1 }}
@@ -239,8 +269,11 @@ export default function AlliancesScreen() {
                       <Text style={styles.avatarText}>💼</Text>
                     </View>
                     <View style={styles.connInfo}>
-                      <Text style={styles.name}>{item.name}</Text>
-                      <Text style={styles.desc}>{isActive ? '동맹 중 · ' : ''}프로필 보기 ›</Text>
+                      <Text style={styles.name}>{item.business_name || item.name}</Text>
+                      <Text style={styles.desc} numberOfLines={1}>
+                        {[item.business_name && item.name, formatRegions(item.main_region), item.fee_per_session && `1회 ${Number(item.fee_per_session).toLocaleString()}원`].filter(Boolean).join(' · ')}
+                      </Text>
+                      <Text style={styles.desc}>{isActive ? '동맹 중 · ' : isIncoming ? '동맹 요청이 왔어요 · ' : ''}프로필 보기 ›</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -437,6 +470,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
   },
+  searchWrap: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8 },
+  search: { borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 12, paddingHorizontal: 14, minHeight: 46, fontSize: 16, color: '#191919', backgroundColor: '#fff' },
   list: {
     paddingHorizontal: 20,
     paddingBottom: 20,
