@@ -58,7 +58,6 @@ export default function MatchingScreen() {
   const memberFilter = useMemberFilter();
   // 회원별 최근 매칭 제안 날짜 · 진행 중 여부 (오래 쉰 회원을 먼저 찾기 위해)
   const [lastMatch, setLastMatch] = useState<Record<string, { at: string; active: boolean }>>({});
-  const [restSort, setRestSort] = useState(false);
   const router = useRouter();
   // 알림에서 들어오면 해당 칸(예: 동맹매칭)을 바로 연다
   // 동맹 매칭 알림으로 들어오면 동맹 회원까지 펼쳐서 보여준다
@@ -708,8 +707,8 @@ export default function MatchingScreen() {
   function renderMemberChips(allMembers: Member[], connectorId: string) {
     // 이미 고른 회원은 필터와 관계없이 계속 보인다
     const members = allMembers.filter((m) => memberFilter.passes(m, selectedForMatch.map((x) => x.id)));
-    // 오래 쉰 회원 먼저: 이력 없음 → 오래전 매칭 → 최근 매칭, 진행 중인 회원은 맨 뒤
-    if (restSort) {
+    // 오래 쉰 회원 먼저 (기본): 이력 없음 → 오래전 매칭 → 최근 매칭, 진행 중인 회원은 맨 뒤
+    {
       const key = (id: string) => { const lm = lastMatch[id]; return !lm ? 0 : lm.active ? 3e15 : new Date(lm.at).getTime(); };
       members.sort((x, y) => key(x.id) - key(y.id));
     }
@@ -779,15 +778,6 @@ export default function MatchingScreen() {
         const candidates = [...ownMembers, ...(includeAllies ? allyMembers.flatMap((g) => g.members) : [])];
         return candidates.length > 0 ? memberFilter.render(candidates) : null;
       })()}
-
-      {/* 정렬: 오래 매칭이 없던 회원부터 */}
-      <View style={styles.sortRow}>
-        {([[false, '기본 순'], [true, '오래 쉰 회원 먼저']] as const).map(([v, label]) => (
-          <TouchableOpacity key={label} style={[styles.sortChip, restSort === v && styles.sortChipOn]} onPress={() => setRestSort(v)} accessibilityLabel={`정렬 ${label}`} accessibilityState={{ selected: restSort === v }}>
-            <Text style={[styles.sortChipText, restSort === v && styles.sortChipTextOn]}>{label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
 
       <Text style={styles.groupTitle}>내 회원</Text>
       {ownMembers.length === 0 ? (
@@ -1461,11 +1451,6 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
-  sortRow: { flexDirection: 'row', gap: 6, marginTop: 4 },
-  sortChip: { borderWidth: 1, borderColor: '#E0E0E6', borderRadius: 16, paddingHorizontal: 12, minHeight: 34, justifyContent: 'center' },
-  sortChipOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
-  sortChipText: { fontSize: 13, color: '#666' },
-  sortChipTextOn: { color: '#5B21FF', fontWeight: '600' },
   memberRowRest: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
   memberRowRestNew: { color: '#5B21FF' },
   pairRow: { gap: 6, marginTop: 10, marginBottom: 12 },
