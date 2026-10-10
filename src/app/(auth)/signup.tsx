@@ -123,7 +123,7 @@ export default function SignupScreen() {
           <TextInput
             style={styles.input}
             placeholder="010-0000-0000"
-            placeholderTextColor="#ddd"
+            placeholderTextColor="#DCD9E2"
             value={phone}
             onChangeText={(text) => setPhone(formatPhone(text))}
             keyboardType="phone-pad"
@@ -136,7 +136,7 @@ export default function SignupScreen() {
           <TextInput
             style={styles.input}
             placeholder="홍길동"
-            placeholderTextColor="#ddd"
+            placeholderTextColor="#DCD9E2"
             value={name}
             onChangeText={setName}
             editable={!loading}
@@ -148,7 +148,7 @@ export default function SignupScreen() {
           <TextInput
             style={styles.input}
             placeholder="1990-01-01"
-            placeholderTextColor="#ddd"
+            placeholderTextColor="#DCD9E2"
             value={birthDate}
             onChangeText={(text) => setBirthDate(formatBirthDate(text))}
             keyboardType="number-pad"
@@ -205,11 +205,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     marginBottom: 8,
-    color: '#333',
+    color: '#322F38',
   },
   subtitle: {
     fontSize: 14,
-    color: '#999',
+    color: '#98959E',
     marginBottom: 30,
   },
   form: {
@@ -219,19 +219,19 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#bbb',
+    color: '#BAB7C0',
     marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 10,
     padding: 12,
     fontSize: 14,
   },
   roleCard: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 14,
     padding: 20,
     alignItems: 'center',
@@ -248,12 +248,12 @@ const styles = StyleSheet.create({
   roleTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
     marginBottom: 4,
   },
   roleDesc: {
     fontSize: 13,
-    color: '#999',
+    color: '#98959E',
   },
   genderRow: {
     flexDirection: 'row',
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   genderBtn: {
     flex: 1,
     borderWidth: 1.5,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   genderText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#999',
+    color: '#98959E',
   },
   genderTextActive: {
     color: '#5B21FF',
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
   },
   footerNote: {
     fontSize: 11,
-    color: '#999',
+    color: '#98959E',
     textAlign: 'center',
     marginTop: 12,
   },

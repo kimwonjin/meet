@@ -22,9 +22,9 @@ type Overview = { male: number; female: number; settled: number };
 
 // 처음 온 사람에게 보여주는 서비스 설명 (회원 모집용)
 const BENEFITS = [
-  { icon: '🙋', title: '아는 사람이 직접 골라 소개', body: '자동 추천이 아니라, 파트너가 두 사람을 보고 어울리는 분을 제안해요.' },
-  { icon: '🔒', title: '둘 다 좋다고 할 때만 만나요', body: '서로 프로필을 보고 두 사람 모두 동의해야 만남이 잡혀요.' },
-  { icon: '💸', title: '실제로 만났을 때만 차감', body: '이용권은 만남이 끝난 뒤 1회 차감돼요. 상대가 나오지 않으면 차감되지 않아요.' },
+  { title: '아는 사람이 직접 골라 소개', body: '자동 추천이 아니라, 파트너가 두 사람을 보고 어울리는 분을 제안해요.' },
+  { title: '둘 다 좋다고 할 때만 만나요', body: '서로 프로필을 보고 두 사람 모두 동의해야 만남이 잡혀요.' },
+  { title: '실제로 만났을 때만 차감', body: '이용권은 만남이 끝난 뒤 1회 차감돼요. 상대가 나오지 않으면 차감되지 않아요.' },
 ];
 const STEPS = [
   ['가입하고 파트너와 연결', '가입하면 이 파트너의 회원으로 바로 신청돼요.'],
@@ -131,8 +131,10 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Image source={require('../../assets/images/icon.png')} style={styles.logo} />
-      <Text style={styles.brand}>두두인연</Text>
+      <View style={styles.brandRow}>
+        <Image source={require('../../assets/images/icon.png')} style={styles.logo} />
+        <Text style={styles.brand}>두두인연</Text>
+      </View>
 
       {!partner ? (
         <>
@@ -214,15 +216,14 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
                 <Text style={styles.secondaryText}>이미 계정이 있어요 · 로그인</Text>
               </TouchableOpacity>
 
-              {BENEFITS.map((b) => (
-                <View key={b.title} style={styles.benefit}>
-                  <Text style={styles.benefitIcon}>{b.icon}</Text>
-                  <View style={{ flex: 1 }}>
+              <View style={styles.benefits}>
+                {BENEFITS.map((b) => (
+                  <View key={b.title} style={styles.benefit}>
                     <Text style={styles.benefitTitle}>{b.title}</Text>
                     <Text style={styles.benefitBody}>{b.body}</Text>
                   </View>
-                </View>
-              ))}
+                ))}
+              </View>
 
               <Text style={styles.h2}>이렇게 진행돼요</Text>
               {STEPS.map(([t, d], i) => (
@@ -294,45 +295,46 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
   page: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 24, paddingTop: 64, alignItems: 'stretch', maxWidth: 480, width: '100%', alignSelf: 'center' },
-  logo: { width: 56, height: 56, borderRadius: 14, alignSelf: 'center' },
-  brand: { textAlign: 'center', fontSize: 14, fontWeight: '700', color: '#5B21FF', marginTop: 8 },
-  headline: { textAlign: 'center', fontSize: 22, fontWeight: '800', color: '#222', marginTop: 28, lineHeight: 31 },
-  sub: { textAlign: 'center', fontSize: 14, color: '#777', marginTop: 10, lineHeight: 21 },
-  card: { marginTop: 28, borderRadius: 16, backgroundColor: '#F7F4FF', padding: 18 },
+  content: { padding: 24, paddingTop: 40, alignItems: 'stretch', maxWidth: 480, width: '100%', alignSelf: 'center' },
+  logo: { width: 32, height: 32, borderRadius: 8 },
+  brand: { fontSize: 15, fontWeight: '700', color: '#18151E' },
+  headline: { fontSize: 26, fontWeight: '800', color: '#18151E', marginTop: 32, lineHeight: 36, letterSpacing: -0.5 },
+  sub: { fontSize: 15, color: '#65626B', marginTop: 10, lineHeight: 23 },
+  card: { marginTop: 28, borderRadius: 12, borderWidth: 1, borderColor: '#ECEAF1', padding: 18 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  cardName: { fontSize: 17, fontWeight: '700', color: '#222' },
+  cardName: { fontSize: 17, fontWeight: '700', color: '#211E27' },
   cardMeta: { fontSize: 13, color: '#5B21FF', marginTop: 3, fontWeight: '600' },
-  career: { fontSize: 14, fontWeight: '600', color: '#333', marginTop: 14 },
-  intro: { fontSize: 14, color: '#555', marginTop: 6, lineHeight: 21 },
+  career: { fontSize: 14, fontWeight: '600', color: '#322F38', marginTop: 14 },
+  intro: { fontSize: 14, color: '#54515A', marginTop: 6, lineHeight: 21 },
   facts: { flexDirection: 'row', gap: 8, marginTop: 14 },
-  fact: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 12 },
-  factLabel: { fontSize: 12, color: '#888' },
-  factValue: { fontSize: 14, fontWeight: '700', color: '#222', marginTop: 4 },
+  fact: { flex: 1, borderRadius: 10, backgroundColor: '#F7F5FA', padding: 12 },
+  factLabel: { fontSize: 12, color: '#87848D' },
+  factValue: { fontSize: 14, fontWeight: '700', color: '#211E27', marginTop: 4 },
   reviews: { marginTop: 16 },
-  reviewSummary: { fontSize: 14, fontWeight: '700', color: '#222', marginBottom: 8 },
-  review: { backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 6 },
+  reviewSummary: { fontSize: 14, fontWeight: '700', color: '#211E27', marginBottom: 8 },
+  review: { borderTopWidth: 1, borderTopColor: '#ECEAF1', paddingVertical: 10 },
   reviewStars: { fontSize: 13, color: '#5B21FF' },
-  reviewWriter: { fontSize: 12, color: '#999' },
-  reviewText: { fontSize: 13, color: '#444', marginTop: 4, lineHeight: 19 },
-  primary: { backgroundColor: '#5B21FF', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 28 },
+  reviewWriter: { fontSize: 12, color: '#98959E' },
+  reviewText: { fontSize: 13, color: '#434049', marginTop: 4, lineHeight: 19 },
+  primary: { backgroundColor: '#5B21FF', borderRadius: 10, paddingVertical: 16, alignItems: 'center', marginTop: 28 },
   primaryText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   disabled: { opacity: 0.6 },
   secondary: { alignItems: 'center', paddingVertical: 16 },
-  secondaryText: { fontSize: 14, color: '#777', textDecorationLine: 'underline' },
-  note: { textAlign: 'center', fontSize: 13, color: '#888', marginTop: 24, lineHeight: 19 },
+  secondaryText: { fontSize: 14, color: '#76737C', textDecorationLine: 'underline' },
+  note: { fontSize: 13, color: '#87848D', marginTop: 24, lineHeight: 19 },
   footer: { marginTop: 32 },
-  benefit: { flexDirection: 'row', gap: 14, alignItems: 'flex-start', marginTop: 12, padding: 16, borderRadius: 16, backgroundColor: '#F7F7F9' },
-  benefitIcon: { fontSize: 24 },
-  benefitTitle: { fontSize: 16, fontWeight: '700', color: '#191919' },
-  benefitBody: { fontSize: 14, color: '#666', marginTop: 4, lineHeight: 20 },
-  h2: { fontSize: 18, fontWeight: '700', color: '#191919', marginTop: 32, marginBottom: 8 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  benefits: { marginTop: 20, borderTopWidth: 1, borderTopColor: '#ECEAF1' },
+  benefit: { paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: '#ECEAF1' },
+  benefitTitle: { fontSize: 16, fontWeight: '700', color: '#18151E' },
+  benefitBody: { fontSize: 14, color: '#65626B', marginTop: 4, lineHeight: 20 },
+  h2: { fontSize: 18, fontWeight: '700', color: '#18151E', marginTop: 32, marginBottom: 8 },
   step: { flexDirection: 'row', gap: 12, paddingVertical: 10 },
   stepNum: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F4F1FF', alignItems: 'center', justifyContent: 'center' },
   stepNumT: { color: '#5B21FF', fontWeight: '700' },
-  stepTitle: { fontSize: 15, fontWeight: '700', color: '#191919' },
-  stepBody: { fontSize: 14, color: '#666', marginTop: 2, lineHeight: 20 },
-  faq: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1F1F3' },
-  faqQ: { fontSize: 15, fontWeight: '700', color: '#191919' },
-  faqA: { fontSize: 14, color: '#666', marginTop: 4, lineHeight: 20 },
+  stepTitle: { fontSize: 15, fontWeight: '700', color: '#18151E' },
+  stepBody: { fontSize: 14, color: '#65626B', marginTop: 2, lineHeight: 20 },
+  faq: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1EFF4' },
+  faqQ: { fontSize: 15, fontWeight: '700', color: '#18151E' },
+  faqA: { fontSize: 14, color: '#65626B', marginTop: 4, lineHeight: 20 },
 });

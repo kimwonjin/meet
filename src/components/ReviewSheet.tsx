@@ -49,7 +49,7 @@ export default function ReviewSheet({ visible, partnerName, metName, onClose, on
       <TextInput
         style={styles.input}
         placeholder="파트너의 소개·연락·배려는 어땠나요? (선택)"
-        placeholderTextColor="#999"
+        placeholderTextColor="#98959E"
         value={content}
         onChangeText={setContent}
         multiline
@@ -68,23 +68,23 @@ export default function ReviewSheet({ visible, partnerName, metName, onClose, on
 }
 
 const styles = StyleSheet.create({
-  about: { fontSize: 13, color: '#888', marginTop: 4, marginBottom: 12, lineHeight: 19 },
-  label: { fontSize: 15, fontWeight: '600', color: '#222' },
+  about: { fontSize: 13, color: '#87848D', marginTop: 4, marginBottom: 12, lineHeight: 19 },
+  label: { fontSize: 15, fontWeight: '600', color: '#211E27' },
   stars: { flexDirection: 'row', justifyContent: 'center', gap: 4, marginBottom: 16 },
   starBtn: { padding: 6 },
-  star: { fontSize: 36, color: '#DDD' },
+  star: { fontSize: 36, color: '#DCD9E2' },
   starOn: { color: '#5B21FF' },
   input: {
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: '#E4E1EA',
     borderRadius: 10,
     padding: 12,
     minHeight: 90,
     fontSize: 14,
-    color: '#222',
+    color: '#211E27',
     textAlignVertical: 'top',
   },
-  hint: { fontSize: 12, color: '#999', marginTop: 8, marginBottom: 16 },
+  hint: { fontSize: 12, color: '#98959E', marginTop: 8, marginBottom: 16 },
   submit: { backgroundColor: '#5B21FF', borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
   submitText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   disabled: { opacity: 0.5 },

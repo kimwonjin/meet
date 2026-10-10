@@ -1302,12 +1302,12 @@ const BLOCK_MESSAGE: Record<BlockLabel, string> = {
 };
 
 const styles = StyleSheet.create({
-  pairHint: { color: '#333', fontWeight: '700' },
+  pairHint: { color: '#322F38', fontWeight: '700' },
   memberRowBusy: { opacity: 0.5 },
-  busyBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: '#EFEFF2' },
-  busyBadgeText: { fontSize: 12, fontWeight: '700', color: '#666' },
+  busyBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: '#EFEDF2' },
+  busyBadgeText: { fontSize: 12, fontWeight: '700', color: '#65626B' },
   stageBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F7F4FF', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12 },
-  stageBarText: { fontSize: 13, color: '#333', fontWeight: '600' },
+  stageBarText: { fontSize: 13, color: '#322F38', fontWeight: '600' },
   stageBarAll: { fontSize: 13, color: '#5B21FF', fontWeight: '600', paddingVertical: 4 },
   container: {
     flex: 1,
@@ -1331,24 +1331,24 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   createSection: {
     paddingHorizontal: 20,
     paddingBottom: 20,
     marginBottom: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#EFEDF2',
   },
   createTitle: {
     flexShrink: 1,
     fontSize: 13,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   emptyCreateText: {
     fontSize: 13,
-    color: '#999',
+    color: '#98959E',
   },
   backLink: {
     fontSize: 13,
@@ -1365,7 +1365,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: 20,
     marginBottom: 8,
-    backgroundColor: '#F3F3F5',
+    backgroundColor: '#F3F1F6',
     borderRadius: 10,
     padding: 4,
   },
@@ -1381,7 +1381,7 @@ const styles = StyleSheet.create({
   viewBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#999',
+    color: '#98959E',
   },
   viewBtnTextActive: {
     color: '#5B21FF',
@@ -1395,14 +1395,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   createTools: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  allyChip: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, paddingHorizontal: 12, minHeight: 38, justifyContent: 'center' },
+  allyChip: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, paddingHorizontal: 12, minHeight: 38, justifyContent: 'center' },
   allyChipOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
-  allyChipText: { fontSize: 14, color: '#666' },
+  allyChipText: { fontSize: 14, color: '#65626B' },
   allyChipTextOn: { color: '#5B21FF', fontWeight: '600' },
   groupTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#666',
+    color: '#65626B',
     marginTop: 12,
     marginBottom: 8,
   },
@@ -1414,7 +1414,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: '#EDEBF0',
     borderRadius: 12,
     padding: 10,
   },
@@ -1434,11 +1434,11 @@ const styles = StyleSheet.create({
   memberRowName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#222',
+    color: '#211E27',
   },
   memberRowSub: {
     fontSize: 13,
-    color: '#888',
+    color: '#87848D',
     marginTop: 2,
   },
   memberCheck: {
@@ -1446,7 +1446,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#ccc',
+    borderColor: '#CBC8D1',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1467,7 +1467,7 @@ const styles = StyleSheet.create({
   },
   cancelLinkText: {
     fontSize: 13,
-    color: '#999',
+    color: '#98959E',
     textDecorationLine: 'underline',
   },
   mutualText: {
@@ -1483,7 +1483,7 @@ const styles = StyleSheet.create({
   },
   memberChip: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -1495,7 +1495,7 @@ const styles = StyleSheet.create({
   memberChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#333',
+    color: '#322F38',
   },
   memberChipTextSelected: {
     color: '#fff',
@@ -1519,14 +1519,14 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 14,
-    color: '#999',
+    color: '#98959E',
   },
   list: {
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
   matchCard: {
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#F8F6FB',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -1539,21 +1539,21 @@ const styles = StyleSheet.create({
   matchTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
     marginBottom: 4,
   },
-  memberRowRest: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
+  memberRowRest: { fontSize: 12, color: '#8F8C95', marginTop: 2 },
   memberRowRestNew: { color: '#5B21FF' },
   pairRow: { gap: 6, marginTop: 10, marginBottom: 12 },
-  pairChip: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 8, borderRadius: 10, borderWidth: 1, borderColor: '#E5E5EA', backgroundColor: '#fff' },
+  pairChip: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 8, borderRadius: 10, borderWidth: 1, borderColor: '#E6E3EC', backgroundColor: '#fff' },
   pairChipStrong: { borderColor: '#5B21FF' },
-  pairChipText: { flex: 1, fontSize: 13, color: '#333', fontWeight: '600' },
+  pairChipText: { flex: 1, fontSize: 13, color: '#322F38', fontWeight: '600' },
   pairChipLink: { fontSize: 12, color: '#5B21FF' },
-  pairChipSub: { fontSize: 12, color: '#8E8E93', fontWeight: '400' },
-  consentHint: { fontSize: 12, color: '#8E8E93', textAlign: 'center', marginBottom: 8 },
+  pairChipSub: { fontSize: 12, color: '#8F8C95', fontWeight: '400' },
+  consentHint: { fontSize: 12, color: '#8F8C95', textAlign: 'center', marginBottom: 8 },
   matchDate: {
     fontSize: 12,
-    color: '#999',
+    color: '#98959E',
   },
   timeline: {
     flexDirection: 'row',
@@ -1593,7 +1593,7 @@ const styles = StyleSheet.create({
   },
   timelinePending: {
     backgroundColor: '#fff',
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
   },
   timelineIcon: {
     fontSize: 14,
@@ -1602,13 +1602,13 @@ const styles = StyleSheet.create({
   },
   timelineLabel: {
     fontSize: 10,
-    color: '#666',
+    color: '#65626B',
     textAlign: 'center',
   },
   timelineLine: {
     height: 2,
     flex: 1,
-    backgroundColor: '#ddd',
+    backgroundColor: '#DCD9E2',
     marginBottom: 20,
   },
   scheduleConfirmedRow: {
@@ -1629,12 +1629,12 @@ const styles = StyleSheet.create({
   },
   schedulerNote: {
     fontSize: 12,
-    color: '#888',
+    color: '#87848D',
     textAlign: 'center',
   },
   scheduleChangeText: {
     fontSize: 12,
-    color: '#888',
+    color: '#87848D',
     textDecorationLine: 'underline',
     paddingVertical: 6,
     paddingHorizontal: 4,
@@ -1670,7 +1670,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   afterCareBox: {
-    backgroundColor: '#F9F9F9',
+    backgroundColor: '#F8F6FB',
     borderRadius: 10,
     padding: 14,
     marginTop: 8,
@@ -1679,11 +1679,11 @@ const styles = StyleSheet.create({
   afterCareTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   afterCareHint: {
     fontSize: 12,
-    color: '#888',
+    color: '#87848D',
     lineHeight: 17,
   },
   afterCareRow: {
@@ -1694,7 +1694,7 @@ const styles = StyleSheet.create({
   },
   afterCareName: {
     fontSize: 14,
-    color: '#333',
+    color: '#322F38',
   },
   afterCareDone: {
     fontSize: 13,

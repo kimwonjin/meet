@@ -55,10 +55,10 @@ export default function BlockListSheet({ visible, onClose }: { visible: boolean;
 }
 
 const styles = StyleSheet.create({
-  empty: { textAlign: 'center', color: '#999', fontSize: 14, marginVertical: 24 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f2f2f2' },
-  name: { fontSize: 15, fontWeight: '600', color: '#222' },
-  date: { fontSize: 12, color: '#999', marginTop: 2 },
-  btn: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, minWidth: 80, alignItems: 'center' },
-  btnText: { fontSize: 13, color: '#555' },
+  empty: { textAlign: 'center', color: '#98959E', fontSize: 14, marginVertical: 24 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F1EFF4' },
+  name: { fontSize: 15, fontWeight: '600', color: '#211E27' },
+  date: { fontSize: 12, color: '#98959E', marginTop: 2 },
+  btn: { borderWidth: 1, borderColor: '#DFDCE5', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, minWidth: 80, alignItems: 'center' },
+  btnText: { fontSize: 13, color: '#54515A' },
 });

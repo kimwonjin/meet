@@ -48,9 +48,9 @@ const styles = StyleSheet.create({
   list: { gap: 10 },
   card: { backgroundColor: '#F7F4FF', borderRadius: 12, padding: 12 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  title: { fontSize: 14, fontWeight: '700', color: '#333' },
+  title: { fontSize: 14, fontWeight: '700', color: '#322F38' },
   copyBtn: { borderWidth: 1, borderColor: '#5B21FF', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
   copyText: { color: '#5B21FF', fontSize: 13, fontWeight: '600' },
-  body: { fontSize: 13, color: '#444', lineHeight: 19 },
-  empty: { fontSize: 13, color: '#999', textAlign: 'center', paddingVertical: 8 },
+  body: { fontSize: 13, color: '#434049', lineHeight: 19 },
+  empty: { fontSize: 13, color: '#98959E', textAlign: 'center', paddingVertical: 8 },
 });

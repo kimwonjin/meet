@@ -142,9 +142,9 @@ const styles = StyleSheet.create({
   emptySlot: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F9F9F9',
+    backgroundColor: '#F8F6FB',
     borderWidth: 1,
-    borderColor: '#e5e5e5',
+    borderColor: '#E4E1EA',
     borderStyle: 'dashed',
   },
   plus: {
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 12,
-    color: '#999',
+    color: '#98959E',
     marginTop: 8,
   },
 });

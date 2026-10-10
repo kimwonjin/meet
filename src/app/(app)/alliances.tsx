@@ -263,7 +263,7 @@ export default function AlliancesScreen() {
     <View style={styles.container}>
       <View style={[styles.header, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
         <TouchableOpacity onPress={() => router.replace('/profile')} accessibilityLabel="마이로 돌아가기" style={{ paddingRight: 8, paddingVertical: 4 }}>
-          <Text style={{ fontSize: 24, color: '#333' }}>‹</Text>
+          <Text style={{ fontSize: 24, color: '#322F38' }}>‹</Text>
         </TouchableOpacity>
         <Text style={styles.title}>동맹 관리</Text>
       </View>
@@ -286,7 +286,7 @@ export default function AlliancesScreen() {
           <TextInput
             style={styles.search}
             placeholder="🔍 이름·회사명·지역으로 찾기"
-            placeholderTextColor="#aaa"
+            placeholderTextColor="#A9A6AF"
             value={query}
             onChangeText={setQuery}
             accessibilityLabel="파트너 찾기"
@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   emptyTab: {
     paddingHorizontal: 20,
@@ -495,27 +495,27 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 14,
-    color: '#999',
+    color: '#98959E',
   },
   searchWrap: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8 },
   listHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
-  listHeadTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: '#333' },
-  fToggle: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, paddingHorizontal: 14, minHeight: 38, justifyContent: 'center' },
+  listHeadTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: '#322F38' },
+  fToggle: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, paddingHorizontal: 14, minHeight: 38, justifyContent: 'center' },
   fToggleOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
-  fToggleText: { fontSize: 14, color: '#666' },
+  fToggleText: { fontSize: 14, color: '#65626B' },
   fToggleTextOn: { color: '#5B21FF', fontWeight: '600' },
   fBox: { paddingHorizontal: 20, paddingBottom: 8, gap: 6 },
-  fLabel: { fontSize: 12, color: '#8E8E93', marginTop: 4 },
+  fLabel: { fontSize: 12, color: '#8F8C95', marginTop: 4 },
   fRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
-  fChip: { borderWidth: 1, borderColor: '#E0E0E6', borderRadius: 16, paddingHorizontal: 12, minHeight: 34, justifyContent: 'center' },
+  fChip: { borderWidth: 1, borderColor: '#E1DEE7', borderRadius: 16, paddingHorizontal: 12, minHeight: 34, justifyContent: 'center' },
   fChipOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
-  fChipText: { fontSize: 13, color: '#666' },
+  fChipText: { fontSize: 13, color: '#65626B' },
   fChipTextOn: { color: '#5B21FF', fontWeight: '600' },
-  fDivider: { width: 1, height: 18, backgroundColor: '#E5E5EA', marginHorizontal: 2 },
-  fReset: { fontSize: 12, color: '#999', textDecorationLine: 'underline' },
-  fFoot: { fontSize: 12, color: '#8E8E93', textAlign: 'center', marginTop: 12 },
+  fDivider: { width: 1, height: 18, backgroundColor: '#E6E3EC', marginHorizontal: 2 },
+  fReset: { fontSize: 12, color: '#98959E', textDecorationLine: 'underline' },
+  fFoot: { fontSize: 12, color: '#8F8C95', textAlign: 'center', marginTop: 12 },
   fMatch: { color: '#5B21FF', fontWeight: '600' },
-  search: { borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 12, paddingHorizontal: 14, minHeight: 46, fontSize: 16, color: '#191919', backgroundColor: '#fff' },
+  search: { borderWidth: 1, borderColor: '#E6E3EC', borderRadius: 12, paddingHorizontal: 14, minHeight: 46, fontSize: 16, color: '#18151E', backgroundColor: '#fff' },
   list: {
     paddingHorizontal: 20,
     paddingBottom: 20,
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 14,
     padding: 12,
     marginBottom: 10,
@@ -551,11 +551,11 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   desc: {
     fontSize: 11,
-    color: '#999',
+    color: '#98959E',
   },
   meta: {
     flexDirection: 'row',
@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
   },
   rejectBtn: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
   rejectBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666',
+    color: '#65626B',
   },
   approvedStatusBadge: {
     fontSize: 14,
@@ -622,12 +622,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   serviceDesc: {
     fontSize: 13,
     lineHeight: 19,
-    color: '#555',
+    color: '#54515A',
     marginTop: 10,
   },
   modalSection: {
@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
   modalSectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
     marginBottom: 12,
   },
   infoRow: {
@@ -645,16 +645,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#EFEDF2',
   },
   infoLabel: {
     fontSize: 13,
-    color: '#666',
+    color: '#65626B',
   },
   infoValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#333',
+    color: '#322F38',
   },
   approvedStatus: {
     backgroundColor: '#F1ECFF',
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
   },
   matchDate: {
     fontSize: 11,
-    color: '#999',
+    color: '#98959E',
   },
 });
 

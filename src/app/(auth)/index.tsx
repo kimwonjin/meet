@@ -74,7 +74,7 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="010-0000-0000"
-          placeholderTextColor="#ddd"
+          placeholderTextColor="#DCD9E2"
           value={phone}
           onChangeText={(text) => setPhone(formatPhone(text))}
           keyboardType="phone-pad"
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#65626B',
     marginBottom: 40,
   },
   form: {
@@ -156,12 +156,12 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#bbb',
+    color: '#BAB7C0',
     marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 10,
     padding: 12,
     fontSize: 14,
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: '#999',
+    color: '#98959E',
   },
   recent: {
     marginTop: 40,
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: '#EDEBF0',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -210,15 +210,15 @@ const styles = StyleSheet.create({
   recentName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   recentPhone: {
     fontSize: 12,
-    color: '#999',
+    color: '#98959E',
   },
   recentRole: {
     fontSize: 12,
-    color: '#666',
+    color: '#65626B',
   },
   footerLink: {
     fontSize: 12,

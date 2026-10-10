@@ -27,8 +27,8 @@ export default function TermsSheet({ docKey, onClose }: { docKey: TermsDocKey | 
 }
 
 const styles = StyleSheet.create({
-  version: { fontSize: 12, color: '#999', marginBottom: 12 },
+  version: { fontSize: 12, color: '#98959E', marginBottom: 12 },
   section: { marginBottom: 18 },
-  heading: { fontSize: 14, fontWeight: '700', color: '#222', marginBottom: 6 },
-  body: { fontSize: 13, color: '#555', lineHeight: 21 },
+  heading: { fontSize: 14, fontWeight: '700', color: '#211E27', marginBottom: 6 },
+  body: { fontSize: 13, color: '#54515A', lineHeight: 21 },
 });

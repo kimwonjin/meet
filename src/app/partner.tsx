@@ -10,9 +10,9 @@ import { APP_MAX_WIDTH } from '@/lib/layout';
 // 파트너 모집 페이지 (/partner). 회사가 파트너를 모을 때 공유하는 링크.
 // 주요 행동은 '파트너 신청하기' 하나: 로그인 상태면 바로 신청서, 아니면 가입 후 신청서로 이어진다.
 const BENEFITS = [
-  { icon: '🆓', title: '가입비·월회비 0원', body: '사무실도 필요 없어요. 휴대폰 하나로 시작해요.' },
-  { icon: '💜', title: '만남이 성사되면 80%', body: '회원이 낸 1회 금액에서 수수료 20%를 뺀 금액이 내 정산금이에요.' },
-  { icon: '🤝', title: '동맹으로 회원 풀 확장', body: '다른 파트너와 동맹을 맺으면 서로의 회원끼리도 소개할 수 있어요.' },
+  { title: '가입비·월회비 0원', body: '사무실도 필요 없어요. 휴대폰 하나로 시작해요.' },
+  { title: '만남이 성사되면 80%', body: '회원이 낸 1회 금액에서 수수료 20%를 뺀 금액이 내 정산금이에요.' },
+  { title: '동맹으로 회원 풀 확장', body: '다른 파트너와 동맹을 맺으면 서로의 회원끼리도 소개할 수 있어요.' },
 ];
 const STEPS = [
   ['파트너 신청', '이름과 회사명(모임 이름)을 적고 약관에 동의해요.'],
@@ -60,7 +60,7 @@ export default function PartnerRecruitScreen() {
         <Text style={styles.brand}>두두인연 파트너</Text>
         <View style={styles.hero}>
           <Text style={styles.heroTitle}>주변 싱글을 이어주던{'\n'}당신의 소개,{'\n'}이제 수익이 됩니다</Text>
-          <Text style={styles.heroSub}>모임에서, 회사에서, 동네에서 소개를 해 주던 분이라면{'\n'}두두인연 파트너로 시작해 보세요.</Text>
+          <Text style={styles.heroSub}>모임에서, 회사에서, 동네에서 소개를 해 주던 분이라면 두두인연 파트너로 시작해 보세요.</Text>
           {cta}
           {!user && (
             <TouchableOpacity onPress={() => apply('/')} disabled={going} style={styles.secondary}>
@@ -69,15 +69,14 @@ export default function PartnerRecruitScreen() {
           )}
         </View>
 
-        {BENEFITS.map((b) => (
-          <View key={b.title} style={styles.benefit}>
-            <Text style={styles.benefitIcon}>{b.icon}</Text>
-            <View style={{ flex: 1 }}>
+        <View style={styles.benefits}>
+          {BENEFITS.map((b) => (
+            <View key={b.title} style={styles.benefit}>
               <Text style={styles.benefitTitle}>{b.title}</Text>
               <Text style={styles.benefitBody}>{b.body}</Text>
             </View>
-          </View>
-        ))}
+          ))}
+        </View>
 
         <Text style={styles.h2}>시작은 이렇게</Text>
         {STEPS.map(([t, d], i) => (
@@ -115,30 +114,30 @@ const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#fff' },
   content: { alignItems: 'center', paddingBottom: 40 },
   inner: { width: '100%', maxWidth: APP_MAX_WIDTH, paddingHorizontal: 20 },
-  brand: { fontSize: 15, fontWeight: '700', color: '#5B21FF', marginTop: 24 },
-  hero: { marginTop: 12, backgroundColor: '#5B21FF', borderRadius: 22, padding: 22 },
-  heroTitle: { fontSize: 26, fontWeight: '800', color: '#fff', lineHeight: 36 },
-  heroSub: { fontSize: 14, color: 'rgba(255,255,255,0.9)', lineHeight: 21, marginTop: 10, marginBottom: 18 },
-  primary: { backgroundColor: '#fff', borderRadius: 14, minHeight: 52, alignItems: 'center', justifyContent: 'center' },
-  primaryText: { color: '#5B21FF', fontSize: 16, fontWeight: '700' },
-  secondary: { alignItems: 'center', paddingVertical: 12 },
-  secondaryText: { color: 'rgba(255,255,255,0.9)', fontSize: 13, textDecorationLine: 'underline' },
-  benefit: { flexDirection: 'row', gap: 14, alignItems: 'flex-start', marginTop: 16, padding: 16, borderRadius: 16, backgroundColor: '#F7F7F9' },
-  benefitIcon: { fontSize: 24 },
-  benefitTitle: { fontSize: 16, fontWeight: '700', color: '#191919' },
-  benefitBody: { fontSize: 14, color: '#666', marginTop: 4, lineHeight: 20 },
-  h2: { fontSize: 18, fontWeight: '700', color: '#191919', marginTop: 32, marginBottom: 8 },
+  brand: { fontSize: 14, fontWeight: '700', color: '#5B21FF', marginTop: 28 },
+  hero: { marginTop: 16, paddingBottom: 28, borderBottomWidth: 1, borderBottomColor: '#ECEAF1' },
+  heroTitle: { fontSize: 28, fontWeight: '800', color: '#18151E', lineHeight: 38, letterSpacing: -0.5 },
+  heroSub: { fontSize: 15, color: '#65626B', lineHeight: 23, marginTop: 12, marginBottom: 24 },
+  primary: { backgroundColor: '#5B21FF', borderRadius: 10, minHeight: 52, alignItems: 'center', justifyContent: 'center' },
+  primaryText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  secondary: { alignItems: 'center', paddingVertical: 14 },
+  secondaryText: { color: '#65626B', fontSize: 13, textDecorationLine: 'underline' },
+  benefits: { marginTop: 8 },
+  benefit: { paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: '#ECEAF1' },
+  benefitTitle: { fontSize: 17, fontWeight: '700', color: '#18151E' },
+  benefitBody: { fontSize: 14, color: '#65626B', marginTop: 6, lineHeight: 21 },
+  h2: { fontSize: 18, fontWeight: '700', color: '#18151E', marginTop: 32, marginBottom: 8 },
   step: { flexDirection: 'row', gap: 12, paddingVertical: 10 },
   stepNum: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F4F1FF', alignItems: 'center', justifyContent: 'center' },
   stepNumT: { color: '#5B21FF', fontWeight: '700' },
-  stepTitle: { fontSize: 15, fontWeight: '700', color: '#191919' },
-  stepBody: { fontSize: 14, color: '#666', marginTop: 2, lineHeight: 20 },
-  example: { marginTop: 24, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#E9E2FF', backgroundColor: '#FBFAFF' },
+  stepTitle: { fontSize: 15, fontWeight: '700', color: '#18151E' },
+  stepBody: { fontSize: 14, color: '#65626B', marginTop: 2, lineHeight: 20 },
+  example: { marginTop: 24, paddingVertical: 4, paddingLeft: 14, borderLeftWidth: 2, borderLeftColor: '#5B21FF' },
   exampleTitle: { fontSize: 13, color: '#5B21FF', fontWeight: '700' },
-  exampleBody: { fontSize: 14, color: '#333', marginTop: 6, lineHeight: 22 },
-  exampleStrong: { fontWeight: '800', color: '#191919' },
-  exampleNote: { fontSize: 12, color: '#999', marginTop: 8 },
-  faq: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1F1F3' },
-  faqQ: { fontSize: 15, fontWeight: '700', color: '#191919' },
-  faqA: { fontSize: 14, color: '#666', marginTop: 4, lineHeight: 20 },
+  exampleBody: { fontSize: 14, color: '#322F38', marginTop: 6, lineHeight: 22 },
+  exampleStrong: { fontWeight: '800', color: '#18151E' },
+  exampleNote: { fontSize: 12, color: '#98959E', marginTop: 8 },
+  faq: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1EFF4' },
+  faqQ: { fontSize: 15, fontWeight: '700', color: '#18151E' },
+  faqA: { fontSize: 14, color: '#65626B', marginTop: 4, lineHeight: 20 },
 });

@@ -37,8 +37,8 @@ export default function SkeletonScreen({ cards = 3 }: { cards?: number }) {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 60 },
-  bar: { height: 12, borderRadius: 6, backgroundColor: '#ECECF1' },
-  card: { marginTop: 20, padding: 16, borderRadius: 14, backgroundColor: '#F7F7FA' },
+  bar: { height: 12, borderRadius: 6, backgroundColor: '#EDEBF0' },
+  card: { marginTop: 20, padding: 16, borderRadius: 14, backgroundColor: '#F7F5FA' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  circle: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#ECECF1' },
+  circle: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#EDEBF0' },
 });

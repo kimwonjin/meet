@@ -141,12 +141,12 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#EFEDF2',
   },
   sheetTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   sheetHeaderActions: {
     flexDirection: 'row',
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   },
   closeBtnText: {
     fontSize: 18,
-    color: '#999',
+    color: '#98959E',
   },
   empty: {
     paddingVertical: 60,
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#999',
+    color: '#98959E',
   },
   list: {
     paddingHorizontal: 20,
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
+    borderBottomColor: '#F4F2F7',
   },
   itemUnread: {
     backgroundColor: '#FAFAFF',
@@ -203,16 +203,16 @@ const styles = StyleSheet.create({
   itemTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
     marginBottom: 2,
   },
   itemBody: {
     fontSize: 12,
-    color: '#666',
+    color: '#65626B',
     marginBottom: 4,
   },
   itemDate: {
     fontSize: 11,
-    color: '#bbb',
+    color: '#BAB7C0',
   },
 });

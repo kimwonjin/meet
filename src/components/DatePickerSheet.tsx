@@ -49,14 +49,14 @@ export default function DatePickerSheet({ visible, onClose, onConfirm, title = '
 const styles = StyleSheet.create({
   summary: {
     fontSize: 14,
-    color: '#333',
+    color: '#322F38',
     fontWeight: '600',
     textAlign: 'center',
     marginTop: 16,
   },
   hint: {
     fontSize: 12,
-    color: '#999',
+    color: '#98959E',
     textAlign: 'center',
     marginTop: 4,
   },

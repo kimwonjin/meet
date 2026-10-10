@@ -57,12 +57,12 @@ const styles = StyleSheet.create({
   empty: {
     paddingVertical: 20,
     alignItems: 'center',
-    backgroundColor: '#F9F9F9',
+    backgroundColor: '#F8F6FB',
     borderRadius: 12,
     marginBottom: 16,
   },
   emptyText: {
     fontSize: 13,
-    color: '#999',
+    color: '#98959E',
   },
 });

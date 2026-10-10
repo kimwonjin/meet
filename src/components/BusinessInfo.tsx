@@ -22,5 +22,5 @@ export default function BusinessInfo() {
 
 const styles = StyleSheet.create({
   wrap: { paddingVertical: 16, paddingHorizontal: 20, gap: 2 },
-  line: { fontSize: 11, color: '#aaa', lineHeight: 16, textAlign: 'center' },
+  line: { fontSize: 11, color: '#A9A6AF', lineHeight: 16, textAlign: 'center' },
 });

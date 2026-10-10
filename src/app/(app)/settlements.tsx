@@ -831,7 +831,7 @@ export default function SettlementsScreen() {
         <TextInput
           style={styles.reasonInput}
           placeholder="예: '보장' 같은 단정적인 표현은 빼주세요"
-          placeholderTextColor="#aaa"
+          placeholderTextColor="#A9A6AF"
           value={rejectReason}
           onChangeText={setRejectReason}
           multiline
@@ -865,25 +865,25 @@ export default function SettlementsScreen() {
 
 const styles = StyleSheet.create({
   freeBox: { backgroundColor: '#F7F4FF', borderRadius: 12, padding: 14, marginBottom: 12 },
-  freeTitle: { fontSize: 14, fontWeight: '700', color: '#333', marginBottom: 6 },
-  freeHint: { fontSize: 12, color: '#888', marginTop: 6, lineHeight: 17 },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#333', marginBottom: 10, marginTop: 4 },
+  freeTitle: { fontSize: 14, fontWeight: '700', color: '#322F38', marginBottom: 6 },
+  freeHint: { fontSize: 12, color: '#87848D', marginTop: 6, lineHeight: 17 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#322F38', marginBottom: 10, marginTop: 4 },
   reviewField: { marginTop: 10 },
-  reviewLabel: { fontSize: 12, color: '#888', marginBottom: 4 },
-  reviewOld: { fontSize: 13, color: '#999', lineHeight: 19 },
-  reviewNew: { fontSize: 14, color: '#222', lineHeight: 20, marginTop: 4 },
-  reasonInput: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, padding: 12, minHeight: 80, fontSize: 14, textAlignVertical: 'top', marginVertical: 12 },
+  reviewLabel: { fontSize: 12, color: '#87848D', marginBottom: 4 },
+  reviewOld: { fontSize: 13, color: '#98959E', lineHeight: 19 },
+  reviewNew: { fontSize: 14, color: '#211E27', lineHeight: 20, marginTop: 4 },
+  reasonInput: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, padding: 12, minHeight: 80, fontSize: 14, textAlignVertical: 'top', marginVertical: 12 },
   reportRepeat: { fontSize: 12, color: '#E53935', fontWeight: '600', marginTop: 8 },
   suspendRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
   suspendedText: { fontSize: 13, color: '#E53935', fontWeight: '700' },
-  unsuspendText: { fontSize: 13, color: '#666', textDecorationLine: 'underline', paddingVertical: 6 },
+  unsuspendText: { fontSize: 13, color: '#65626B', textDecorationLine: 'underline', paddingVertical: 6 },
   suspendBtn: { borderWidth: 1, borderColor: '#E53935', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, alignSelf: 'flex-start' },
   suspendBtnText: { color: '#E53935', fontSize: 13, fontWeight: '600' },
-  sheetText: { fontSize: 14, color: '#333', lineHeight: 21, marginBottom: 8 },
-  sheetSub: { fontSize: 13, color: '#888', lineHeight: 19, marginBottom: 8 },
+  sheetText: { fontSize: 14, color: '#322F38', lineHeight: 21, marginBottom: 8 },
+  sheetSub: { fontSize: 13, color: '#87848D', lineHeight: 19, marginBottom: 8 },
   suspendConfirm: { backgroundColor: '#E53935', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
   suspendConfirmText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  reportDetail: { fontSize: 13, color: '#444', backgroundColor: '#F7F7F9', borderRadius: 8, padding: 10, marginTop: 8, lineHeight: 19 },
+  reportDetail: { fontSize: 13, color: '#434049', backgroundColor: '#F7F5FA', borderRadius: 8, padding: 10, marginTop: 8, lineHeight: 19 },
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -906,13 +906,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   segmentRow: {
     flexDirection: 'row',
     marginHorizontal: 20,
     marginBottom: 16,
-    backgroundColor: '#F5F5F7',
+    backgroundColor: '#F5F3F8',
     borderRadius: 10,
     padding: 4,
   },
@@ -933,7 +933,7 @@ const styles = StyleSheet.create({
   segmentBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#999',
+    color: '#98959E',
   },
   segmentBtnTextActive: {
     color: '#5B21FF',
@@ -945,7 +945,7 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 14,
-    color: '#999',
+    color: '#98959E',
   },
   list: {
     paddingHorizontal: 20,
@@ -965,7 +965,7 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 11,
-    color: '#666',
+    color: '#65626B',
     marginBottom: 6,
   },
   summaryValue: {
@@ -974,7 +974,7 @@ const styles = StyleSheet.create({
     color: '#5B21FF',
   },
   card: {
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#F8F6FB',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -987,12 +987,12 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
     marginBottom: 4,
   },
   cardDate: {
     fontSize: 11,
-    color: '#999',
+    color: '#98959E',
   },
   row: {
     flexDirection: 'row',
@@ -1001,12 +1001,12 @@ const styles = StyleSheet.create({
   },
   rowLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#65626B',
   },
   rowValue: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#333',
+    color: '#322F38',
   },
   payoutValue: {
     fontSize: 13,
@@ -1045,13 +1045,13 @@ const styles = StyleSheet.create({
   rejectBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
   },
   rejectBtnText: {
-    color: '#666',
+    color: '#65626B',
     fontSize: 13,
     fontWeight: '600',
   },

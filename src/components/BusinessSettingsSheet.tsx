@@ -66,7 +66,7 @@ export default function BusinessSettingsSheet({ visible, onClose }: { visible: b
                 value={values[f.key]}
                 onChangeText={(t) => setValues((v) => ({ ...v, [f.key]: t }))}
                 placeholder={f.placeholder}
-                placeholderTextColor="#bbb"
+                placeholderTextColor="#BAB7C0"
                 maxLength={120}
                 accessibilityLabel={f.label}
               />
@@ -83,12 +83,12 @@ export default function BusinessSettingsSheet({ visible, onClose }: { visible: b
 }
 
 const styles = StyleSheet.create({
-  lead: { fontSize: 13, color: '#666', lineHeight: 19, marginBottom: 12 },
+  lead: { fontSize: 13, color: '#65626B', lineHeight: 19, marginBottom: 12 },
   warn: { fontSize: 13, color: '#E53935', lineHeight: 19, marginBottom: 12 },
   field: { marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6 },
-  input: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, fontSize: 14, color: '#222' },
-  hint: { fontSize: 12, color: '#888', marginTop: 4, lineHeight: 17 },
+  label: { fontSize: 13, fontWeight: '600', color: '#322F38', marginBottom: 6 },
+  input: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, fontSize: 14, color: '#211E27' },
+  hint: { fontSize: 12, color: '#87848D', marginTop: 4, lineHeight: 17 },
   primary: { backgroundColor: '#5B21FF', borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 8 },
   primaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   disabled: { opacity: 0.6 },

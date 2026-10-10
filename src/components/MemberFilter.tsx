@@ -72,7 +72,7 @@ export function useMemberFilter() {
           <TextInput
             style={styles.search}
             placeholder="🔍 이름으로 찾기"
-            placeholderTextColor="#aaa"
+            placeholderTextColor="#A9A6AF"
             value={query}
             onChangeText={setQuery}
           />
@@ -111,18 +111,18 @@ export function useMemberFilter() {
 const styles = StyleSheet.create({
   box: { gap: 8, marginBottom: 4 },
   topRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  toggle: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
+  toggle: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
   toggleOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
-  toggleText: { fontSize: 14, color: '#666' },
+  toggleText: { fontSize: 14, color: '#65626B' },
   toggleTextOn: { color: '#5B21FF', fontWeight: '600' },
-  search: { flex: 1, borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14 },
+  search: { flex: 1, borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14 },
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
-  label: { fontSize: 12, color: '#8E8E93', marginTop: 4 },
-  chip: { borderWidth: 1, borderColor: '#E0E0E6', borderRadius: 16, paddingHorizontal: 12, minHeight: 34, justifyContent: 'center' },
+  label: { fontSize: 12, color: '#8F8C95', marginTop: 4 },
+  chip: { borderWidth: 1, borderColor: '#E1DEE7', borderRadius: 16, paddingHorizontal: 12, minHeight: 34, justifyContent: 'center' },
   chipOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
-  chipText: { fontSize: 13, color: '#666' },
+  chipText: { fontSize: 13, color: '#65626B' },
   chipTextOn: { color: '#5B21FF', fontWeight: '600' },
-  divider: { width: 1, height: 18, backgroundColor: '#e5e5e5', marginHorizontal: 2 },
+  divider: { width: 1, height: 18, backgroundColor: '#E4E1EA', marginHorizontal: 2 },
   reset: { alignSelf: 'flex-start', paddingVertical: 4 },
-  resetText: { fontSize: 12, color: '#999', textDecorationLine: 'underline' },
+  resetText: { fontSize: 12, color: '#98959E', textDecorationLine: 'underline' },
 });

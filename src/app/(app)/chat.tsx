@@ -335,7 +335,7 @@ export default function ChatScreen() {
             <TextInput
               style={styles.messageInput}
               placeholder="메시지 입력"
-              placeholderTextColor="#bbb"
+              placeholderTextColor="#BAB7C0"
               value={messageInput}
               onChangeText={setMessageInput}
               editable={!sending}
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     fontSize: 13,
-    color: '#999',
+    color: '#98959E',
     paddingVertical: 10,
   },
   container: {
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   filterRow: {
     flexDirection: 'row',
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   },
   filterChip: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
   filterChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666',
+    color: '#65626B',
   },
   filterChipTextActive: {
     color: '#fff',
@@ -414,14 +414,14 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 14,
-    color: '#999',
+    color: '#98959E',
   },
   threadRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#EFEDF2',
     gap: 12,
   },
   avatar: {
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   threadName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   roleBadge: {
     backgroundColor: '#F1ECFF',
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
   },
   threadPreview: {
     fontSize: 12,
-    color: '#999',
+    color: '#98959E',
   },
   unreadDot: {
     minWidth: 20,
@@ -493,19 +493,19 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#EFEDF2',
   },
   threadBack: {
     width: 30,
   },
   threadBackText: {
     fontSize: 26,
-    color: '#333',
+    color: '#322F38',
   },
   threadHeaderName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   messageList: {
     paddingHorizontal: 16,
@@ -531,11 +531,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#5B21FF',
   },
   messageBubbleTheirs: {
-    backgroundColor: '#F1F1F3',
+    backgroundColor: '#F1EFF4',
   },
   messageText: {
     fontSize: 14,
-    color: '#333',
+    color: '#322F38',
   },
   messageTextMine: {
     color: '#fff',
@@ -547,12 +547,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: '#EFEDF2',
   },
   messageInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,

@@ -36,6 +36,6 @@ export default function OfflineBanner() {
 }
 
 const styles = StyleSheet.create({
-  bar: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1000, backgroundColor: '#333', paddingBottom: 8, paddingHorizontal: 16 },
+  bar: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1000, backgroundColor: '#322F38', paddingBottom: 8, paddingHorizontal: 16 },
   text: { color: '#fff', fontSize: 13, textAlign: 'center' },
 });

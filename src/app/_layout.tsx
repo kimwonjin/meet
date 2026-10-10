@@ -80,8 +80,8 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 const errorStyles = StyleSheet.create({
   wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, backgroundColor: '#fff' },
   icon: { fontSize: 48 },
-  title: { fontSize: 20, fontWeight: '700', color: '#222', marginTop: 16 },
-  sub: { fontSize: 14, color: '#777', textAlign: 'center', marginTop: 8, lineHeight: 21 },
+  title: { fontSize: 20, fontWeight: '700', color: '#211E27', marginTop: 16 },
+  sub: { fontSize: 14, color: '#76737C', textAlign: 'center', marginTop: 8, lineHeight: 21 },
   btn: { marginTop: 24, backgroundColor: '#5B21FF', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32 },
   btnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

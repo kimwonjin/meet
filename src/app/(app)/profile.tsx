@@ -983,13 +983,13 @@ export default function ProfileScreen() {
           <Text style={styles.gradeBoxScore}>처리 시점의 남은 금액으로 확정돼요</Text>
         </View>
         <Text style={styles.modalLabel}>은행명</Text>
-        <TextInput style={styles.modalInput} placeholder="국민은행" placeholderTextColor="#ddd" value={refundBank.bankName}
+        <TextInput style={styles.modalInput} placeholder="국민은행" placeholderTextColor="#DCD9E2" value={refundBank.bankName}
           onChangeText={(v) => setRefundBank((b) => ({ ...b, bankName: v }))} editable={!requestingRefund} />
         <Text style={styles.modalLabel}>계좌번호</Text>
-        <TextInput style={styles.modalInput} placeholder="숫자만 입력" placeholderTextColor="#ddd" value={refundBank.accountNumber}
+        <TextInput style={styles.modalInput} placeholder="숫자만 입력" placeholderTextColor="#DCD9E2" value={refundBank.accountNumber}
           onChangeText={(v) => setRefundBank((b) => ({ ...b, accountNumber: v }))} keyboardType="number-pad" editable={!requestingRefund} />
         <Text style={styles.modalLabel}>예금주</Text>
-        <TextInput style={styles.modalInput} placeholder="홍길동" placeholderTextColor="#ddd" value={refundBank.accountHolder}
+        <TextInput style={styles.modalInput} placeholder="홍길동" placeholderTextColor="#DCD9E2" value={refundBank.accountHolder}
           onChangeText={(v) => setRefundBank((b) => ({ ...b, accountHolder: v }))} editable={!requestingRefund} />
         <TouchableOpacity
           style={[styles.storeSaveBtn, requestingRefund && styles.storeSaveBtnDisabled]}
@@ -1029,7 +1029,7 @@ export default function ProfileScreen() {
         <View style={styles.profileFormSection}>
           <Text style={styles.formLabel}>생년월일</Text>
           <View style={[styles.formInput, {justifyContent: 'center', paddingLeft: 10}]}>
-            <Text style={{color: '#333', fontSize: 16}}>
+            <Text style={{color: '#322F38', fontSize: 16}}>
               {user?.birth_date || '-'}
             </Text>
           </View>
@@ -1040,7 +1040,7 @@ export default function ProfileScreen() {
           <TextInput
             style={styles.formInput}
             placeholder="170"
-            placeholderTextColor="#ddd"
+            placeholderTextColor="#DCD9E2"
             keyboardType="number-pad"
             value={profileData.height}
             onChangeText={(text) => setProfileData({...profileData, height: text})}
@@ -1052,7 +1052,7 @@ export default function ProfileScreen() {
           <TextInput
             style={styles.formInput}
             placeholder="개발자"
-            placeholderTextColor="#ddd"
+            placeholderTextColor="#DCD9E2"
             value={profileData.job}
             onChangeText={(text) => setProfileData({...profileData, job: text})}
           />
@@ -1138,7 +1138,7 @@ export default function ProfileScreen() {
           <TextInput
             style={[styles.formInput, {minHeight: 100}]}
             placeholder="자신을 소개해주세요"
-            placeholderTextColor="#ddd"
+            placeholderTextColor="#DCD9E2"
             multiline
             value={profileData.bio}
             onChangeText={(text) => setProfileData({...profileData, bio: text})}
@@ -1161,7 +1161,7 @@ export default function ProfileScreen() {
       >
             {connectorApplicationStatus === 'approved' ? (
               <>
-                <Text style={{ color: '#666', fontSize: 13, marginBottom: 20, lineHeight: 20 }}>
+                <Text style={{ color: '#65626B', fontSize: 13, marginBottom: 20, lineHeight: 20 }}>
                   이미 승인된 매칭 파트너입니다.{'\n'}파트너 화면으로 돌아갈 수 있어요.
                 </Text>
                 <TouchableOpacity
@@ -1174,7 +1174,7 @@ export default function ProfileScreen() {
               </>
             ) : connectorApplicationStatus === 'pending' ? (
               <>
-                <Text style={{ color: '#666', fontSize: 13, marginBottom: 20, lineHeight: 20 }}>
+                <Text style={{ color: '#65626B', fontSize: 13, marginBottom: 20, lineHeight: 20 }}>
                   신청이 접수됐어요.{'\n'}운영자가 확인하면 알려드릴게요. 그때부터 파트너 화면을 쓸 수 있어요.
                 </Text>
                 <TouchableOpacity
@@ -1198,7 +1198,7 @@ export default function ProfileScreen() {
                 <TextInput
                   style={styles.modalInput}
                   placeholder="예: 행복매칭, 판교 러닝크루"
-                  placeholderTextColor="#ddd"
+                  placeholderTextColor="#DCD9E2"
                   value={businessName}
                   onChangeText={setBusinessName}
                   editable={!loading}
@@ -1269,7 +1269,7 @@ export default function ProfileScreen() {
           <TextInput
             style={styles.formInput}
             placeholder="예: 50,000"
-            placeholderTextColor="#ddd"
+            placeholderTextColor="#DCD9E2"
             keyboardType="number-pad"
             // 3자리마다 쉼표를 넣어 보여주고, 저장은 숫자만
             value={feeDigits(storeData.fee_per_session) ? Number(feeDigits(storeData.fee_per_session)).toLocaleString('ko-KR') : ''}
@@ -1319,7 +1319,7 @@ export default function ProfileScreen() {
           <TextInput
             style={styles.formInput}
             placeholder="예: 결혼정보회사 커플매니저 5년"
-            placeholderTextColor="#ddd"
+            placeholderTextColor="#DCD9E2"
             value={storeData.career}
             onChangeText={(text) => setStoreData({ ...storeData, career: text })}
             maxLength={60}
@@ -1331,7 +1331,7 @@ export default function ProfileScreen() {
           <TextInput
             style={[styles.formInput, { height: 100, textAlignVertical: 'top' }]}
             placeholder="어떤 분들을 주로 소개하는지, 소개 방식과 진행 과정, 회원에게 하고 싶은 말을 적어주세요"
-            placeholderTextColor="#ddd"
+            placeholderTextColor="#DCD9E2"
             multiline
             numberOfLines={5}
             value={storeData.intro}
@@ -1356,7 +1356,7 @@ export default function ProfileScreen() {
       <BottomSheet visible={showCreditsModal} onClose={() => setShowCreditsModal(false)} title="이용권/결제">
 
         {loadingCredits ? (
-          <Text style={{ color: '#999', paddingVertical: 20 }}>불러오는 중...</Text>
+          <Text style={{ color: '#98959E', paddingVertical: 20 }}>불러오는 중...</Text>
         ) : (
           <>
             <View style={styles.walletBalanceBox}>
@@ -1397,7 +1397,7 @@ export default function ProfileScreen() {
             <View style={styles.modalSection}>
               <Text style={styles.modalSectionTitle}>이용권 현황</Text>
               {myConnectorCredits.length === 0 ? (
-                <Text style={{ color: '#999', paddingVertical: 12 }}>아직 구매한 이용권이 없습니다. 파트너 탭에서 가입이 승인된 파트너의 이용권을 구매해보세요.</Text>
+                <Text style={{ color: '#98959E', paddingVertical: 12 }}>아직 구매한 이용권이 없습니다. 파트너 탭에서 가입이 승인된 파트너의 이용권을 구매해보세요.</Text>
               ) : (
                 myConnectorCredits.map((c) => (
                   <View key={c.connectorId} style={styles.creditCard}>
@@ -1469,9 +1469,9 @@ export default function ProfileScreen() {
       <BottomSheet visible={showSettlementsModal} onClose={() => setShowSettlementsModal(false)} title="정산관리">
 
         {loadingSettlements ? (
-          <Text style={{ color: '#999', paddingVertical: 20 }}>불러오는 중...</Text>
+          <Text style={{ color: '#98959E', paddingVertical: 20 }}>불러오는 중...</Text>
         ) : mySettlements.length === 0 ? (
-          <Text style={{ color: '#999', paddingVertical: 20 }}>정산 내역이 없습니다</Text>
+          <Text style={{ color: '#98959E', paddingVertical: 20 }}>정산 내역이 없습니다</Text>
         ) : (
           <>
             {(() => {
@@ -1559,7 +1559,7 @@ export default function ProfileScreen() {
         {loadingCreditScore ? (
           <ActivityIndicator size="large" color="#5B21FF" style={{ marginTop: 40 }} />
         ) : !creditScore ? (
-          <Text style={{ color: '#999', paddingVertical: 20 }}>신뢰지표를 불러오지 못했습니다</Text>
+          <Text style={{ color: '#98959E', paddingVertical: 20 }}>신뢰지표를 불러오지 못했습니다</Text>
         ) : (creditScore.finished_count ?? creditScore.total_proposed) === 0 ? (
           <View style={styles.comingSoonContainer}>
             <Text style={styles.comingSoonIcon}>⭐</Text>
@@ -1618,7 +1618,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="국민은행"
-                placeholderTextColor="#ddd"
+                placeholderTextColor="#DCD9E2"
                 value={bankName}
                 onChangeText={setBankName}
                 editable={!savingBank}
@@ -1627,7 +1627,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="숫자만 입력"
-                placeholderTextColor="#ddd"
+                placeholderTextColor="#DCD9E2"
                 value={accountNumber}
                 onChangeText={setAccountNumber}
                 editable={!savingBank}
@@ -1637,7 +1637,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="홍길동"
-                placeholderTextColor="#ddd"
+                placeholderTextColor="#DCD9E2"
                 value={accountHolder}
                 onChangeText={setAccountHolder}
                 editable={!savingBank}
@@ -1656,7 +1656,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="출금할 금액"
-                placeholderTextColor="#ddd"
+                placeholderTextColor="#DCD9E2"
                 value={withdrawAmount}
                 onChangeText={setWithdrawAmount}
                 editable={!requestingWithdrawal}
@@ -1739,13 +1739,13 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
     marginBottom: 0,
   },
   buildId: {
     textAlign: 'center',
     fontSize: 11,
-    color: '#bbb',
+    color: '#BAB7C0',
     marginBottom: 24,
   },
   policyLinks: {
@@ -1761,7 +1761,7 @@ const styles = StyleSheet.create({
   },
   policyLinkText: {
     fontSize: 12,
-    color: '#999',
+    color: '#98959E',
     textDecorationLine: 'underline',
   },
   scoreRow: {
@@ -1770,7 +1770,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f2f2f2',
+    borderBottomColor: '#F1EFF4',
   },
   scoreRowText: {
     flex: 1,
@@ -1778,18 +1778,18 @@ const styles = StyleSheet.create({
   },
   scoreBasis: {
     fontSize: 12,
-    color: '#999',
+    color: '#98959E',
     marginTop: 2,
   },
   scoreHint: {
     fontSize: 12,
-    color: '#999',
+    color: '#98959E',
     marginTop: 10,
     lineHeight: 18,
   },
   grade: {
     fontSize: 1,
-    color: '#999',
+    color: '#98959E',
     height: 0,
     overflow: 'hidden',
   },
@@ -1800,12 +1800,12 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     paddingHorizontal: 20,
   },
-  partnerIntro: { fontSize: 14, color: '#444', lineHeight: 21, backgroundColor: '#F7F4FF', borderRadius: 12, padding: 14, marginBottom: 16 },
+  partnerIntro: { fontSize: 14, color: '#434049', lineHeight: 21, backgroundColor: '#F7F4FF', borderRadius: 12, padding: 14, marginBottom: 16 },
   freeNote: { fontSize: 12, color: '#5B21FF', marginTop: 8 },
   reviewBanner: { backgroundColor: '#F7F4FF', borderRadius: 12, padding: 12, marginBottom: 12 },
   reviewBannerRejected: { backgroundColor: '#FFF1F0' },
   reviewBannerTitle: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
-  reviewBannerText: { fontSize: 13, color: '#555', marginTop: 4, lineHeight: 19 },
+  reviewBannerText: { fontSize: 13, color: '#54515A', marginTop: 4, lineHeight: 19 },
   inviteItem: { backgroundColor: '#F1ECFF' },
   newBadge: { backgroundColor: '#5B21FF', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
@@ -1815,7 +1815,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 18,
     marginBottom: 12,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F9F7FC',
     borderRadius: 14,
     borderBottomWidth: 0,
     borderBottomColor: 'transparent',
@@ -1832,16 +1832,16 @@ const styles = StyleSheet.create({
   menuTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
     marginBottom: 4,
   },
   menuSub: {
     fontSize: 13,
-    color: '#888',
+    color: '#87848D',
   },
   arrow: {
     fontSize: 18,
-    color: '#ddd',
+    color: '#DCD9E2',
     fontWeight: '300',
   },
   logoutMenuItem: {
@@ -1851,7 +1851,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     marginBottom: 12,
     marginTop: 12,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F9F7FC',
     borderRadius: 14,
   },
   logoutBtn: {
@@ -1888,18 +1888,18 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
     marginBottom: 16,
   },
   modalLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#666',
+    color: '#65626B',
     marginBottom: 8,
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 10,
     padding: 12,
     fontSize: 14,
@@ -1917,7 +1917,7 @@ const styles = StyleSheet.create({
   },
   modalBtnCancel: {
     borderWidth: 1.5,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
   },
   modalBtnConfirm: {
     backgroundColor: '#5B21FF',
@@ -1930,7 +1930,7 @@ const styles = StyleSheet.create({
   modalBtnTextCancel: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#666',
+    color: '#65626B',
   },
   modalBtnDisabled: {
     opacity: 0.6,
@@ -1951,7 +1951,7 @@ const styles = StyleSheet.create({
   },
   modalCloseText: {
     fontSize: 24,
-    color: '#999',
+    color: '#98959E',
   },
   gradeBox: {
     backgroundColor: '#F1ECFF',
@@ -1973,7 +1973,7 @@ const styles = StyleSheet.create({
   },
   gradeBoxScore: {
     fontSize: 12,
-    color: '#666',
+    color: '#65626B',
   },
   comingSoonContainer: {
     flex: 1,
@@ -1989,19 +1989,19 @@ const styles = StyleSheet.create({
   comingSoonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
     marginBottom: 8,
   },
   comingSoonSub: {
     fontSize: 13,
-    color: '#999',
+    color: '#98959E',
     textAlign: 'center',
     lineHeight: 20,
   },
   profileModalTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
     marginBottom: 20,
   },
   profileFormSection: {
@@ -2009,22 +2009,22 @@ const styles = StyleSheet.create({
   },
   formHint: {
     fontSize: 12,
-    color: '#999',
+    color: '#98959E',
     marginTop: 6,
   },
   formLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#666',
+    color: '#65626B',
     marginBottom: 6,
   },
   formInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 10,
     padding: 12,
     fontSize: 14,
-    color: '#333',
+    color: '#322F38',
   },
   profileSaveBtn: {
     backgroundColor: '#5B21FF',
@@ -2046,7 +2046,7 @@ const styles = StyleSheet.create({
   },
   optionBtn: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -2059,7 +2059,7 @@ const styles = StyleSheet.create({
   optionBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666',
+    color: '#65626B',
   },
   optionBtnTextSelected: {
     color: '#5B21FF',
@@ -2082,7 +2082,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 11,
-    color: '#999',
+    color: '#98959E',
     marginBottom: 6,
     fontWeight: '500',
   },
@@ -2092,7 +2092,7 @@ const styles = StyleSheet.create({
     color: '#5B21FF',
   },
   creditCard: {
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#F8F6FB',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -2112,14 +2112,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   pendingBadge: {
-    backgroundColor: '#F3F3F5',
+    backgroundColor: '#F3F1F6',
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
     marginTop: 10,
   },
   pendingBadgeText: {
-    color: '#888',
+    color: '#87848D',
     fontWeight: '600',
     fontSize: 12,
   },
@@ -2132,11 +2132,11 @@ const styles = StyleSheet.create({
   creditConnectorName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   creditFee: {
     fontSize: 12,
-    color: '#999',
+    color: '#98959E',
   },
   creditRow: {
     flexDirection: 'row',
@@ -2149,11 +2149,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: '#EDEBF0',
   },
   creditStatLabel: {
     fontSize: 11,
-    color: '#999',
+    color: '#98959E',
     marginBottom: 4,
   },
   creditStatValue: {
@@ -2164,7 +2164,7 @@ const styles = StyleSheet.create({
   creditStatValueMuted: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#999',
+    color: '#98959E',
   },
   infoRow: {
     flexDirection: 'row',
@@ -2173,12 +2173,12 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#65626B',
   },
   infoValue: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#333',
+    color: '#322F38',
   },
   walletBalanceBox: {
     backgroundColor: '#F1ECFF',
@@ -2189,7 +2189,7 @@ const styles = StyleSheet.create({
   },
   walletBalanceLabel: {
     fontSize: 13,
-    color: '#666',
+    color: '#65626B',
     marginBottom: 6,
   },
   walletBalanceValue: {
@@ -2199,19 +2199,19 @@ const styles = StyleSheet.create({
   },
   refundedNote: {
     fontSize: 12,
-    color: '#999',
+    color: '#98959E',
     marginTop: 8,
   },
   refundHint: {
     fontSize: 12,
-    color: '#888',
+    color: '#87848D',
     lineHeight: 18,
     marginTop: 6,
   },
   refundBtn: {
     marginTop: 14,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 10,
     paddingVertical: 13,
     alignItems: 'center',
@@ -2219,23 +2219,23 @@ const styles = StyleSheet.create({
   refundBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#444',
+    color: '#434049',
   },
   refundPendingBox: {
-    backgroundColor: '#F7F7F7',
+    backgroundColor: '#F6F4F9',
     borderRadius: 10,
     padding: 14,
   },
   refundPendingText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: '#322F38',
   },
   payoutBtn: { backgroundColor: '#5B21FF', borderRadius: 12, minHeight: 52, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   payoutBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   chargeNotice: {
     fontSize: 11,
-    color: '#999',
+    color: '#98959E',
     textAlign: 'center',
     marginTop: 10,
   },
@@ -2245,7 +2245,7 @@ const styles = StyleSheet.create({
   modalSectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
     marginBottom: 12,
   },
   selectedRegionsTag: {

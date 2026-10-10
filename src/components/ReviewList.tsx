@@ -33,13 +33,13 @@ export default function ReviewList({ reviews, emptyText = '아직 후기가 없�
 
 const styles = StyleSheet.create({
   loading: { paddingVertical: 12 },
-  empty: { fontSize: 13, color: '#666', lineHeight: 20 },
-  summary: { fontSize: 15, fontWeight: '700', color: '#222', marginBottom: 4 },
-  item: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f2f2f2' },
+  empty: { fontSize: 13, color: '#65626B', lineHeight: 20 },
+  summary: { fontSize: 15, fontWeight: '700', color: '#211E27', marginBottom: 4 },
+  item: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1EFF4' },
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   stars: { color: '#5B21FF', fontSize: 13 },
-  meta: { color: '#999', fontSize: 12 },
-  content: { fontSize: 13, color: '#666', lineHeight: 20 },
+  meta: { color: '#98959E', fontSize: 12 },
+  content: { fontSize: 13, color: '#65626B', lineHeight: 20 },
   more: { paddingVertical: 12, alignItems: 'center' },
   moreText: { color: '#5B21FF', fontSize: 13, fontWeight: '600' },
 });

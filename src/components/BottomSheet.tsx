@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#ddd',
+    backgroundColor: '#DCD9E2',
     marginTop: 8,
   },
   header: {
@@ -94,14 +94,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   close: {
     padding: 12,
   },
   closeText: {
     fontSize: 20,
-    color: '#999',
+    color: '#98959E',
   },
   body: {
     flexGrow: 0,

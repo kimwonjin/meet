@@ -655,7 +655,7 @@ export default function ConnectorsScreen() {
           <TextInput
             style={styles.searchInput}
             placeholder="🔍 회사명, 지역, 서비스로 찾기"
-            placeholderTextColor="#999"
+            placeholderTextColor="#98959E"
             value={search}
             onChangeText={setSearch}
           />
@@ -868,17 +868,17 @@ const styles = StyleSheet.create({
   proposeBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   allyChatBtn: { marginTop: 10, minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: '#5B21FF', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   allyChatBtnText: { color: '#5B21FF', fontSize: 15, fontWeight: '700' },
-  freeBox: { marginTop: 16, padding: 14, borderRadius: 14, backgroundColor: '#F7F7F9' },
-  freeTitle: { fontSize: 15, fontWeight: '700', color: '#191919' },
+  freeBox: { marginTop: 16, padding: 14, borderRadius: 14, backgroundColor: '#F7F5FA' },
+  freeTitle: { fontSize: 15, fontWeight: '700', color: '#18151E' },
   freeChips: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  freeChip: { flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#E0E0E6', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  freeChip: { flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#E1DEE7', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   freeChipOn: { borderColor: '#5B21FF', backgroundColor: '#F4F1FF' },
-  freeChipText: { fontSize: 15, color: '#555' },
+  freeChipText: { fontSize: 15, color: '#54515A' },
   freeChipTextOn: { color: '#5B21FF', fontWeight: '700' },
   freeBtn: { borderWidth: 1, borderColor: '#5B21FF', backgroundColor: '#fff', borderRadius: 12, minHeight: 48, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   freeBtnText: { fontSize: 15, fontWeight: '700', color: '#5B21FF' },
-  freeBtnSub: { fontSize: 12, color: '#888', marginTop: 8, textAlign: 'center' },
-  freeGiven: { fontSize: 13, color: '#888', textAlign: 'center', marginTop: 16 },
+  freeBtnSub: { fontSize: 12, color: '#87848D', marginTop: 8, textAlign: 'center' },
+  freeGiven: { fontSize: 13, color: '#87848D', textAlign: 'center', marginTop: 16 },
   suspendedTag: { fontSize: 12, color: '#E53935', fontWeight: '600' },
   container: {
     flex: 1,
@@ -902,18 +902,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
     marginBottom: 12,
   },
   searchInput: {
     fontSize: 14,
-    color: '#333',
+    color: '#322F38',
     paddingVertical: 2,
   },
   searchBar: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 11,
@@ -925,7 +925,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 14,
     padding: 12,
     marginBottom: 10,
@@ -994,7 +994,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   badge: {
     fontSize: 9,
@@ -1007,7 +1007,7 @@ const styles = StyleSheet.create({
   },
   desc: {
     fontSize: 11,
-    color: '#999',
+    color: '#98959E',
   },
   meta: {
     flexDirection: 'row',
@@ -1017,41 +1017,41 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#333',
+    color: '#322F38',
   },
   rating: {
-    color: '#999',
+    color: '#98959E',
   },
   partnerSub: {
     fontSize: 13,
-    color: '#888',
+    color: '#87848D',
     marginTop: 4,
   },
   careerText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#333',
+    color: '#322F38',
     marginBottom: 6,
   },
   distBlock: {
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f2f2f2',
+    borderBottomColor: '#F1EFF4',
   },
   distLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#666',
+    color: '#65626B',
     marginBottom: 6,
   },
   distHint: {
     fontSize: 12,
-    color: '#999',
+    color: '#98959E',
     marginTop: 8,
     lineHeight: 18,
   },
   reviewScore: {
-    color: '#333',
+    color: '#322F38',
     fontWeight: '600',
   },
   bottomSheet: {
@@ -1072,7 +1072,7 @@ const styles = StyleSheet.create({
   },
   modalCloseText: {
     fontSize: 24,
-    color: '#999',
+    color: '#98959E',
   },
   modalHeader: {
     alignItems: 'center',
@@ -1081,7 +1081,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
     marginTop: 12,
   },
   modalSection: {
@@ -1090,7 +1090,7 @@ const styles = StyleSheet.create({
   modalSectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
     marginBottom: 12,
   },
   infoRow: {
@@ -1099,16 +1099,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#EFEDF2',
   },
   infoLabel: {
     fontSize: 13,
-    color: '#666',
+    color: '#65626B',
   },
   infoValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#333',
+    color: '#322F38',
   },
   contactBtn: {
     backgroundColor: '#5B21FF',
@@ -1154,7 +1154,7 @@ const styles = StyleSheet.create({
   },
   rejectBtn: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -1162,11 +1162,11 @@ const styles = StyleSheet.create({
   rejectBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666',
+    color: '#65626B',
   },
   bioText: {
     fontSize: 13,
-    color: '#666',
+    color: '#65626B',
     lineHeight: 20,
   },
   modalButtonGroup: {
@@ -1183,7 +1183,7 @@ const styles = StyleSheet.create({
   },
   optionBtn: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -1195,7 +1195,7 @@ const styles = StyleSheet.create({
   optionBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#666',
+    color: '#65626B',
   },
   optionBtnTextSelected: {
     color: '#fff',
@@ -1218,7 +1218,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderBottomWidth: 2,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#EFEDF2',
     alignItems: 'center',
   },
   activeTab: {
@@ -1227,7 +1227,7 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#999',
+    color: '#98959E',
   },
   activeTabText: {
     color: '#5B21FF',
@@ -1239,7 +1239,7 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 14,
-    color: '#999',
+    color: '#98959E',
   },
   badgeText: {
     fontSize: 9,
@@ -1256,7 +1256,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   listHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
-  listHeadTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: '#333' },
+  listHeadTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: '#322F38' },
   subTabContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
@@ -1268,7 +1268,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#EFEDF2',
     alignItems: 'center',
   },
   activeSubTab: {
@@ -1277,7 +1277,7 @@ const styles = StyleSheet.create({
   subTabText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#999',
+    color: '#98959E',
   },
   activeSubTabText: {
     color: '#5B21FF',
@@ -1317,11 +1317,11 @@ const styles = StyleSheet.create({
   matchTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   matchDate: {
     fontSize: 11,
-    color: '#999',
+    color: '#98959E',
   },
   timeline: {
     flexDirection: 'row',
@@ -1347,7 +1347,7 @@ const styles = StyleSheet.create({
   },
   timelinePending: {
     backgroundColor: '#fff',
-    borderColor: '#ddd',
+    borderColor: '#DCD9E2',
   },
   timelineIcon: {
     fontSize: 14,
@@ -1356,13 +1356,13 @@ const styles = StyleSheet.create({
   },
   timelineLabel: {
     fontSize: 10,
-    color: '#666',
+    color: '#65626B',
     textAlign: 'center',
   },
   timelineLine: {
     height: 2,
     flex: 1,
-    backgroundColor: '#ddd',
+    backgroundColor: '#DCD9E2',
     marginBottom: 20,
   },
 });

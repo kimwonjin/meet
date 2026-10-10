@@ -105,12 +105,12 @@ const styles = StyleSheet.create({
   },
   monthArrow: {
     fontSize: 24,
-    color: '#333',
+    color: '#322F38',
   },
   monthText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   grid: {
     flexDirection: 'row',
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   },
   weekday: {
     fontSize: 12,
-    color: '#999',
+    color: '#98959E',
     paddingVertical: 4,
   },
   sunday: {
@@ -145,13 +145,13 @@ const styles = StyleSheet.create({
   },
   dayText: {
     fontSize: 14,
-    color: '#333',
+    color: '#322F38',
   },
   daySelectedText: {
     color: '#fff',
     fontWeight: '700',
   },
   disabledText: {
-    color: '#ccc',
+    color: '#CBC8D1',
   },
 });

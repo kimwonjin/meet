@@ -95,19 +95,19 @@ export default function InviteSheet({ visible, onClose, partnerName }: { visible
 }
 
 const styles = StyleSheet.create({
-  toolsTitle: { fontSize: 13, fontWeight: '700', color: '#888', marginTop: 20, marginBottom: 8 },
-  section: { fontSize: 15, fontWeight: '700', color: '#222', marginBottom: 8 },
-  lead: { fontSize: 14, color: '#444', lineHeight: 21, marginBottom: 14 },
+  toolsTitle: { fontSize: 13, fontWeight: '700', color: '#87848D', marginTop: 20, marginBottom: 8 },
+  section: { fontSize: 15, fontWeight: '700', color: '#211E27', marginBottom: 8 },
+  lead: { fontSize: 14, color: '#434049', lineHeight: 21, marginBottom: 14 },
   bold: { fontWeight: '700', color: '#5B21FF' },
   preview: { backgroundColor: '#F7F4FF', borderRadius: 12, padding: 14, marginBottom: 18 },
   previewLabel: { fontSize: 12, color: '#8B7BC8', marginBottom: 6, fontWeight: '600' },
-  previewText: { fontSize: 13, color: '#333', lineHeight: 20 },
+  previewText: { fontSize: 13, color: '#322F38', lineHeight: 20 },
   primary: { backgroundColor: '#5B21FF', borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
   primaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   disabled: { opacity: 0.6 },
   secondary: { alignItems: 'center', paddingVertical: 14 },
   secondaryText: { fontSize: 14, color: '#5B21FF', fontWeight: '600' },
-  help: { fontSize: 12, color: '#999', lineHeight: 18, textAlign: 'center' },
+  help: { fontSize: 12, color: '#98959E', lineHeight: 18, textAlign: 'center' },
 });
 
 function ToolSection({ id, title, sub, openTool, setOpenTool, children }: {
@@ -129,10 +129,10 @@ function ToolSection({ id, title, sub, openTool, setOpenTool, children }: {
 }
 
 const toolStyles = StyleSheet.create({
-  wrap: { borderWidth: 1, borderColor: '#eee', borderRadius: 12, marginBottom: 10, overflow: 'hidden' },
+  wrap: { borderWidth: 1, borderColor: '#EDEBF0', borderRadius: 12, marginBottom: 10, overflow: 'hidden' },
   head: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 14 },
-  title: { fontSize: 15, fontWeight: '600', color: '#222' },
-  sub: { fontSize: 12, color: '#999', marginTop: 2 },
-  arrow: { fontSize: 14, color: '#999' },
+  title: { fontSize: 15, fontWeight: '600', color: '#211E27' },
+  sub: { fontSize: 12, color: '#98959E', marginTop: 2 },
+  arrow: { fontSize: 14, color: '#98959E' },
   body: { paddingHorizontal: 14, paddingBottom: 16 },
 });

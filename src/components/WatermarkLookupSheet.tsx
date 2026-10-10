@@ -45,7 +45,7 @@ export default function WatermarkLookupSheet({ visible, onClose }: { visible: bo
         value={code}
         onChangeText={(t) => { setCode(t); setResult(null); }}
         placeholder="예: A7C2E9F1"
-        placeholderTextColor="#bbb"
+        placeholderTextColor="#BAB7C0"
         autoCapitalize="characters"
         maxLength={40}
         accessibilityLabel="워터마크 번호"
@@ -72,15 +72,15 @@ export default function WatermarkLookupSheet({ visible, onClose }: { visible: bo
 }
 
 const styles = StyleSheet.create({
-  lead: { fontSize: 13, color: '#666', lineHeight: 19, marginBottom: 12 },
-  input: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, fontSize: 16, letterSpacing: 1, color: '#222' },
+  lead: { fontSize: 13, color: '#65626B', lineHeight: 19, marginBottom: 12 },
+  input: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, fontSize: 16, letterSpacing: 1, color: '#211E27' },
   primary: { backgroundColor: '#5B21FF', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 12 },
   primaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   disabled: { opacity: 0.5 },
-  empty: { fontSize: 13, color: '#888', marginTop: 16, textAlign: 'center' },
+  empty: { fontSize: 13, color: '#87848D', marginTop: 16, textAlign: 'center' },
   results: { marginTop: 16, gap: 8 },
-  row: { backgroundColor: '#F7F7F9', borderRadius: 10, padding: 12 },
-  name: { fontSize: 15, fontWeight: '700', color: '#222' },
-  role: { fontSize: 12, fontWeight: '400', color: '#888' },
-  phone: { fontSize: 13, color: '#555', marginTop: 4 },
+  row: { backgroundColor: '#F7F5FA', borderRadius: 10, padding: 12 },
+  name: { fontSize: 15, fontWeight: '700', color: '#211E27' },
+  role: { fontSize: 12, fontWeight: '400', color: '#87848D' },
+  phone: { fontSize: 13, color: '#54515A', marginTop: 4 },
 });

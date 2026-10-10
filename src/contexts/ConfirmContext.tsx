@@ -88,12 +88,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#333',
+    color: '#322F38',
   },
   message: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#666',
+    color: '#65626B',
     marginTop: 8,
   },
   buttons: {
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   cancel: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#EFEDF2',
   },
   primary: {
     backgroundColor: '#5B21FF',
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   cancelText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
+    color: '#65626B',
   },
   confirmText: {
     fontSize: 14,

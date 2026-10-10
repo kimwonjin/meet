@@ -67,12 +67,12 @@ const styles = StyleSheet.create({
   guide: {
     fontSize: 13,
     lineHeight: 19,
-    color: '#666',
+    color: '#65626B',
     marginBottom: 12,
   },
   summary: {
     fontSize: 13,
-    color: '#666',
+    color: '#65626B',
     textAlign: 'center',
     marginTop: 16,
   },

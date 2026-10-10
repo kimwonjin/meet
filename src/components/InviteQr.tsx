@@ -64,10 +64,10 @@ export default function InviteQr({ url, fileName }: { url: string; fileName: str
 
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', gap: 10 },
-  box: { width: 200, height: 200, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#eee', padding: 10 },
+  box: { width: 200, height: 200, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#EDEBF0', padding: 10 },
   qr: { width: 180, height: 180 },
-  fail: { fontSize: 13, color: '#999' },
-  help: { fontSize: 12, color: '#888', textAlign: 'center', lineHeight: 18 },
+  fail: { fontSize: 13, color: '#98959E' },
+  help: { fontSize: 12, color: '#87848D', textAlign: 'center', lineHeight: 18 },
   btn: { borderWidth: 1, borderColor: '#5B21FF', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18, minWidth: 180, alignItems: 'center' },
   btnText: { color: '#5B21FF', fontSize: 14, fontWeight: '600' },
 });

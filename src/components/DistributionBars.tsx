@@ -85,7 +85,7 @@ export function SplitBar({ left, right }: { left: DistributionRow; right: Distri
 }
 
 const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', height: 14, borderRadius: 4, overflow: 'hidden', backgroundColor: '#F1F1F4' },
+  bar: { flexDirection: 'row', height: 14, borderRadius: 4, overflow: 'hidden', backgroundColor: '#F1EFF4' },
   segment: { height: 14 },
   first: { borderTopLeftRadius: 4, borderBottomLeftRadius: 4 },
   last: { borderTopRightRadius: 4, borderBottomRightRadius: 4 },
@@ -93,9 +93,9 @@ const styles = StyleSheet.create({
   legend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4, marginTop: 8 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 12, color: '#333' },
-  pct: { color: '#999' },
-  splitBar: { flexDirection: 'row', height: 28, borderRadius: 6, overflow: 'hidden', backgroundColor: '#F1F1F4' },
+  legendText: { fontSize: 12, color: '#322F38' },
+  pct: { color: '#98959E' },
+  splitBar: { flexDirection: 'row', height: 28, borderRadius: 6, overflow: 'hidden', backgroundColor: '#F1EFF4' },
   splitSeg: { height: 28, justifyContent: 'center', paddingHorizontal: 8, minWidth: 0 },
   splitRight: { alignItems: 'flex-end' },
   splitText: { fontSize: 12, fontWeight: '700', color: '#fff' },

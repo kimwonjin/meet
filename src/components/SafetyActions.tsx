@@ -107,7 +107,7 @@ export default function SafetyActions({ targetId, targetName, context, variant =
         <TextInput
           style={styles.input}
           placeholder="자세한 내용 (선택)"
-          placeholderTextColor="#aaa"
+          placeholderTextColor="#A9A6AF"
           value={detail}
           onChangeText={setDetail}
           multiline
@@ -132,20 +132,20 @@ export default function SafetyActions({ targetId, targetName, context, variant =
 const styles = StyleSheet.create({
   links: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 24, gap: 4 },
   link: { paddingHorizontal: 10, paddingVertical: 8 },
-  linkText: { fontSize: 13, color: '#999', textDecorationLine: 'underline' },
-  dot: { color: '#ccc' },
+  linkText: { fontSize: 13, color: '#98959E', textDecorationLine: 'underline' },
+  dot: { color: '#CBC8D1' },
   menuBtn: { width: 30, alignItems: 'flex-end' },
-  menuBtnText: { fontSize: 22, color: '#666' },
-  menuRow: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#f2f2f2' },
-  menuRowText: { fontSize: 15, color: '#333' },
-  desc: { fontSize: 14, color: '#333', lineHeight: 21, marginBottom: 12 },
-  sub: { fontSize: 13, color: '#888', lineHeight: 19, marginBottom: 16 },
+  menuBtnText: { fontSize: 22, color: '#65626B' },
+  menuRow: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F1EFF4' },
+  menuRowText: { fontSize: 15, color: '#322F38' },
+  desc: { fontSize: 14, color: '#322F38', lineHeight: 21, marginBottom: 12 },
+  sub: { fontSize: 13, color: '#87848D', lineHeight: 19, marginBottom: 16 },
   reasons: { gap: 8, marginBottom: 12 },
-  reason: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14 },
+  reason: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14 },
   reasonOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
-  reasonText: { fontSize: 14, color: '#444' },
+  reasonText: { fontSize: 14, color: '#434049' },
   reasonTextOn: { color: '#5B21FF', fontWeight: '600' },
-  input: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, padding: 12, minHeight: 80, fontSize: 14, textAlignVertical: 'top', marginBottom: 16 },
+  input: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, padding: 12, minHeight: 80, fontSize: 14, textAlignVertical: 'top', marginBottom: 16 },
   primary: { backgroundColor: '#5B21FF', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   primaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   disabled: { opacity: 0.5 },

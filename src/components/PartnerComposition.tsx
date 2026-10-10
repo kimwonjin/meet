@@ -58,10 +58,10 @@ export default function PartnerComposition({ ov }: { ov: any }) {
 }
 
 const styles = StyleSheet.create({
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  infoLabel: { fontSize: 13, color: '#666' },
-  infoValue: { fontSize: 13, fontWeight: '600', color: '#333' },
-  distBlock: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f2f2f2' },
-  distLabel: { fontSize: 13, fontWeight: '600', color: '#666', marginBottom: 6 },
-  distHint: { fontSize: 12, color: '#999', marginTop: 8, lineHeight: 18 },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#EFEDF2' },
+  infoLabel: { fontSize: 13, color: '#65626B' },
+  infoValue: { fontSize: 13, fontWeight: '600', color: '#322F38' },
+  distBlock: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1EFF4' },
+  distLabel: { fontSize: 13, fontWeight: '600', color: '#65626B', marginBottom: 6 },
+  distHint: { fontSize: 12, color: '#98959E', marginTop: 8, lineHeight: 18 },
 });
