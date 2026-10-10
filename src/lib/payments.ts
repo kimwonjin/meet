@@ -81,15 +81,34 @@ export function freeWithinAvailable(free: number, total: number, available: numb
   return Math.min(available, Math.max(0, free - reserved));
 }
 
-// 파트너: 이미 무료 이용권을 준 회원 목록. 서버 준비 전(SQL 실행 전)이면 null → 기능을 숨긴다
-export async function fetchFreeGiven(connectorId: string): Promise<Set<string> | null> {
+// 파트너가 한 번에 줄 수 있는 무료 이용권 횟수 (정산 수수료를 피하는 데 쓰이지 않도록 5회까지)
+export const FREE_COUNT_OPTIONS = [1, 2, 3, 5];
+
+// 파트너: 이미 무료 이용권을 준 회원과 준 횟수. 서버 준비 전(SQL 실행 전)이면 null → 기능을 숨긴다
+// canChooseCount: 횟수 고르기를 서버가 지원하는지 (add_free_credit_count.sql 실행 전이면 1회만)
+export async function fetchFreeGiven(connectorId: string): Promise<{ given: Map<string, number>; canChooseCount: boolean } | null> {
   const { data, error } = await supabase.rpc('fn_free_credit_given', { p_connector_id: connectorId });
   if (error) return null;
-  return new Set(Array.isArray(data) ? data : []);
+  const rows = Array.isArray(data) ? data : [];
+  const given = new Map<string, number>();
+  let canChooseCount = true;
+  for (const r of rows) {
+    if (typeof r === 'string') { canChooseCount = false; given.set(r, (given.get(r) || 0) + 1); }
+    else if (r?.hopeful_id) given.set(r.hopeful_id, (given.get(r.hopeful_id) || 0) + (Number(r.count) || 1));
+  }
+  // 아직 아무에게도 안 줬으면 목록 모양으로는 알 수 없으니 함수 버전을 따로 묻는다
+  if (rows.length === 0) {
+    const { error: e2 } = await supabase.rpc('fn_free_credit_max');
+    canChooseCount = !e2;
+  }
+  return { given, canChooseCount };
 }
 
-export async function grantFreeCredit(connectorId: string, hopefulId: string): Promise<'ok' | 'already' | 'not_member' | 'inactive' | 'error'> {
-  const { data, error } = await supabase.rpc('fn_grant_free_credit', { p_connector_id: connectorId, p_hopeful_id: hopefulId });
+export async function grantFreeCredit(connectorId: string, hopefulId: string, count = 1): Promise<'ok' | 'already' | 'not_member' | 'inactive' | 'bad_count' | 'error'> {
+  const args: any = { p_connector_id: connectorId, p_hopeful_id: hopefulId };
+  if (count !== 1) args.p_count = count;
+  // 1회는 p_count 없이 불러서 SQL 실행 전 서버에서도 그대로 동작한다
+  const { data, error } = await supabase.rpc('fn_grant_free_credit', args);
   if (error || !data) return 'error';
   return data.ok ? 'ok' : (data.reason as any) || 'error';
 }

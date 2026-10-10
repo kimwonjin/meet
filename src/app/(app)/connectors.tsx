@@ -17,7 +17,7 @@ import { useMemberFilter } from '@/components/MemberFilter';
 import StackedBar, { SplitBar, ageColors, regionColor } from '@/components/DistributionBars';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
-import { purchasePackage, getCredit, getFreeCredit, freeWithinAvailable, fetchFreeGiven, grantFreeCredit, PACKAGE_OPTIONS } from '@/lib/payments';
+import { purchasePackage, getCredit, getFreeCredit, freeWithinAvailable, fetchFreeGiven, grantFreeCredit, FREE_COUNT_OPTIONS, PACKAGE_OPTIONS } from '@/lib/payments';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
@@ -60,7 +60,8 @@ export default function ConnectorsScreen() {
   const toast = useToast();
   const confirm = useConfirm();
   // 파트너: 무료 이용권을 이미 준 내 회원 (null = 서버 준비 전이라 기능 숨김)
-  const [freeGiven, setFreeGiven] = useState<Set<string> | null>(null);
+  const [freeGiven, setFreeGiven] = useState<{ given: Map<string, number>; canChooseCount: boolean } | null>(null);
+  const [freeCount, setFreeCount] = useState(1);
   const [granting, setGranting] = useState(false);
   // 회원: 이 파트너에게 쓸 수 있는 무료 이용권
   const [myFree, setMyFree] = useState({ free: 0, total: 0 });
@@ -292,24 +293,26 @@ export default function ConnectorsScreen() {
       setMyCredit(0);
       setMyFree({ free: 0, total: 0 });
     }
-    if (user?.role === 'connector' && id) fetchFreeGiven(user.id).then(setFreeGiven);
+    if (user?.role === 'connector' && id) { setFreeCount(1); fetchFreeGiven(user.id).then(setFreeGiven); }
   }, [selectedConnector?.id, selectedConnector?.is_approved]);
   const stillOpenCredit = (id: string) => openedPartnerRef.current === id;
 
   async function handleGrantFree(member: { id: string; name: string }) {
     if (!user || granting) return;
+    const count = freeGiven?.canChooseCount ? freeCount : 1;
     const ok = await confirm({
-      title: `${member.name}님에게 무료 이용권 1회를 줄까요?`,
+      title: `${member.name}님에게 무료 이용권 ${count}회를 줄까요?`,
       message: '회원 1명당 한 번만 줄 수 있고, 되돌릴 수 없어요.\n이 이용권으로 성사된 만남은 정산금이 없어요.',
       confirmText: '선물하기',
     });
     if (!ok) return;
     setGranting(true);
-    const r = await grantFreeCredit(user.id, member.id);
+    const r = await grantFreeCredit(user.id, member.id, count);
     setGranting(false);
-    if (r === 'ok') toast.show(`${member.name}님에게 무료 이용권 1회를 선물했어요`, 'success');
+    if (r === 'ok') toast.show(`${member.name}님에게 무료 이용권 ${count}회를 선물했어요`, 'success');
     else if (r === 'already') toast.show('이미 무료 이용권을 준 회원이에요', 'info');
     else if (r === 'not_member') toast.show('내 회원에게만 줄 수 있어요', 'error');
+    else if (r === 'bad_count') toast.show('한 번에 5회까지 줄 수 있어요', 'error');
     else if (r === 'inactive') toast.show('이용이 정지되었거나 탈퇴한 회원이에요', 'error');
     else toast.show('선물하지 못했어요. 잠시 후 다시 시도해주세요', 'error');
     fetchFreeGiven(user.id).then(setFreeGiven);
@@ -547,18 +550,36 @@ export default function ConnectorsScreen() {
                 <View>
                   {selectedConnector && <MemberProfileView member={selectedConnector} showBirthDate />}
                   {tabStatus === 'approved' && freeGiven && (
-                    freeGiven.has(selectedConnector.id) ? (
-                      <Text style={styles.freeGiven}>🎁 무료 이용권을 선물했어요</Text>
+                    freeGiven.given.has(selectedConnector.id) ? (
+                      <Text style={styles.freeGiven}>🎁 무료 이용권 {freeGiven.given.get(selectedConnector.id)}회를 선물했어요</Text>
                     ) : (
-                      <TouchableOpacity
-                        style={[styles.freeBtn, granting && styles.buttonDisabled]}
-                        onPress={() => handleGrantFree({ id: selectedConnector.id, name: selectedConnector.business_name || selectedConnector.name || '회원' })}
-                        disabled={granting}
-                        accessibilityLabel="무료 이용권 1회 주기"
-                      >
-                        {granting ? <ActivityIndicator color="#5B21FF" /> : <Text style={styles.freeBtnText}>🎁 무료 이용권 1회 주기</Text>}
+                      <View style={styles.freeBox}>
+                        <Text style={styles.freeTitle}>🎁 무료 이용권 선물</Text>
+                        {freeGiven.canChooseCount && (
+                          <View style={styles.freeChips}>
+                            {FREE_COUNT_OPTIONS.map((n) => (
+                              <TouchableOpacity
+                                key={n}
+                                style={[styles.freeChip, freeCount === n && styles.freeChipOn]}
+                                onPress={() => setFreeCount(n)}
+                                accessibilityLabel={`무료 이용권 ${n}회`}
+                                accessibilityState={{ selected: freeCount === n }}
+                              >
+                                <Text style={[styles.freeChipText, freeCount === n && styles.freeChipTextOn]}>{n}회</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        )}
+                        <TouchableOpacity
+                          style={[styles.freeBtn, granting && styles.buttonDisabled]}
+                          onPress={() => handleGrantFree({ id: selectedConnector.id, name: selectedConnector.business_name || selectedConnector.name || '회원' })}
+                          disabled={granting}
+                          accessibilityLabel={`무료 이용권 ${freeGiven.canChooseCount ? freeCount : 1}회 주기`}
+                        >
+                          {granting ? <ActivityIndicator color="#5B21FF" /> : <Text style={styles.freeBtnText}>무료 이용권 {freeGiven.canChooseCount ? freeCount : 1}회 주기</Text>}
+                        </TouchableOpacity>
                         <Text style={styles.freeBtnSub}>회원 1명당 한 번 · 이 이용권으로 성사된 만남은 정산금 없음</Text>
-                      </TouchableOpacity>
+                      </View>
                     )
                   )}
                 </View>
@@ -855,9 +876,16 @@ export default function ConnectorsScreen() {
 }
 
 const styles = StyleSheet.create({
-  freeBtn: { borderWidth: 1, borderColor: '#5B21FF', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, alignItems: 'center', marginTop: 16 },
+  freeBox: { marginTop: 16, padding: 14, borderRadius: 14, backgroundColor: '#F7F7F9' },
+  freeTitle: { fontSize: 15, fontWeight: '700', color: '#191919' },
+  freeChips: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  freeChip: { flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#E0E0E6', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  freeChipOn: { borderColor: '#5B21FF', backgroundColor: '#F4F1FF' },
+  freeChipText: { fontSize: 15, color: '#555' },
+  freeChipTextOn: { color: '#5B21FF', fontWeight: '700' },
+  freeBtn: { borderWidth: 1, borderColor: '#5B21FF', backgroundColor: '#fff', borderRadius: 12, minHeight: 48, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   freeBtnText: { fontSize: 15, fontWeight: '700', color: '#5B21FF' },
-  freeBtnSub: { fontSize: 12, color: '#888', marginTop: 4, textAlign: 'center' },
+  freeBtnSub: { fontSize: 12, color: '#888', marginTop: 8, textAlign: 'center' },
   freeGiven: { fontSize: 13, color: '#888', textAlign: 'center', marginTop: 16 },
   suspendedTag: { fontSize: 12, color: '#E53935', fontWeight: '600' },
   container: {

@@ -24,7 +24,7 @@ export default function SettlementsScreen() {
   const [refunds, setRefunds] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   // 파트너가 준 무료 이용권 (파트너별 준 횟수·사용 횟수)
-  const [freeGifts, setFreeGifts] = useState<{ id: string; name: string; given: number; used: number }[]>([]);
+  const [freeGifts, setFreeGifts] = useState<{ id: string; name: string; given: number; sessions: number; used: number }[]>([]);
   // 파트너 소개 글 검수 대기 (add_ads_kit.sql 실행 전에는 비어 있다)
   const [profileReviews, setProfileReviews] = useState<any[]>([]);
   const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string } | null>(null);
@@ -87,6 +87,7 @@ export default function SettlementsScreen() {
             id,
             name: (users || []).find((u: any) => u.id === id)?.name || '파트너',
             given: rows.length,
+            sessions: rows.reduce((n: number, p: any) => n + (p.session_count || 0), 0),
             used: rows.reduce((n: number, p: any) => n + (p.session_count - p.sessions_remaining - (p.refunded_sessions || 0)), 0),
           };
         })
@@ -424,6 +425,20 @@ export default function SettlementsScreen() {
   const pendingRefunds = refunds.filter((r) => r.status === 'pending');
   const openReports = reports.filter((r) => r.status === 'open');
 
+  // 파트너가 준 무료 이용권 현황 (정산 내역이 없어도 보여준다)
+  const freeGiftBox = freeGifts.length > 0 ? (
+    <View style={styles.freeBox}>
+                  <Text style={styles.freeTitle}>🎁 파트너가 준 무료 이용권</Text>
+                  {freeGifts.map((g) => (
+                    <View key={g.id} style={styles.row}>
+                      <Text style={styles.rowLabel}>{g.name}</Text>
+                      <Text style={styles.rowValue}>{g.given}명에게 {g.sessions}회 · 사용 {g.used}회</Text>
+                    </View>
+                  ))}
+                  <Text style={styles.freeHint}>무료 이용권으로 성사된 만남은 정산금·수수료가 0원이에요. 한 파트너가 유독 많이 주면 확인해 보세요.</Text>
+                </View>
+  ) : null;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -455,8 +470,11 @@ export default function SettlementsScreen() {
 
       {segment === 'settlements' && (
         settlements.length === 0 ? (
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>정산 내역이 없습니다</Text>
+          <View style={{ flex: 1 }}>
+            {freeGiftBox && <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>{freeGiftBox}</View>}
+            <View style={styles.placeholder}>
+              <Text style={styles.placeholderText}>정산 내역이 없습니다</Text>
+            </View>
           </View>
         ) : (
           <FlatList
@@ -477,18 +495,7 @@ export default function SettlementsScreen() {
                   <Text style={styles.summaryValue}>{totalFee.toLocaleString()}원</Text>
                 </View>
               </View>
-              {freeGifts.length > 0 && (
-                <View style={styles.freeBox}>
-                  <Text style={styles.freeTitle}>🎁 파트너가 준 무료 이용권</Text>
-                  {freeGifts.map((g) => (
-                    <View key={g.id} style={styles.row}>
-                      <Text style={styles.rowLabel}>{g.name}</Text>
-                      <Text style={styles.rowValue}>{g.given}명에게 · 사용 {g.used}회</Text>
-                    </View>
-                  ))}
-                  <Text style={styles.freeHint}>무료 이용권으로 성사된 만남은 정산금·수수료가 0원이에요. 한 파트너가 유독 많이 주면 확인해 보세요.</Text>
-                </View>
-              )}
+              {freeGiftBox}
               </View>
             }
             renderItem={({ item }) => (
