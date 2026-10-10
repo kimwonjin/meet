@@ -28,7 +28,7 @@ import { Avatar } from '@/components/ProfilePhoto';
 import MemberProfileView from '@/components/MemberProfileView';
 import SafetyActions from '@/components/SafetyActions';
 import InviteSheet from '@/components/InviteSheet';
-import { isOverdueForMe, isWaitingOnOthers, matchStage, MatchStage, needsMyConsent, schedulerOf } from '@/lib/matchStage';
+import { isOverdueForMe, isWaitingOnOthers, matchStage, MatchStage, needsMyConsent, needsMyDate, schedulerOf } from '@/lib/matchStage';
 import ReviewSheet from '@/components/ReviewSheet';
 import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
 
@@ -166,6 +166,8 @@ export default function HomeScreen() {
             proposer_connector_id: m.proposer_connector_id,
             meeting_done_connector_1: m.meeting_done_connector_1,
             meeting_done_connector_2: m.meeting_done_connector_2,
+            available_dates_1: m.available_dates_1,
+            available_dates_2: m.available_dates_2,
           };
         });
 
@@ -503,7 +505,7 @@ export default function HomeScreen() {
     const pair = (m: any) => `${m.hopeful_1?.name ?? '회원'} ↔ ${m.hopeful_2?.name ?? '회원'}`;
     const focusMatch = (id: string) => () => router.push({ pathname: '/matching', params: { view: 'history', focus: id } });
     const consentList = matchingRequests.filter((m) => needsMyConsent(m, me));
-    const scheduleList = matchingRequests.filter((m) => matchStage(m) === 'date' && schedulerOf(m) === me);
+    const scheduleList = matchingRequests.filter((m) => needsMyDate(m, me));
     const finishList = matchingRequests.filter((m) => isOverdueForMe(m, me));
     type TodoItem = { key: string; label: string; action: string; go: () => void };
     type Todo = TodoItem & { name: string; items: TodoItem[]; total: number };

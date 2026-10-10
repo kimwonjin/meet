@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
-import { FILTER_LABEL, FILTERS, MatchFilter, passesFilter } from '@/lib/matchStage';
+import { FILTER_LABEL, FILTERS, MatchFilter, membersPickedDates, passesFilter } from '@/lib/matchStage';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -1000,16 +1000,29 @@ export default function MatchingScreen() {
                   </View>
                 ) : null}
 
+                {/* 날짜는 회원이 고른 가능한 날 중 겹치는 날로 자동으로 정해진다.
+                    파트너가 직접 정하는 건 회원이 고른 날짜가 없는 예전 매칭뿐 (겹치지 않을 때는 작은 링크로만) */}
                 {isScheduler && !item.meeting_scheduled_at && (
-                  <TouchableOpacity
-                    style={[styles.actionBtn, processingId === item.id && styles.buttonDisabled]}
-                    onPress={() => setScheduleMatchId(item.id)}
-                    disabled={processingId !== null}
-                  >
-                    <Text style={styles.actionBtnText}>
-                      {processingId === item.id ? '저장 중...' : '📅 만남 날짜 정하기'}
-                    </Text>
-                  </TouchableOpacity>
+                  membersPickedDates(item) ? (
+                    <TouchableOpacity style={styles.cancelLink} onPress={() => setScheduleMatchId(item.id)} disabled={processingId !== null}>
+                      <Text style={styles.cancelLinkText}>기다리지 않고 직접 날짜 정하기</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <>
+                      <View style={styles.statusMessage}>
+                        <Text style={styles.statusMessageText}>회원이 고른 가능한 날짜가 없는 매칭이에요 · 두 분과 이야기해 직접 정해 주세요</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.actionBtn, processingId === item.id && styles.buttonDisabled]}
+                        onPress={() => setScheduleMatchId(item.id)}
+                        disabled={processingId !== null}
+                      >
+                        <Text style={styles.actionBtnText}>
+                          {processingId === item.id ? '저장 중...' : '📅 만남 날짜 직접 정하기'}
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  )
                 )}
 
                 {!isScheduler && item.meeting_scheduled_at && (

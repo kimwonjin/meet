@@ -52,12 +52,22 @@ export function isOverdueForMe(m: any, me?: string, now = new Date()) {
   return !mineDone;
 }
 
+// 두 회원이 승인하면서 가능한 날짜를 골랐는지 (겹치면 자동으로 날짜가 정해지고, 안 겹치면 회원이 다시 고른다)
+export function membersPickedDates(m: any) {
+  return (m.available_dates_1?.length ?? 0) > 0 && (m.available_dates_2?.length ?? 0) > 0;
+}
+
+// 파트너가 직접 날짜를 정해야 하는 매칭: 회원이 고른 날짜가 없는 경우(예전 방식 매칭)만
+export function needsMyDate(m: any, me?: string) {
+  return matchStage(m) === 'date' && schedulerOf(m) === me && !membersPickedDates(m);
+}
+
 // 상대(회원·다른 파트너)가 답해야 다음으로 넘어가는 매칭 (내 차례인 것은 제외)
 export function isWaitingOnOthers(m: any, me?: string) {
   const st = matchStage(m);
   if (st === 'consent') return !needsMyConsent(m, me);
   if (st === 'member') return true;
-  if (st === 'date') return schedulerOf(m) !== me;
+  if (st === 'date') return !needsMyDate(m, me);
   return false;
 }
 
