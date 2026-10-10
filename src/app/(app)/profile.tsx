@@ -27,6 +27,11 @@ import { findBannedWord } from '@/lib/adPolicy';
 const PARTNER_CONSENTS: ConsentItem[] = [{ key: 'partner', label: '매칭 파트너 이용약관 동의', doc: 'partner' }];
 import { fetchConnectorReviews, Review } from '@/lib/reviews';
 
+// 회당 금액: 가격은 파트너가 정하되, 0원·오타(자릿수 실수)만 막는다
+const FEE_MIN = 1000;
+const FEE_MAX = 3000000;
+const feeDigits = (v: any) => String(v ?? '').replace(/[^0-9]/g, '');
+
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout, updateUser, refreshUser } = useAuth();
@@ -427,6 +432,11 @@ export default function ProfileScreen() {
       toast.show('주요지역을 선택해주세요', 'info');
       return;
     }
+    const feeValue = Number(feeDigits(storeData.fee_per_session)) || 0;
+    if (feeValue < FEE_MIN || feeValue > FEE_MAX) {
+      toast.show(`회당 금액은 ${FEE_MIN.toLocaleString()}원 ~ ${FEE_MAX.toLocaleString()}원 사이로 입력해 주세요`, 'error');
+      return;
+    }
 
     const text = {
       career: storeData.career.trim(),
@@ -435,7 +445,7 @@ export default function ProfileScreen() {
     };
     const base = {
       main_region: JSON.stringify(selectedRegions),
-      fee_per_session: parseInt(storeData.fee_per_session) || null,
+      fee_per_session: feeValue,
     };
     const ap = profileReview.approved;
     const textChanged = text.career !== ap.career.trim() || text.intro !== ap.intro.trim() || text.service_description !== ap.service_description.trim();
@@ -1254,12 +1264,21 @@ export default function ProfileScreen() {
           <Text style={styles.formLabel}>회당 금액 (원)</Text>
           <TextInput
             style={styles.formInput}
-            placeholder="45000"
+            placeholder="예: 50,000"
             placeholderTextColor="#ddd"
             keyboardType="number-pad"
-            value={storeData.fee_per_session}
-            onChangeText={(text) => setStoreData({...storeData, fee_per_session: text})}
+            // 3자리마다 쉼표를 넣어 보여주고, 저장은 숫자만
+            value={feeDigits(storeData.fee_per_session) ? Number(feeDigits(storeData.fee_per_session)).toLocaleString('ko-KR') : ''}
+            onChangeText={(text) => setStoreData({ ...storeData, fee_per_session: feeDigits(text).slice(0, 8) })}
+            accessibilityLabel="회당 금액"
           />
+          {(() => {
+            const fee = Number(feeDigits(storeData.fee_per_session)) || 0;
+            if (!fee) return null;
+            if (fee < FEE_MIN || fee > FEE_MAX) return <Text style={[styles.formHint, { color: '#E5484D' }]}>{FEE_MIN.toLocaleString()}원 ~ {FEE_MAX.toLocaleString()}원 사이로 입력해 주세요</Text>;
+            if (fee < 10000 || fee > 500000) return <Text style={styles.formHint}>1회 {fee.toLocaleString()}원 · 보통보다 {fee < 10000 ? '낮은' : '높은'} 금액이에요. 맞는지 한 번 더 확인해 주세요</Text>;
+            return null;
+          })()}
         </View>
 
         {/* 주요지역 선택 - 버튼형 (중복 선택 가능) */}
