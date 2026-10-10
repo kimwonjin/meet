@@ -218,6 +218,9 @@ export default function ProfileScreen() {
       }));
 
       setMySettlements(enriched);
+      // 실제로 통장에 들어간 돈은 출금 신청 → 운영자 이체 완료로 정해진다
+      const { data: withdrawals } = await supabase.from('withdrawal_requests').select('*').eq('connector_id', user.id).order('requested_at', { ascending: false });
+      setMyWithdrawals(withdrawals || []);
     } catch (error) {
       console.error('내 정산 내역 조회 오류:', error);
     } finally {
@@ -1455,28 +1458,41 @@ export default function ProfileScreen() {
           <Text style={{ color: '#999', paddingVertical: 20 }}>정산 내역이 없습니다</Text>
         ) : (
           <>
-            <View style={styles.statsContainer}>
-              <View style={styles.statBox}>
-                <Text style={styles.statLabel}>총 정산액</Text>
-                <Text style={styles.statValue}>
-                  {mySettlements.reduce((sum, s) => sum + Number(s.connector_payout), 0).toLocaleString()}원
-                </Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statLabel}>정산 완료</Text>
-                <Text style={styles.statValue}>
-                  {mySettlements.filter((s) => s.status === 'paid').reduce((sum, s) => sum + Number(s.connector_payout), 0).toLocaleString()}원
-                </Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statLabel}>정산 대기</Text>
-                <Text style={styles.statValue}>
-                  {mySettlements.filter((s) => s.status === 'pending').reduce((sum, s) => sum + Number(s.connector_payout), 0).toLocaleString()}원
-                </Text>
-              </View>
-            </View>
-
-            <Text style={styles.chargeNotice}>정산된 금액은 마이 › 계좌 정보에서 출금 신청할 수 있어요</Text>
+            {(() => {
+              const earned = mySettlements.reduce((sum, s) => sum + Number(s.connector_payout), 0);
+              const paidOut = myWithdrawals.filter((w) => w.status === 'completed').reduce((sum, w) => sum + Number(w.amount), 0);
+              const inProgress = myWithdrawals.filter((w) => w.status !== 'completed').reduce((sum, w) => sum + Number(w.amount), 0);
+              const available = Math.max(0, earned - paidOut - inProgress);
+              return (
+                <>
+                  <View style={styles.statsContainer}>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statLabel}>쌓인 정산금</Text>
+                      <Text style={styles.statValue}>{earned.toLocaleString()}원</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statLabel}>내 통장 입금</Text>
+                      <Text style={styles.statValue}>{paidOut.toLocaleString()}원</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statLabel}>출금 가능</Text>
+                      <Text style={[styles.statValue, { color: '#5B21FF' }]}>{available.toLocaleString()}원</Text>
+                    </View>
+                  </View>
+                  {inProgress > 0 && <Text style={styles.chargeNotice}>입금 준비 중: {inProgress.toLocaleString()}원 (운영자가 이체하면 '내 통장 입금'으로 옮겨져요)</Text>}
+                  <Text style={styles.chargeNotice}>만남이 끝날 때마다 정산금이 쌓이고, 출금 신청을 해야 통장으로 들어와요.</Text>
+                  {available > 0 && (
+                    <TouchableOpacity
+                      style={[styles.modalBtn, { marginBottom: 8 }]}
+                      onPress={() => { setShowSettlementsModal(false); setShowBankModal(true); }}
+                      accessibilityLabel="출금 신청하러 가기"
+                    >
+                      <Text style={styles.modalBtnText}>{available.toLocaleString()}원 출금 신청하기</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              );
+            })()}
 
             <View style={styles.modalSection}>
               <Text style={styles.modalSectionTitle}>이용권 사용 내역</Text>
@@ -1503,7 +1519,7 @@ export default function ProfileScreen() {
                   {s.status === 'paid' ? (
                     <View style={styles.paidBadge}>
                       <Text style={styles.paidBadgeText}>
-                        ✓ {s.settled_at ? new Date(s.settled_at).toLocaleDateString('ko-KR') : ''} 정산 완료
+                        ✓ {s.settled_at ? new Date(s.settled_at).toLocaleDateString('ko-KR') : ''} 정산금 적립
                       </Text>
                     </View>
                   ) : (
