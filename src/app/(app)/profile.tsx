@@ -1251,30 +1251,15 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.profileFormSection}>
-          <Text style={styles.formLabel}>경력</Text>
+          <Text style={styles.formLabel}>회당 금액 (원)</Text>
           <TextInput
             style={styles.formInput}
-            placeholder="예: 결혼정보회사 커플매니저 5년"
+            placeholder="45000"
             placeholderTextColor="#ddd"
-            value={storeData.career}
-            onChangeText={(text) => setStoreData({ ...storeData, career: text })}
-            maxLength={60}
+            keyboardType="number-pad"
+            value={storeData.fee_per_session}
+            onChangeText={(text) => setStoreData({...storeData, fee_per_session: text})}
           />
-        </View>
-
-        <View style={styles.profileFormSection}>
-          <Text style={styles.formLabel}>파트너 소개</Text>
-          <TextInput
-            style={[styles.formInput, { height: 100, textAlignVertical: 'top' }]}
-            placeholder="어떤 분들을 주로 소개하는지, 소개 방식과 진행 과정, 회원에게 하고 싶은 말을 적어주세요"
-            placeholderTextColor="#ddd"
-            multiline
-            numberOfLines={5}
-            value={storeData.intro}
-            onChangeText={(text) => setStoreData({ ...storeData, intro: text })}
-            maxLength={1000}
-          />
-          <Text style={styles.formHint}>회원이 파트너 정보에서 가입 여부를 정할 때 보는 내용이에요. 경력·소개는 운영자 확인 후 공개되고, '보장·100%·확실' 같은 과장 표현은 쓸 수 없어요.</Text>
         </View>
 
         {/* 주요지역 선택 - 버튼형 (중복 선택 가능) */}
@@ -1307,15 +1292,30 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.profileFormSection}>
-          <Text style={styles.formLabel}>회당 금액 (원)</Text>
+          <Text style={styles.formLabel}>경력</Text>
           <TextInput
             style={styles.formInput}
-            placeholder="45000"
+            placeholder="예: 결혼정보회사 커플매니저 5년"
             placeholderTextColor="#ddd"
-            keyboardType="number-pad"
-            value={storeData.fee_per_session}
-            onChangeText={(text) => setStoreData({...storeData, fee_per_session: text})}
+            value={storeData.career}
+            onChangeText={(text) => setStoreData({ ...storeData, career: text })}
+            maxLength={60}
           />
+        </View>
+
+        <View style={styles.profileFormSection}>
+          <Text style={styles.formLabel}>파트너 소개</Text>
+          <TextInput
+            style={[styles.formInput, { height: 100, textAlignVertical: 'top' }]}
+            placeholder="어떤 분들을 주로 소개하는지, 소개 방식과 진행 과정, 회원에게 하고 싶은 말을 적어주세요"
+            placeholderTextColor="#ddd"
+            multiline
+            numberOfLines={5}
+            value={storeData.intro}
+            onChangeText={(text) => setStoreData({ ...storeData, intro: text })}
+            maxLength={1000}
+          />
+          <Text style={styles.formHint}>회원이 파트너 정보에서 가입 여부를 정할 때 보는 내용이에요. 경력·소개는 운영자 확인 후 공개되고, '보장·100%·확실' 같은 과장 표현은 쓸 수 없어요.</Text>
         </View>
 
 
