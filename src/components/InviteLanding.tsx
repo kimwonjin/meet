@@ -20,6 +20,24 @@ type Partner = {
 };
 type Overview = { male: number; female: number; settled: number };
 
+// 처음 온 사람에게 보여주는 서비스 설명 (회원 모집용)
+const BENEFITS = [
+  { icon: '🙋', title: '아는 사람이 직접 골라 소개', body: '자동 추천이 아니라, 파트너가 두 사람을 보고 어울리는 분을 제안해요.' },
+  { icon: '🔒', title: '둘 다 좋다고 할 때만 만나요', body: '서로 프로필을 보고 두 사람 모두 동의해야 만남이 잡혀요.' },
+  { icon: '💸', title: '실제로 만났을 때만 차감', body: '이용권은 만남이 끝난 뒤 1회 차감돼요. 상대가 나오지 않으면 차감되지 않아요.' },
+];
+const STEPS = [
+  ['가입하고 파트너와 연결', '가입하면 이 파트너의 회원으로 바로 신청돼요.'],
+  ['소개 제안 받기', '파트너가 어울리는 분을 제안하면 프로필을 보고 동의해요.'],
+  ['날짜 고르고 만나기', '두 사람이 가능한 날짜를 고르면 만남이 정해져요.'],
+  ['만남 후 마음 전하기', '다시 만나고 싶은지 알려주면 파트너가 이어서 도와드려요.'],
+];
+const FAQ = [
+  ['가입비가 있나요?', '가입은 무료예요. 소개를 받을 때 파트너가 정한 1회 금액으로 이용권을 사용해요.'],
+  ['내 정보는 누가 보나요?', '내 파트너와 소개받는 상대만 볼 수 있어요. 사진에는 캡처 방지 표시가 들어가요.'],
+  ['소개받는 분은 어떤 분인가요?', '이 파트너의 회원이나, 파트너가 함께 일하는 다른 파트너의 회원이에요.'],
+];
+
 // 파트너가 보낸 초대 링크로 들어오는 화면 (/invite?p=파트너ID, /c/코드)
 // - 국내결혼중개업 신고번호가 등록되어 있으면: 파트너 공개 소개 + 가입
 // - 신고 전이면: 광고가 되지 않도록 파트너 소개 없이 가입 화면만
@@ -189,11 +207,44 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
 
           {!user ? (
             <>
-              <TouchableOpacity style={[styles.primary, going && styles.disabled]} onPress={() => join('/signup')} disabled={going}>
+              <TouchableOpacity style={[styles.primary, going && styles.disabled]} onPress={() => join('/signup')} disabled={going} accessibilityLabel="가입하고 연결하기">
                 {going ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>가입하고 연결하기</Text>}
               </TouchableOpacity>
               <TouchableOpacity onPress={() => join('/')} disabled={going} style={styles.secondary}>
                 <Text style={styles.secondaryText}>이미 계정이 있어요 · 로그인</Text>
+              </TouchableOpacity>
+
+              {BENEFITS.map((b) => (
+                <View key={b.title} style={styles.benefit}>
+                  <Text style={styles.benefitIcon}>{b.icon}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.benefitTitle}>{b.title}</Text>
+                    <Text style={styles.benefitBody}>{b.body}</Text>
+                  </View>
+                </View>
+              ))}
+
+              <Text style={styles.h2}>이렇게 진행돼요</Text>
+              {STEPS.map(([t, d], i) => (
+                <View key={t} style={styles.step}>
+                  <View style={styles.stepNum}><Text style={styles.stepNumT}>{i + 1}</Text></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.stepTitle}>{t}</Text>
+                    <Text style={styles.stepBody}>{d}</Text>
+                  </View>
+                </View>
+              ))}
+
+              <Text style={styles.h2}>자주 묻는 질문</Text>
+              {FAQ.map(([q, a]) => (
+                <View key={q} style={styles.faq}>
+                  <Text style={styles.faqQ}>{q}</Text>
+                  <Text style={styles.faqA}>{a}</Text>
+                </View>
+              ))}
+
+              <TouchableOpacity style={[styles.primary, going && styles.disabled]} onPress={() => join('/signup')} disabled={going}>
+                {going ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>가입하고 연결하기</Text>}
               </TouchableOpacity>
             </>
           ) : user.role === 'hopeful' ? (
@@ -271,4 +322,17 @@ const styles = StyleSheet.create({
   secondaryText: { fontSize: 14, color: '#777', textDecorationLine: 'underline' },
   note: { textAlign: 'center', fontSize: 13, color: '#888', marginTop: 24, lineHeight: 19 },
   footer: { marginTop: 32 },
+  benefit: { flexDirection: 'row', gap: 14, alignItems: 'flex-start', marginTop: 12, padding: 16, borderRadius: 16, backgroundColor: '#F7F7F9' },
+  benefitIcon: { fontSize: 24 },
+  benefitTitle: { fontSize: 16, fontWeight: '700', color: '#191919' },
+  benefitBody: { fontSize: 14, color: '#666', marginTop: 4, lineHeight: 20 },
+  h2: { fontSize: 18, fontWeight: '700', color: '#191919', marginTop: 32, marginBottom: 8 },
+  step: { flexDirection: 'row', gap: 12, paddingVertical: 10 },
+  stepNum: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F4F1FF', alignItems: 'center', justifyContent: 'center' },
+  stepNumT: { color: '#5B21FF', fontWeight: '700' },
+  stepTitle: { fontSize: 15, fontWeight: '700', color: '#191919' },
+  stepBody: { fontSize: 14, color: '#666', marginTop: 2, lineHeight: 20 },
+  faq: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1F1F3' },
+  faqQ: { fontSize: 15, fontWeight: '700', color: '#191919' },
+  faqA: { fontSize: 14, color: '#666', marginTop: 4, lineHeight: 20 },
 });
