@@ -316,13 +316,15 @@ export default function MatchingScreen() {
   function blockReason(id: string, connectorId: string): BlockLabel | null {
     if (selectedForMatch.some((x) => x.id === id)) return null;
     if (lastMatch[id]?.active) return '만남중';
-    if (credits && credits[id] === 0) return '이용권 없음';
     const first = selectedForMatch.length === 1 ? selectedForMatch[0] : null;
-    if (!first) return null;
-    const all = [...ownMembers, ...allyMembers.flatMap((g) => g.members)];
-    const g1 = all.find((m) => m.id === first.id)?.gender, g2 = all.find((m) => m.id === id)?.gender;
-    if (g1 && g2 && g1 === g2) return '같은 성별';
-    if (connectorId !== user?.id && first.connectorId !== user?.id) return '내 회원과만 가능';
+    if (first) {
+      const all = [...ownMembers, ...allyMembers.flatMap((g) => g.members)];
+      const g1 = all.find((m) => m.id === first.id)?.gender, g2 = all.find((m) => m.id === id)?.gender;
+      if (g1 && g2 && g1 === g2) return '같은 성별';
+      if (connectorId !== user?.id && first.connectorId !== user?.id) return '내 회원과만 가능';
+    }
+    // 이용권은 맨 마지막에 본다 (눌렀을 때 다시 확인해서 고를 수 있게 하므로)
+    if (credits && credits[id] === 0) return '이용권 없음';
     return null;
   }
 
@@ -350,6 +352,15 @@ export default function MatchingScreen() {
       return;
     }
     const block = blockReason(memberId, connectorId);
+    // 화면을 연 뒤에 회원이 이용권을 샀을 수 있으니 '이용권 없음'은 눌렀을 때 한 번 더 확인한다
+    if (block === '이용권 없음') {
+      getCredit(memberId, connectorId).then(({ credit, error }) => {
+        if (error || credit <= 0) return toast.show(BLOCK_MESSAGE[block], 'info');
+        setCredits((c) => ({ ...(c || {}), [memberId]: credit }));
+        setSelectedForMatch((cur) => (cur.length >= 2 || cur.some((x) => x.id === memberId) ? cur : [...cur, { id: memberId, connectorId }]));
+      });
+      return;
+    }
     if (block) {
       toast.show(BLOCK_MESSAGE[block], 'info');
       return;
@@ -782,7 +793,7 @@ export default function MatchingScreen() {
               <TouchableOpacity onPress={() => setPreviewMember({ member: m, connectorId })} accessibilityLabel={`${m.name} 프로필 보기`}>
                 <Avatar photoUrls={m.photo_urls} size={48} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.memberRowBody} onPress={() => toggleSelectForMatch(m.id, connectorId)} disabled={busy} accessibilityLabel={busy ? `${m.name} ${block}` : `${m.name} 선택`}>
+              <TouchableOpacity style={styles.memberRowBody} onPress={() => toggleSelectForMatch(m.id, connectorId)} accessibilityLabel={busy ? `${m.name} ${block}` : `${m.name} 선택`}>
                 <View style={styles.memberRowText}>
                   <Text style={styles.memberRowName}>{m.name}</Text>
                   {!!summary && <Text style={styles.memberRowSub}>{summary}</Text>}
@@ -1277,7 +1288,7 @@ export default function MatchingScreen() {
               <MemberProfileView member={member} showBirthDate />
               <TouchableOpacity
                 style={[styles.proposeBtn, busy && styles.buttonDisabled]}
-                disabled={busy}
+                disabled={busy && block !== '이용권 없음'}
                 onPress={() => {
                   toggleSelectForMatch(member.id, connectorId);
                   setPreviewMember(null);
