@@ -268,8 +268,21 @@ export default function AlliancesScreen() {
         <Text style={styles.title}>동맹 관리</Text>
       </View>
 
+      {/* 회원·매칭 탭과 같은 배치: 제목 줄 오른쪽에 필터, 아래 검색 */}
       {otherConnectors.length > 0 && (
         <View style={styles.searchWrap}>
+          <View style={styles.listHead}>
+            <Text style={styles.listHeadTitle} numberOfLines={1}>다른 파트너 {shownConnectors.length}곳</Text>
+            <TouchableOpacity
+              style={[styles.fToggle, (filterOpen || filterCount > 0) && styles.fToggleOn]}
+              onPress={() => setFilterOpen(!filterOpen)}
+              accessibilityLabel={filterOpen ? '필터 접기' : '필터 펼치기'}
+            >
+              <Text style={[styles.fToggleText, (filterOpen || filterCount > 0) && styles.fToggleTextOn]}>
+                필터{filterCount > 0 ? ` ${filterCount}` : ''} {filterOpen ? '▴' : '▾'}
+              </Text>
+            </TouchableOpacity>
+          </View>
           <TextInput
             style={styles.search}
             placeholder="🔍 이름·회사명·지역으로 찾기"
@@ -278,15 +291,6 @@ export default function AlliancesScreen() {
             onChangeText={setQuery}
             accessibilityLabel="파트너 찾기"
           />
-          <TouchableOpacity
-            style={[styles.fToggle, (filterOpen || filterCount > 0) && styles.fToggleOn]}
-            onPress={() => setFilterOpen(!filterOpen)}
-            accessibilityLabel={filterOpen ? '필터 접기' : '필터 펼치기'}
-          >
-            <Text style={[styles.fToggleText, (filterOpen || filterCount > 0) && styles.fToggleTextOn]}>
-              필터{filterCount > 0 ? ` ${filterCount}` : ''} {filterOpen ? '▴' : '▾'}
-            </Text>
-          </TouchableOpacity>
         </View>
       )}
       {filterOpen && (
@@ -493,8 +497,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
   },
-  searchWrap: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8, flexDirection: 'row', gap: 8, alignItems: 'center' },
-  fToggle: { borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 12, paddingHorizontal: 14, minHeight: 46, justifyContent: 'center' },
+  searchWrap: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8 },
+  listHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
+  listHeadTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: '#333' },
+  fToggle: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 10, paddingHorizontal: 14, minHeight: 38, justifyContent: 'center' },
   fToggleOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
   fToggleText: { fontSize: 14, color: '#666' },
   fToggleTextOn: { color: '#5B21FF', fontWeight: '600' },
@@ -509,7 +515,7 @@ const styles = StyleSheet.create({
   fReset: { fontSize: 12, color: '#999', textDecorationLine: 'underline' },
   fFoot: { fontSize: 12, color: '#8E8E93', textAlign: 'center', marginTop: 12 },
   fMatch: { color: '#5B21FF', fontWeight: '600' },
-  search: { flex: 1,  borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 12, paddingHorizontal: 14, minHeight: 46, fontSize: 16, color: '#191919', backgroundColor: '#fff' },
+  search: { borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 12, paddingHorizontal: 14, minHeight: 46, fontSize: 16, color: '#191919', backgroundColor: '#fff' },
   list: {
     paddingHorizontal: 20,
     paddingBottom: 20,
