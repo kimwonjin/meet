@@ -564,6 +564,19 @@ export default function ConnectorsScreen() {
           <BottomSheet visible onClose={() => setSelectedConnector(null)} title="회원 프로필">
                 <View>
                   {selectedConnector && <MemberProfileView member={selectedConnector} showBirthDate />}
+                  {(tabStatus === 'approved' || (tabStatus === 'ally' && !!selectedConnector?.ally_connector_id)) && (
+                    <TouchableOpacity
+                      style={styles.proposeBtn}
+                      onPress={() => {
+                        const c = selectedConnector;
+                        setSelectedConnector(null);
+                        router.push({ pathname: '/matching', params: { pick: c.id, pickFrom: tabStatus === 'ally' ? c.ally_connector_id : user!.id } });
+                      }}
+                      accessibilityLabel="이 회원으로 매칭 제안하기"
+                    >
+                      <Text style={styles.proposeBtnText}>이 회원으로 매칭 제안하기</Text>
+                    </TouchableOpacity>
+                  )}
                   {tabStatus === 'ally' && !!selectedConnector?.ally_connector_id && (
                     <TouchableOpacity
                       style={styles.allyChatBtn}
@@ -844,8 +857,10 @@ export default function ConnectorsScreen() {
 }
 
 const styles = StyleSheet.create({
-  allyChatBtn: { marginTop: 16, minHeight: 48, borderRadius: 12, backgroundColor: '#5B21FF', alignItems: 'center', justifyContent: 'center' },
-  allyChatBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  proposeBtn: { marginTop: 16, minHeight: 50, borderRadius: 12, backgroundColor: '#5B21FF', alignItems: 'center', justifyContent: 'center' },
+  proposeBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  allyChatBtn: { marginTop: 10, minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: '#5B21FF', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  allyChatBtnText: { color: '#5B21FF', fontSize: 15, fontWeight: '700' },
   freeBox: { marginTop: 16, padding: 14, borderRadius: 14, backgroundColor: '#F7F7F9' },
   freeTitle: { fontSize: 15, fontWeight: '700', color: '#191919' },
   freeChips: { flexDirection: 'row', gap: 8, marginTop: 12 },

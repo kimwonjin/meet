@@ -59,7 +59,7 @@ export default function MatchingScreen() {
   const router = useRouter();
   // 알림에서 들어오면 해당 칸(예: 동맹매칭)을 바로 연다
   // 동맹 매칭 알림으로 들어오면 동맹 회원까지 펼쳐서 보여준다
-  const params = useLocalSearchParams<{ segment?: string; view?: string; focus?: string; stage?: string }>();
+  const params = useLocalSearchParams<{ segment?: string; view?: string; focus?: string; stage?: string; pick?: string; pickFrom?: string }>();
   // 홈의 단계 묶음에서 들어오면 그 단계만 걸러 본다 (null = 전체)
   const [stageFilter, setStageFilter] = useState<MatchFilter | null>(null);
   // 홈 카드에서 들어오면 그 매칭 카드로 스크롤하고 잠깐 강조한다
@@ -77,6 +77,17 @@ export default function MatchingScreen() {
     const t2 = setTimeout(() => setFocusId(null), 3000);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [focusId, view, matchRequests.length]);
+
+  // 회원 탭 '이 회원으로 매칭 제안하기': 그 회원을 골라 둔 채 매칭 제안 화면을 연다
+  useEffect(() => {
+    if (!params.pick || !user) return;
+    const from = params.pickFrom || user.id;
+    setView('active');
+    setStageFilter(null);
+    if (from !== user.id) setIncludeAllies(true);
+    setSelectedForMatch([{ id: params.pick, connectorId: from }]);
+    router.setParams({ pick: undefined, pickFrom: undefined });
+  }, [params.pick, params.pickFrom, user?.id]);
 
   useEffect(() => {
     if (params.view === 'active') {
