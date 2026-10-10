@@ -35,6 +35,8 @@ interface Connector {
   matching_count?: number;
   main_region?: string;
   service_description?: string;
+  ally_connector_id?: string;
+  ally_connector_name?: string;
   intro?: string;
   career?: string;
   partner_photo_urls?: string[];
@@ -256,6 +258,7 @@ export default function ConnectorsScreen() {
         ...m,
         business_name: m.name,
         verified: false,
+        ally_connector_id: memberToConnector.get(m.id),
         ally_connector_name: (allyUsers || []).find((u: any) => u.id === memberToConnector.get(m.id))?.name || '동맹 파트너',
       }))
     );
@@ -526,6 +529,18 @@ export default function ConnectorsScreen() {
                     </TouchableOpacity>
                   </View>
                 )}
+                {tabStatus === 'ally' && !!item.ally_connector_id && (
+                  <View style={styles.meta}>
+                    <Text style={styles.desc}>담당 {item.ally_connector_name}</Text>
+                    <TouchableOpacity
+                      style={styles.chatShortcutBtn}
+                      onPress={() => router.push({ pathname: '/chat', params: { with: item.ally_connector_id, name: item.ally_connector_name } })}
+                      accessibilityLabel={`${item.ally_connector_name} 파트너와 채팅`}
+                    >
+                      <Text style={styles.chatShortcutBtnText}>💬 파트너 채팅</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
                 {tabStatus === 'approved' && (
                   <View style={styles.meta}>
                     <Text style={styles.approvedStatusBadge}>✓ 승인됨</Text>
@@ -549,6 +564,19 @@ export default function ConnectorsScreen() {
           <BottomSheet visible onClose={() => setSelectedConnector(null)} title="회원 프로필">
                 <View>
                   {selectedConnector && <MemberProfileView member={selectedConnector} showBirthDate />}
+                  {tabStatus === 'ally' && !!selectedConnector?.ally_connector_id && (
+                    <TouchableOpacity
+                      style={styles.allyChatBtn}
+                      onPress={() => {
+                        const c = selectedConnector;
+                        setSelectedConnector(null);
+                        router.push({ pathname: '/chat', params: { with: c.ally_connector_id, name: c.ally_connector_name } });
+                      }}
+                      accessibilityLabel="담당 파트너와 채팅"
+                    >
+                      <Text style={styles.allyChatBtnText}>💬 담당 파트너({selectedConnector.ally_connector_name})와 채팅</Text>
+                    </TouchableOpacity>
+                  )}
                   {tabStatus === 'approved' && freeGiven && (
                     freeGiven.given.has(selectedConnector.id) ? (
                       <Text style={styles.freeGiven}>🎁 무료 이용권 {freeGiven.given.get(selectedConnector.id)}회를 선물했어요</Text>
@@ -816,6 +844,8 @@ export default function ConnectorsScreen() {
 }
 
 const styles = StyleSheet.create({
+  allyChatBtn: { marginTop: 16, minHeight: 48, borderRadius: 12, backgroundColor: '#5B21FF', alignItems: 'center', justifyContent: 'center' },
+  allyChatBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   freeBox: { marginTop: 16, padding: 14, borderRadius: 14, backgroundColor: '#F7F7F9' },
   freeTitle: { fontSize: 15, fontWeight: '700', color: '#191919' },
   freeChips: { flexDirection: 'row', gap: 8, marginTop: 12 },
