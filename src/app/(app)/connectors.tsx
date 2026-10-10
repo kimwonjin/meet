@@ -14,7 +14,7 @@ import ReviewList from '@/components/ReviewList';
 import SafetyActions from '@/components/SafetyActions';
 import MemberProfileView from '@/components/MemberProfileView';
 import { useMemberFilter } from '@/components/MemberFilter';
-import StackedBar, { SplitBar, ageColors, regionColor } from '@/components/DistributionBars';
+import PartnerComposition from '@/components/PartnerComposition';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
 import { purchasePackage, getCredit, getFreeCredit, freeWithinAvailable, fetchFreeGiven, grantFreeCredit, FREE_COUNT_OPTIONS, PACKAGE_OPTIONS } from '@/lib/payments';
@@ -591,60 +591,6 @@ export default function ConnectorsScreen() {
   }
 
   // 회원 구성 그래프 (내 회원 / 동맹 포함 공용)
-  function renderComposition(ov: any) {
-    return (
-      <>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>전체 회원</Text>
-          <Text style={styles.infoValue}>{ov.total}명</Text>
-        </View>
-        {ov.total > 0 && (
-          <View style={styles.distBlock}>
-            <Text style={styles.distLabel}>성별</Text>
-            <SplitBar
-              total={ov.total}
-              left={{ label: '남', count: ov.male, color: '#2a78d6' }}
-              right={{ label: '여', count: ov.female, color: '#eb6834' }}
-            />
-          </View>
-        )}
-        {ov.ages ? (
-          (['M', 'F'] as const).map((g) => {
-            const rows = (ov.ages as any[]).filter((a) => a.gender === g);
-            if (!rows.length) return null;
-            return (
-              <View key={g} style={styles.distBlock}>
-                <Text style={styles.distLabel}>{g === 'M' ? '남성 연령대' : '여성 연령대'}</Text>
-                <StackedBar
-                  total={g === 'M' ? ov.male : ov.female}
-                  rows={rows.map((a, i) => ({ label: a.label, count: a.count, color: ageColors(rows.length)[i] }))}
-                />
-              </View>
-            );
-          })
-        ) : null}
-        {ov.regions ? (
-          <View style={styles.distBlock}>
-            <Text style={styles.distLabel}>지역</Text>
-            <StackedBar
-              total={ov.total}
-              // 많은 순, 지역을 입력하지 않은 회원은 맨 끝에 회색
-              rows={[
-                ...(ov.regions as any[]).filter((r) => r.label !== '미입력'),
-                ...(ov.regions as any[]).filter((r) => r.label === '미입력'),
-              ].map((r) => ({ label: r.label, count: r.count, color: regionColor(r.label) }))}
-            />
-          </View>
-        ) : null}
-        {!ov.ages && (
-          <Text style={styles.distHint}>
-            회원이 {ov.min_for_detail}명 이상이 되면 연령대와 지역 분포를 보여드려요 (회원 개인정보 보호)
-          </Text>
-        )}
-      </>
-    );
-  }
-
   const query = search.trim();
   const visiblePartners = query
     ? connectors.filter((c) => [c.business_name, formatRegions(c.main_region), c.service_description].some((v) => v?.includes(query)))
@@ -761,7 +707,7 @@ export default function ConnectorsScreen() {
                       ) : overview.error ? (
                         <Text style={styles.bioText}>회원 구성을 불러오지 못했어요</Text>
                       ) : (
-                        renderComposition(overview)
+                        <PartnerComposition ov={overview} />
                       )}
                     </View>
 
@@ -772,7 +718,7 @@ export default function ConnectorsScreen() {
                         <Text style={styles.distHint}>
                           동맹 파트너 {networkOverview.ally_count}곳의 회원까지 포함해요. 동맹 매칭으로 이 회원들과도 만날 수 있어요.
                         </Text>
-                        {renderComposition(networkOverview)}
+                        <PartnerComposition ov={networkOverview} />
                       </View>
                     )}
 

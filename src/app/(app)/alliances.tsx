@@ -19,6 +19,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { formatRegions } from '@/lib/format';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { createNotification } from '@/lib/notifications';
+import PartnerComposition from '@/components/PartnerComposition';
 
 export default function AlliancesScreen() {
   const { user } = useAuth();
@@ -204,14 +205,12 @@ export default function AlliancesScreen() {
     setLoadingStats(true);
     setPoolStats(null);
     try {
-      const { data, error } = await supabase.rpc('fn_get_pool_stats', {
-        p_target_connector_id: conn.id,
-        p_requester_id: user.id,
-      });
+      // 회원이 파트너 정보에서 보는 것과 같은 실시간 회원 구성
+      const { data, error } = await supabase.rpc('fn_partner_overview', { p_connector_id: conn.id, p_include_allies: false });
       if (error) throw error;
       setPoolStats(data);
     } catch (error) {
-      setPoolStats({ available: false, reason: '통계를 불러오지 못했습니다' });
+      setPoolStats({ error: true });
     } finally {
       setLoadingStats(false);
     }
@@ -371,70 +370,16 @@ export default function AlliancesScreen() {
                 )}
               </View>
 
-              {loadingStats ? (
-                <ActivityIndicator size="large" color="#5B21FF" style={{ marginVertical: 40 }} />
-              ) : !poolStats?.available ? (
-                <View style={styles.emptyTab}>
-                  <Text style={styles.placeholderText}>{poolStats?.reason || '통계를 불러올 수 없습니다'}</Text>
-                </View>
-              ) : (
-                <>
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalSectionTitle}>회원 구성</Text>
-                    <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>성별</Text>
-                      <Text style={styles.infoValue}>👨 {poolStats.male_count}명 · 👩 {poolStats.female_count}명</Text>
-                    </View>
-                  </View>
-
-                  {!poolStats.meets_min_pool ? (
-                    <View style={styles.approvedStatus}>
-                      <Text style={styles.approvedStatusText}>회원 수 부족 (분포 통계 비공개)</Text>
-                    </View>
-                  ) : poolStats.scope === 'full' ? (
-                    <>
-                      <View style={styles.modalSection}>
-                        <Text style={styles.modalSectionTitle}>연령 분포</Text>
-                        {Object.entries(poolStats.age_distribution || {}).map(([bucket, pct]: [string, any]) => (
-                          <View key={bucket} style={styles.infoRow}>
-                            <Text style={styles.infoLabel}>{bucket}</Text>
-                            <Text style={styles.infoValue}>{pct}%</Text>
-                          </View>
-                        ))}
-                      </View>
-                      <View style={styles.modalSection}>
-                        <Text style={styles.modalSectionTitle}>지역 분포</Text>
-                        {(poolStats.region_distribution || []).map((r: any) => (
-                          <View key={r.label} style={styles.infoRow}>
-                            <Text style={styles.infoLabel}>{r.label}</Text>
-                            <Text style={styles.infoValue}>{r.pct}%</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </>
-                  ) : (
-                    <View style={styles.modalSection}>
-                      <Text style={styles.modalSectionTitle}>요약 (동맹 시 전체 공개)</Text>
-                      {poolStats.top_age_bucket && (
-                        <View style={styles.infoRow}>
-                          <Text style={styles.infoLabel}>주요 연령대</Text>
-                          <Text style={styles.infoValue}>{poolStats.top_age_bucket.label} {poolStats.top_age_bucket.pct}%</Text>
-                        </View>
-                      )}
-                      {poolStats.top_region && (
-                        <View style={styles.infoRow}>
-                          <Text style={styles.infoLabel}>주요 지역</Text>
-                          <Text style={styles.infoValue}>{poolStats.top_region.label} {poolStats.top_region.pct}%</Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
-
-                  <Text style={styles.matchDate}>
-                    {new Date(poolStats.computed_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })} 기준
-                  </Text>
-                </>
-              )}
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>회원 구성</Text>
+                {loadingStats ? (
+                  <ActivityIndicator size="large" color="#5B21FF" style={{ marginVertical: 40 }} />
+                ) : !poolStats || poolStats.error ? (
+                  <Text style={styles.placeholderText}>회원 구성을 불러오지 못했어요</Text>
+                ) : (
+                  <PartnerComposition ov={poolStats} />
+                )}
+              </View>
             </View>
       </BottomSheet>
     </View>
