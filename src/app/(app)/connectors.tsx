@@ -472,10 +472,17 @@ export default function ConnectorsScreen() {
           ))}
         </View>
 
-        {tabMembers.length > 0 && <View style={styles.filterWrap}>{memberFilter.render(tabMembers)}</View>}
-
-        {tabStatus === 'ally' && allyMembers.length > 0 && (
-          <Text style={styles.allyHint}>매칭 탭에서 '동맹 회원 포함'을 켜면 내 회원과 매칭을 제안할 수 있어요</Text>
+        {/* 매칭 탭과 같은 배치: 제목 줄 오른쪽에 필터, 아래 이름 검색 */}
+        {tabMembers.length > 0 && (
+          <View style={styles.filterWrap}>
+            <View style={styles.listHead}>
+              <Text style={styles.listHeadTitle} numberOfLines={1}>
+                {{ approved: '내 회원', pending: '가입 신청', ally: '동맹 파트너의 회원' }[tabStatus]} {displayRequests.length}명
+              </Text>
+              {memberFilter.renderToggle()}
+            </View>
+            {memberFilter.render(tabMembers, false)}
+          </View>
         )}
 
         {displayRequests.length === 0 ? (
@@ -1225,12 +1232,6 @@ const styles = StyleSheet.create({
   activeTabText: {
     color: '#5B21FF',
   },
-  allyHint: {
-    fontSize: 12,
-    color: '#888',
-    paddingHorizontal: 20,
-    marginTop: 4,
-  },
   emptyTab: {
     paddingHorizontal: 20,
     paddingVertical: 40,
@@ -1254,6 +1255,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 8,
   },
+  listHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
+  listHeadTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: '#333' },
   subTabContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
