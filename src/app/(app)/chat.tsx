@@ -297,6 +297,14 @@ export default function ChatScreen() {
             )}
           </View>
 
+          {/* 운영자 대화방 상단 고정 안내: 무엇이든 편하게 말할 수 있는 창구임을 알린다 */}
+          {activeOther && operator?.id === activeOther.id && user?.role !== 'operator' && (
+            <View style={styles.operatorNotice} accessibilityLabel="운영자 대화 안내">
+              <Text style={styles.operatorNoticeTitle}>📌 운영자에게 자유롭게 말해 주세요</Text>
+              <Text style={styles.operatorNoticeBody}>개선 아이디어, 협업 제안, 불편하거나 문제라고 느낀 점 무엇이든 좋아요. 확인하고 답변 드릴게요.</Text>
+            </View>
+          )}
+
           <FlatList
             ref={messageListRef}
             data={messages}
@@ -353,6 +361,9 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  operatorNotice: { marginHorizontal: 16, marginTop: 12, paddingVertical: 12, paddingHorizontal: 14, borderLeftWidth: 3, borderLeftColor: '#5B21FF', backgroundColor: '#F7F5FA', borderRadius: 6 },
+  operatorNoticeTitle: { fontSize: 14, fontWeight: '700', color: '#18151E' },
+  operatorNoticeBody: { fontSize: 13, color: '#65626B', marginTop: 4, lineHeight: 19 },
   withdrawnNote: {
     flex: 1,
     textAlign: 'center',
