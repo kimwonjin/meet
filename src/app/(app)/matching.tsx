@@ -26,7 +26,7 @@ import { formatMeetingDate } from '@/lib/format';
 import { earliestCommonDate, sendContactsViaChat } from '@/lib/schedule';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar } from '@/components/ProfilePhoto';
-import { AFTER_CARE_DAYS, afterCareDeadline, expireAfterCareIfDue, formatDeadline } from '@/lib/afterCare';
+import { AFTER_CARE_DAYS, afterCareDeadline, afterCareOutcome, expireAfterCareIfDue, formatDeadline } from '@/lib/afterCare';
 
 
 // 매칭 후보로 고를 회원 (사진·나이·지역을 보고 고른다)
@@ -1229,9 +1229,10 @@ export default function MatchingScreen() {
                     ? item.closed_reason === 'no_show' ? ' - 노쇼 신고로 정산 없이 종료' : ' - 정산 완료'
                     : ' - 결과 정리 중 (자동으로 다시 시도해요)'}
                 </Text>
-                {item.after_care_hopeful_1 === '신청' && item.after_care_hopeful_2 === '신청' && (
-                  <Text style={styles.mutualText}>💞 두 회원 모두 다시 만나고 싶어해요</Text>
-                )}
+                {item.closed_reason !== 'no_show' && item.after_care_hopeful_1 && item.after_care_hopeful_2 && (() => {
+                  const o = afterCareOutcome(item.after_care_hopeful_1, item.after_care_hopeful_2, item.hopeful_1?.gender, item.hopeful_2?.gender);
+                  return <Text style={o.mutual ? styles.mutualText : styles.outcomeText}>{o.label}</Text>;
+                })()}
               </View>
             )}
 
@@ -1406,6 +1407,7 @@ const BLOCK_MESSAGE: Record<BlockLabel, string> = {
 const styles = StyleSheet.create({
   pairHint: { color: '#322F38', fontWeight: '700' },
   memberRowBusy: { opacity: 0.5 },
+  outcomeText: { fontSize: 13, color: '#322F38', fontWeight: '600', marginTop: 6 },
   proposeBar: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12, borderTopWidth: 1, borderTopColor: '#ECEAF1', backgroundColor: '#fff' },
   proposeBarNames: { fontSize: 13, color: '#65626B', textAlign: 'center' },
   noShowBtn: { marginTop: 12, backgroundColor: '#5B21FF', borderRadius: 10, minHeight: 46, alignItems: 'center', justifyContent: 'center' },

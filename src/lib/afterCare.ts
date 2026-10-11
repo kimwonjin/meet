@@ -62,10 +62,25 @@ export async function expireAfterCareIfDue(m: AfterCareMatch) {
 // 두 회원의 애프터 의사가 모두 모인 뒤에만 결과를 알린다 (먼저 고른 사람이 상대 선택을 보고 정하지 못하게).
 // 회원에게는 '둘 다 원함' 또는 '마무리'만 알리고, 누가 원하지 않았는지는 알리지 않는다.
 // exceptUserId: 방금 화면에서 결과를 확인한 회원 (알림 생략)
+// 파트너에게 보여주는 애프터 결과: 둘 다 / 남성만 / 여성만 / 둘 다 마무리
+// (회원에게는 누가 원하지 않았는지 알리지 않지만, 주선자는 다음 소개를 위해 알아야 한다)
+export function afterCareOutcome(a1?: string | null, a2?: string | null, g1?: string | null, g2?: string | null) {
+  const w1 = a1 === '신청', w2 = a2 === '신청';
+  if (w1 && w2) return { mutual: true, label: '💞 두 회원 모두 다시 만나고 싶어해요' };
+  if (!w1 && !w2) return { mutual: false, label: '두 회원 모두 이번 만남으로 마무리했어요' };
+  const g = w1 ? g1 : g2;
+  const who = g === 'M' ? '남성' : g === 'F' ? '여성' : '한 분';
+  return { mutual: false, label: `${who}만 다시 만나고 싶어해요` };
+}
+
 export async function notifyAfterCareResult(matchId: string, exceptUserId?: string) {
   const { data: m } = await supabase.from('match_requests').select('*').eq('id', matchId).single();
   if (!m || !m.after_care_hopeful_1 || !m.after_care_hopeful_2 || m.closed_reason === 'no_show') return;
   const mutual = m.after_care_hopeful_1 === '신청' && m.after_care_hopeful_2 === '신청';
+  const { data: people } = await supabase.from('users').select('id, name, gender').in('id', [m.hopeful_1_id, m.hopeful_2_id]);
+  const g = Object.fromEntries((people || []).map((u: any) => [u.id, u.gender]));
+  const names: Record<string, string> = Object.fromEntries((people || []).map((u: any) => [u.id, u.name]));
+  const outcome = afterCareOutcome(m.after_care_hopeful_1, m.after_care_hopeful_2, g[m.hopeful_1_id], g[m.hopeful_2_id]);
 
   const members = [m.hopeful_1_id, m.hopeful_2_id].filter((id: string) => id !== exceptUserId);
   const connectors = [...new Set<string>([m.connector_1_id, m.connector_2_id])];
@@ -77,13 +92,13 @@ export async function notifyAfterCareResult(matchId: string, exceptUserId?: stri
       body: mutual ? '채팅에서 받은 연락처로 다시 연락해보세요' : '이번 만남은 여기서 마무리되었어요',
       route: '/home',
     })),
-    ...(mutual ? connectors.map((id) => createNotification({
+    ...connectors.map((id) => createNotification({
       userId: id,
-      type: 'after_care_mutual',
-      title: '💞 두 회원 모두 다시 만나고 싶어해요',
-      body: '소개한 두 회원이 모두 애프터를 원했습니다',
+      type: mutual ? 'after_care_mutual' : 'after_care_result',
+      title: outcome.label,
+      body: `${names[m.hopeful_1_id] || '회원'} ↔ ${names[m.hopeful_2_id] || '회원'} 소개팅 결과예요`,
       route: '/matching',
       routeParams: connectors.length > 1 ? { segment: 'ally' } : undefined,
-    })) : []),
+    })),
   ]);
 }
