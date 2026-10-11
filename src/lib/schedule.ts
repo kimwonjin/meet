@@ -53,7 +53,8 @@ type AutoScheduleResult = { status: 'waiting' } | { status: 'scheduled'; at: str
 
 // 두 회원이 모두 승인하고 날짜를 골랐으면 겹치는 가장 빠른 날로 일정을 정하고 관련자에게 알린다.
 // 저장된 최신 값으로 판단한다 (두 회원이 다른 기기에서 시차를 두고 승인하기 때문).
-export async function autoScheduleMatch(matchId: string): Promise<AutoScheduleResult> {
+// reselectBy: 날짜를 다시 고른 회원. 겹치지 않으면 그 회원과 파트너에게는 다시 알리지 않고 상대 회원에게만 알린다
+export async function autoScheduleMatch(matchId: string, opts: { reselectBy?: string } = {}): Promise<AutoScheduleResult> {
   const { data: m } = await supabase.from('match_requests').select('*').eq('id', matchId).single();
   if (!m || m.status === 'rejected' || !m.hopeful_1_approved || !m.hopeful_2_approved) return { status: 'waiting' };
   if (m.meeting_scheduled_at) return { status: 'already' };
@@ -64,6 +65,13 @@ export async function autoScheduleMatch(matchId: string): Promise<AutoScheduleRe
 
   const common = earliestCommonDate(m.available_dates_1, m.available_dates_2);
   if (!common) {
+    if (opts.reselectBy) {
+      const other = memberIds.find((id) => id !== opts.reselectBy);
+      if (other) {
+        await createNotification({ userId: other, type: 'schedule_no_overlap', title: '상대가 날짜를 다시 골랐어요', body: '아직 겹치는 날이 없어요. 홈에서 가능한 날짜를 다시 골라주세요', route: '/home' });
+      }
+      return { status: 'no_overlap' };
+    }
     await Promise.all([
       ...memberIds.map((id) =>
         createNotification({ userId: id, type: 'schedule_no_overlap', title: '가능한 날짜가 겹치지 않아요', body: '홈에서 날짜를 다시 골라주세요', route: '/home' })

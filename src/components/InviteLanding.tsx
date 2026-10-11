@@ -93,8 +93,15 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
     getJoinState(user.id, partner.id).then(setJoinState);
   }, [partner?.id, user?.id]);
 
+  // 파트너가 자기 링크를 열면: 회원에게 보이는 화면을 미리보기로 보여준다
+  const isOwner = !!user && !!partner && user.id === partner.id;
+
   async function join(to: '/signup' | '/') {
     if (!partner) return;
+    if (isOwner) {
+      toast.show('미리보기에서는 가입할 수 없어요', 'info');
+      return;
+    }
     setGoing(true);
     await savePendingInvite(partner.id, code, to === '/signup' ? 'signup' : 'login');
     router.replace(to);
@@ -131,6 +138,11 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
+      {isOwner && (
+        <View style={styles.previewBanner}>
+          <Text style={styles.previewText}>내 초대 링크 미리보기 · 회원에게는 이렇게 보여요</Text>
+        </View>
+      )}
       <View style={styles.brandRow}>
         <Image source={require('../../assets/images/icon.png')} style={styles.logo} />
         <Text style={styles.brand}>두두인연</Text>
@@ -207,7 +219,7 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
             </>
           )}
 
-          {!user ? (
+          {!user || isOwner ? (
             <>
               <TouchableOpacity style={[styles.primary, going && styles.disabled]} onPress={() => join('/signup')} disabled={going} accessibilityLabel="가입하고 연결하기">
                 {going ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>가입하고 연결하기</Text>}
@@ -323,6 +335,8 @@ const styles = StyleSheet.create({
   secondaryText: { fontSize: 14, color: '#76737C', textDecorationLine: 'underline' },
   note: { fontSize: 13, color: '#87848D', marginTop: 24, lineHeight: 19 },
   footer: { marginTop: 32 },
+  previewBanner: { marginBottom: 20, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, backgroundColor: '#F7F5FA' },
+  previewText: { fontSize: 13, color: '#5B21FF', fontWeight: '600', textAlign: 'center' },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   benefits: { marginTop: 20, borderTopWidth: 1, borderTopColor: '#ECEAF1' },
   benefit: { paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: '#ECEAF1' },

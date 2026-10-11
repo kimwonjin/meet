@@ -62,6 +62,8 @@ export default function MatchingScreen() {
   const [pairHistory, setPairHistory] = useState<Record<string, 'met' | 'rejected'>>({});
   // 회원별 남은 이용권 (회원의 담당 파트너 기준). 불러오기 전에는 비어 있어 막지 않는다
   const [credits, setCredits] = useState<Record<string, number> | null>(null);
+  // 서로 차단한 두 회원 ('작은id|큰id')
+  const [blockedPairs, setBlockedPairs] = useState<Set<string>>(new Set());
   const router = useRouter();
   // 알림에서 들어오면 해당 칸(예: 동맹매칭)을 바로 연다
   // 동맹 매칭 알림으로 들어오면 동맹 회원까지 펼쳐서 보여준다
@@ -151,7 +153,13 @@ export default function MatchingScreen() {
 
         // 애프터 응답 기한이 지난 매칭은 자동으로 마무리하고 다시 불러온다
         const expired = await Promise.all(matchData.map((m: any) => expireAfterCareIfDue(m)));
-        if (expired.some(Boolean) && !retried) return fetchMatches(true);
+        // 동맹 매칭: 한 파트너만 '만남 완료'를 눌렀고 만남 날짜에서 3일이 지나면 자동으로 완료한다 (상대 파트너가 잊은 경우)
+        const stuck = matchData.filter((m: any) =>
+          m.status !== 'rejected' && !m.settlement_completed && m.meeting_status !== 'completed' && m.meeting_scheduled_at &&
+          !!m.meeting_done_connector_1 !== !!m.meeting_done_connector_2 && Date.now() > meetingAutoDoneAt(m.meeting_scheduled_at).getTime()
+        );
+        const autoDone = await Promise.all(stuck.map((m: any) => completeMeeting(m.id, [m.hopeful_1_id, m.hopeful_2_id]).catch(() => false)));
+        if ((expired.some(Boolean) || autoDone.some(Boolean)) && !retried) return fetchMatches(true);
 
         // 최신 매칭이 위로 오도록 정렬
         matchData.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -276,6 +284,8 @@ export default function MatchingScreen() {
         supabase.from('match_requests').select(cols).in('hopeful_2_id', ids),
         supabase.from('payments').select('hopeful_id, connector_id, sessions_remaining').eq('status', 'paid').in('hopeful_id', ids),
       ]);
+      const { data: blocks } = await supabase.from('user_blocks').select('blocker_id, blocked_id').in('blocker_id', ids).in('blocked_id', ids);
+      setBlockedPairs(new Set((blocks || []).map((x: any) => [x.blocker_id, x.blocked_id].sort().join('|'))));
       // 만남중 회원은 따로 막으므로, 남은 이용권은 담당 파트너에게 산 이용권의 남은 횟수로 충분하다
       if (!pay.error) {
         const partnerOf: Record<string, string> = {};
@@ -322,6 +332,7 @@ export default function MatchingScreen() {
       const g1 = all.find((m) => m.id === first.id)?.gender, g2 = all.find((m) => m.id === id)?.gender;
       if (g1 && g2 && g1 === g2) return '같은 성별';
       if (connectorId !== user?.id && first.connectorId !== user?.id) return '내 회원과만 가능';
+      if (blockedPairs.has([first.id, id].sort().join('|'))) return '매칭 불가';
     }
     // 이용권은 맨 마지막에 본다 (눌렀을 때 다시 확인해서 고를 수 있게 하므로)
     if (credits && credits[id] === 0) return '이용권 없음';
@@ -409,6 +420,8 @@ export default function MatchingScreen() {
         const messages: Record<string, string> = {
           no_credit: `${memberName(result.hopeful_id)}님은 새 매칭에 쓸 이용권이 없어요 (진행 중인 매칭에 쓰이는 이용권은 제외돼요)`,
           duplicate: '두 회원은 이미 진행 중인 매칭이 있어요',
+          busy: `${memberName(result.hopeful_id)}님은 이미 만남이 진행 중이에요`,
+          same_gender: '같은 성별끼리는 매칭할 수 없어요',
           not_your_member: '내 회원을 한 명 이상 포함해서 제안해주세요',
           no_alliance: '동맹이 활성화된 파트너의 회원만 매칭할 수 있어요',
           not_member: '가입이 승인된 회원만 매칭할 수 있어요',
@@ -468,6 +481,7 @@ export default function MatchingScreen() {
           no_alliance: '동맹이 해지되어 동의할 수 없어요',
           closed: '이미 종료된 매칭이에요',
           not_needed: '이미 동의한 매칭이에요',
+          busy: '회원 중 한 명이 다른 만남을 진행 중이에요. 이 매칭은 거절해주세요',
         };
         toast.show(messages[result.reason] ?? '동의하지 못했어요', 'error');
         await fetchMatches();
@@ -711,6 +725,30 @@ export default function MatchingScreen() {
   }
 
   // 만남 완료: 두 연결자가 모두 눌러야 완료된다 (내부 매칭은 한 번에 양쪽 처리)
+  // 만남 완료로 바꾸고 두 회원에게 애프터 의사를 묻는다 (한 번만 일어나도록 아직 완료 전일 때만)
+  async function completeMeeting(matchId: string, memberIds: (string | undefined)[]) {
+    const { data: completed } = await supabase
+      .from('match_requests')
+      .update({ meeting_status: 'completed', meeting_completed_at: new Date().toISOString() })
+      .eq('id', matchId)
+      .neq('meeting_status', 'completed')
+      .neq('status', 'rejected')
+      .select('id');
+    if (!completed?.length) return false;
+    await Promise.all(
+      memberIds.filter(Boolean).map((id) =>
+        createNotification({
+          userId: id as string,
+          type: 'after_care_requested',
+          title: '소개팅은 어떠셨나요?',
+          body: `${AFTER_CARE_DAYS}일 안에 홈에서 다음 만남 의사를 알려주세요`,
+          route: '/home',
+        })
+      )
+    );
+    return true;
+  }
+
   async function handleMeetingDone(matchId: string) {
     if (!user) return;
     const match = matchRequests.find((m) => m.id === matchId);
@@ -744,26 +782,7 @@ export default function MatchingScreen() {
         .single();
 
       if (fresh?.meeting_done_connector_1 && fresh?.meeting_done_connector_2) {
-        const { data: completed } = await supabase
-          .from('match_requests')
-          .update({ meeting_status: 'completed', meeting_completed_at: new Date().toISOString() })
-          .eq('id', matchId)
-          .neq('meeting_status', 'completed')
-          .neq('status', 'rejected')
-          .select('id');
-        if (completed?.length) {
-          await Promise.all(
-            [match.hopeful_1?.id, match.hopeful_2?.id].filter(Boolean).map((id: string) =>
-              createNotification({
-                userId: id,
-                type: 'after_care_requested',
-                title: '소개팅은 어떠셨나요?',
-                body: `${AFTER_CARE_DAYS}일 안에 홈에서 다음 만남 의사를 알려주세요`,
-                route: '/home',
-              })
-            )
-          );
-        }
+        await completeMeeting(matchId, [match.hopeful_1?.id, match.hopeful_2?.id]);
         toast.show('만남 완료! 회원들에게 애프터 의사를 물어볼게요', 'success');
       } else {
         const otherId = match.connector_1_id === user.id ? match.connector_2_id : match.connector_1_id;
@@ -859,14 +878,18 @@ export default function MatchingScreen() {
     );
   }
 
+  // 두 명을 고르면 목록 길이와 상관없이 화면 아래에 고정해서 보여준다
   const proposeBtn = selectedForMatch.length === 2 && (
-    <TouchableOpacity
-      style={[styles.proposeBtn, proposing && styles.buttonDisabled]}
-      onPress={handleProposeMatch}
-      disabled={proposing}
-    >
-      <Text style={styles.proposeBtnText}>{proposing ? '제안 중...' : '매칭 제안하기'}</Text>
-    </TouchableOpacity>
+    <View style={styles.proposeBar}>
+      <Text style={styles.proposeBarNames} numberOfLines={1}>{memberName(selectedForMatch[0].id)} ↔ {memberName(selectedForMatch[1].id)}</Text>
+      <TouchableOpacity
+        style={[styles.proposeBtn, { marginTop: 8 }, proposing && styles.buttonDisabled]}
+        onPress={handleProposeMatch}
+        disabled={proposing}
+      >
+        {proposing ? <ActivityIndicator color="#fff" /> : <Text style={styles.proposeBtnText}>매칭 제안하기</Text>}
+      </TouchableOpacity>
+    </View>
   );
 
   const createSection = (
@@ -918,7 +941,6 @@ export default function MatchingScreen() {
           )}
         </View>
       ))}
-      {proposeBtn}
     </View>
   );
 
@@ -1159,6 +1181,9 @@ export default function MatchingScreen() {
                     return (
                       <View style={styles.statusMessage}>
                         <Text style={styles.statusMessageText}>✓ 만남 완료를 눌렀어요 · {otherName}님 확인 대기</Text>
+                        {!!item.meeting_scheduled_at && (
+                          <Text style={styles.afterCareHint}>{formatDeadline(meetingAutoDoneAt(item.meeting_scheduled_at))}까지 확인이 없으면 자동으로 완료돼요</Text>
+                        )}
                       </View>
                     );
                   }
@@ -1317,6 +1342,7 @@ export default function MatchingScreen() {
           renderItem={({ item }) => renderMatchCard(item)}
           contentContainerStyle={styles.list}
         />
+      {view === 'active' && proposeBtn}
 
       <DatePickerSheet
         visible={scheduleMatchId !== null}
@@ -1359,17 +1385,29 @@ export default function MatchingScreen() {
   );
 }
 
-type BlockLabel = '만남중' | '이용권 없음' | '같은 성별' | '내 회원과만 가능';
+// 동맹 매칭에서 한쪽만 '만남 완료'를 눌렀을 때 자동 완료되는 시각 (만남 날짜 + 3일)
+const MEETING_AUTO_DONE_DAYS = 3;
+function meetingAutoDoneAt(meetingAt: string) {
+  const d = new Date(meetingAt);
+  d.setDate(d.getDate() + MEETING_AUTO_DONE_DAYS);
+  return d;
+}
+
+type BlockLabel = '만남중' | '이용권 없음' | '같은 성별' | '내 회원과만 가능' | '매칭 불가';
 const BLOCK_MESSAGE: Record<BlockLabel, string> = {
   만남중: '만남이 진행 중인 회원이에요. 만남이 끝나면 고를 수 있어요',
   '이용권 없음': '남은 이용권이 없는 회원이에요. 이용권을 산 뒤에 고를 수 있어요',
   '같은 성별': '먼저 고른 회원과 같은 성별이에요',
   '내 회원과만 가능': '동맹 회원끼리는 매칭할 수 없어요. 내 회원을 한 명 포함해주세요',
+  // 누가 차단했는지는 파트너에게 알리지 않는다
+  '매칭 불가': '두 회원은 서로 매칭할 수 없어요',
 };
 
 const styles = StyleSheet.create({
   pairHint: { color: '#322F38', fontWeight: '700' },
   memberRowBusy: { opacity: 0.5 },
+  proposeBar: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12, borderTopWidth: 1, borderTopColor: '#ECEAF1', backgroundColor: '#fff' },
+  proposeBarNames: { fontSize: 13, color: '#65626B', textAlign: 'center' },
   noShowBtn: { marginTop: 12, backgroundColor: '#5B21FF', borderRadius: 10, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
   noShowBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   noShowLink: { alignItems: 'center', paddingVertical: 12 },

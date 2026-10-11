@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import SkeletonScreen from '@/components/Skeleton';
 import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import {
@@ -34,6 +35,7 @@ import { isOverdueForMe, isWaitingOnOthers, matchStage, MatchStage, needsMyConse
 import ReviewSheet from '@/components/ReviewSheet';
 import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
 
+const RESELECT_KEY = 'reselectMarks';
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 const meetTime = (iso: string) => {
   const d = new Date(iso);
@@ -183,7 +185,11 @@ export default function HomeScreen() {
         });
 
         const settledOnce = (matchData || []).some((m: any) => m.settlement_completed && !m.closed_reason);
-        setStartState({ proposed: (matchData || []).length > 0, settled: settledOnce });
+        // 내가 제안한 매칭만 센다 (동맹 파트너가 내 회원을 넣어 제안한 건 제외)
+        setStartState({
+          proposed: (matchData || []).some((m: any) => (m.proposer_connector_id || m.connector_1_id) === user.id),
+          settled: settledOnce,
+        });
         if (!settledOnce) {
           supabase.from('connector_alliances').select('status')
             .or(`connector_1_id.eq.${user.id},connector_2_id.eq.${user.id}`)
@@ -374,6 +380,19 @@ export default function HomeScreen() {
     }
   }
 
+  // 날짜를 다시 고른 매칭: 그때 상대가 골라 둔 날짜 (이 기기에만 저장)
+  const [reselectMarks, setReselectMarks] = useState<Record<string, string>>({});
+  useEffect(() => {
+    AsyncStorage.getItem(RESELECT_KEY).then((v) => { try { setReselectMarks(v ? JSON.parse(v) : {}); } catch {} }).catch(() => {});
+  }, []);
+  function saveReselectMark(matchId: string, otherDates: string) {
+    setReselectMarks((prev) => {
+      const next = { ...prev, [matchId]: otherDates };
+      AsyncStorage.setItem(RESELECT_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }
+
   async function handleReselectDates(matchId: string, dates: string[]) {
     if (!user) return;
     setDatesTarget(null);
@@ -385,8 +404,13 @@ export default function HomeScreen() {
         .update(match?.isHopeful1 ? { available_dates_1: dates } : { available_dates_2: dates })
         .eq('id', matchId);
       if (error) throw error;
-      const result = await autoScheduleMatch(matchId);
-      if (result.status === 'no_overlap') toast.show('아직 겹치는 날짜가 없어요. 상대가 날짜를 고르면 다시 맞춰볼게요', 'info');
+      const result = await autoScheduleMatch(matchId, { reselectBy: user.id });
+      if (result.status === 'no_overlap') {
+        // 상대가 다시 고를 때까지는 '상대를 기다리는 중'으로 보여준다 (상대 날짜가 바뀌면 다시 내 차례)
+        const otherDates = (match?.isHopeful1 ? match?.available_dates_2 : match?.available_dates_1) || [];
+        saveReselectMark(matchId, JSON.stringify(otherDates));
+        toast.show('아직 겹치는 날짜가 없어요. 상대가 날짜를 고르면 다시 맞춰볼게요', 'info');
+      }
       else showScheduleResult(result);
       await fetchDashboard();
     } catch (error) {
@@ -686,7 +710,7 @@ export default function HomeScreen() {
           const GOAL = 5;
           const steps = [
             { label: `회원 ${GOAL}명 초대하기`, sub: `지금 ${approvedMemberCount}명`, done: approvedMemberCount >= GOAL, go: () => setShowInvite(true) },
-            { label: '동맹 파트너 맺기', sub: allyState.pending ? '동맹 신청이 진행 중이에요. 수락되면 완료' : '다른 파트너 회원과도 소개할 수 있어요', done: allyState.active, go: () => router.push('/alliances') },
+            { label: '동맹 파트너 맺기', sub: allyState.pending ? '동맹 신청이 진행 중이에요. 수락되면 완료' : '다른 파트너 회원과도 소개할 수 있어요', done: allyState.active, go: () => router.push({ pathname: '/alliances', params: { from: 'home' } }) },
             { label: '첫 매칭 제안하기', sub: '어울릴 두 사람을 골라 제안해요', done: startState.proposed, go: () => router.push({ pathname: '/matching', params: { view: 'active' } }) },
             { label: '첫 만남 성사', sub: '만남 뒤 두 회원이 애프터를 고르면 완료', done: false, go: () => router.push({ pathname: '/matching', params: { view: 'history' } }) },
           ];
@@ -775,7 +799,7 @@ export default function HomeScreen() {
     const ended = item.settlement_completed || !!item.closed_reason;
     const kind: Kind | null = ended ? null
       : !myApproved ? 'answer'
-      : bothApproved && noDateOverlap ? 'reselect'
+      : bothApproved && noDateOverlap && reselectMarks[item.id] !== JSON.stringify((item.isHopeful1 ? item.available_dates_2 : item.available_dates_1) || []) ? 'reselect'
       : item.meeting_status === 'completed' && !myAfterCare ? 'after'
       : null;
     const review = item.meeting_status === 'completed' && !!myAfterCare && !reviewedMatchIds.includes(item.id);
@@ -835,6 +859,7 @@ export default function HomeScreen() {
       const noDateOverlap = !item.meeting_scheduled_at && item.available_dates_1?.length > 0 && item.available_dates_2?.length > 0 &&
         !earliestCommonDate(item.available_dates_1, item.available_dates_2);
       const bothApproved = item.hopeful_1_approved && item.hopeful_2_approved;
+      const waitingOtherDates = !!reselectMarks[item.id] && reselectMarks[item.id] === JSON.stringify((item.isHopeful1 ? item.available_dates_2 : item.available_dates_1) || []);
 
       return (
         <View style={styles.requestCard}>
@@ -969,8 +994,15 @@ export default function HomeScreen() {
             </View>
           )}
 
+          {/* 날짜가 겹치지 않음: 내가 이미 다시 골랐고 상대가 아직이면 기다림 */}
+          {bothApproved && noDateOverlap && waitingOtherDates && (
+            <View style={styles.waitingMessage}>
+              <Text style={styles.waitingText}>날짜를 다시 골랐어요. 상대가 고르면 겹치는 날로 정해드릴게요.</Text>
+            </View>
+          )}
+
           {/* 날짜가 겹치지 않음: 다시 고르기 */}
-          {bothApproved && noDateOverlap && (
+          {bothApproved && noDateOverlap && !waitingOtherDates && (
             <View style={styles.afterCareSection}>
               <Text style={styles.afterCareLabel}>상대와 가능한 날짜가 겹치지 않아요</Text>
               <TouchableOpacity
@@ -1261,8 +1293,16 @@ export default function HomeScreen() {
         onSubmit={async (rating, content) => {
           if (!reviewTarget || !user) return;
           const { error } = await submitReview({ ...reviewTarget, hopefulId: user.id, rating, content });
-          if (error) {
+          // 다른 기기에서 이미 남긴 경우(같은 매칭 중복)는 완료로 본다
+          const duplicate = (error as any)?.code === '23505';
+          if (error && !duplicate) {
             toast.show('후기 등록 중 오류가 발생했습니다', 'error');
+            return;
+          }
+          if (duplicate) {
+            setReviewedMatchIds((prev) => [...prev, reviewTarget.matchId]);
+            setReviewTarget(null);
+            toast.show('이미 후기를 남겼어요', 'info');
             return;
           }
           setReviewedMatchIds((prev) => [...prev, reviewTarget.matchId]);

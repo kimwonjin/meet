@@ -346,15 +346,26 @@ export default function SettlementsScreen() {
     try {
       const { error: e1 } = await supabase.from('connectors').update({ status: 'approved' }).eq('id', connectorId);
       if (e1) throw e1;
-      const { error: e2 } = await supabase.from('users').update({ role: 'connector' }).eq('id', connectorId);
-      if (e2) throw e2;
+      // 회원으로 소개가 진행 중이면 화면을 바로 바꾸지 않는다 (진행 중인 소개에 답할 수 없게 되므로)
+      const cols = 'id, status, settlement_completed';
+      const [{ data: m1 }, { data: m2 }] = await Promise.all([
+        supabase.from('match_requests').select(cols).eq('hopeful_1_id', connectorId),
+        supabase.from('match_requests').select(cols).eq('hopeful_2_id', connectorId),
+      ]);
+      const memberMatchActive = [...(m1 || []), ...(m2 || [])].some((m: any) => m.status !== 'rejected' && !m.settlement_completed);
+      if (!memberMatchActive) {
+        const { error: e2 } = await supabase.from('users').update({ role: 'connector' }).eq('id', connectorId);
+        if (e2) throw e2;
+      }
 
       await createNotification({
         userId: connectorId,
         type: 'connector_approved',
         title: '매칭 파트너로 승인되었습니다',
-        body: '이제 회원을 받고 매칭을 제안할 수 있어요',
-        route: '/home',
+        body: memberMatchActive
+          ? '진행 중인 소개가 끝나면 마이 › 파트너로 활동하기에서 파트너 화면으로 바꿀 수 있어요'
+          : '이제 회원을 받고 매칭을 제안할 수 있어요',
+        route: memberMatchActive ? '/profile' : '/home',
       });
       toast.show('✓ 매칭 파트너를 승인했습니다', 'success');
       await fetchPendingConnectors();

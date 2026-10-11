@@ -34,8 +34,8 @@ export default function PartnerRecruitScreen() {
 
   async function apply(to: '/signup' | '/' = '/signup') {
     if (going) return;
-    if (user?.role === 'connector') {
-      toast.show('이미 파트너로 활동 중이에요', 'info');
+    if (user?.role === 'connector' || user?.role === 'operator') {
+      toast.show(user.role === 'operator' ? '운영자 계정으로는 신청할 수 없어요' : '이미 파트너로 활동 중이에요', 'info');
       router.replace('/home');
       return;
     }

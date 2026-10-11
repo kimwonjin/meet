@@ -727,17 +727,23 @@ export default function ProfileScreen() {
     }
   }
 
+  // 되돌릴 수 있는 동작이라 모달 대신 바텀시트로 확인한다
+  const [showSwitchSheet, setShowSwitchSheet] = useState(false);
+  const [switching, setSwitching] = useState(false);
   async function handleSwitchToHopeful() {
-    if (!user) return;
-    if (!(await confirm({ title: '회원 화면으로 전환할까요?', message: '마이 › 매칭 파트너에서 언제든 파트너 화면으로 돌아올 수 있어요.', confirmText: '전환' }))) return;
+    if (!user || switching) return;
+    setSwitching(true);
     try {
       const { error } = await supabase.from('users').update({ role: 'hopeful' }).eq('id', user.id);
       if (error) throw error;
       await updateUser({ role: 'hopeful' });
+      setShowSwitchSheet(false);
       toast.show('✓ 회원 화면으로 전환했습니다', 'success');
     } catch (error) {
       console.error('역할 전환 오류:', error);
       toast.show('역할 전환 중 오류가 발생했습니다', 'error');
+    } finally {
+      setSwitching(false);
     }
   }
 
@@ -922,7 +928,7 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={handleSwitchToHopeful}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => setShowSwitchSheet(true)}>
             <Text style={styles.menuIcon}>🔄</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>역할 전환</Text>
@@ -1169,6 +1175,20 @@ export default function ProfileScreen() {
           disabled={loading || !profileLoaded}
         >
           <Text style={styles.profileSaveBtnText}>{loading ? '저장 중...' : !profileLoaded ? '불러오는 중...' : '저장하기'}</Text>
+        </TouchableOpacity>
+      </BottomSheet>
+
+      <BottomSheet visible={showSwitchSheet} onClose={() => setShowSwitchSheet(false)} title="회원 화면으로 전환할까요?">
+        <Text style={{ color: '#65626B', fontSize: 14, lineHeight: 21, marginBottom: 20 }}>
+          회원으로 소개를 받을 수 있어요. 마이 › 파트너로 활동하기에서 언제든 파트너 화면으로 돌아올 수 있어요.
+        </Text>
+        <TouchableOpacity
+          style={[styles.modalBtn, styles.modalBtnConfirm, switching && styles.modalBtnDisabled, { flex: 0, minHeight: 50, justifyContent: 'center' }]}
+          onPress={handleSwitchToHopeful}
+          disabled={switching}
+          accessibilityLabel="회원 화면으로 전환"
+        >
+          {switching ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>회원 화면으로 전환</Text>}
         </TouchableOpacity>
       </BottomSheet>
 

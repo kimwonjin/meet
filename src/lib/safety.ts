@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { createNotification } from './notifications';
 
 export type ReportContext = 'match' | 'chat' | 'partner';
 
@@ -23,7 +24,28 @@ export async function reportUser(reporterId: string, targetId: string, context: 
 
 export async function blockUser(blockerId: string, blockedId: string) {
   const { error } = await supabase.from('user_blocks').insert([{ blocker_id: blockerId, blocked_id: blockedId }]);
-  return !error || error.code === '23505'; // 이미 차단한 상대
+  const ok = !error || error.code === '23505'; // 이미 차단한 상대
+  if (ok) await closeMatchesBetween(blockerId, blockedId).catch((e) => console.error('close on block error:', e));
+  return ok;
+}
+
+// 차단하면 두 사람 사이의 만남 전 매칭을 끝낸다. 파트너와 상대에게는 차단 사실을 밝히지 않는다
+async function closeMatchesBetween(a: string, b: string) {
+  const { data } = await supabase
+    .from('match_requests')
+    .select('id, hopeful_1_id, hopeful_2_id, connector_1_id, connector_2_id, status, settlement_completed, meeting_status')
+    .in('hopeful_1_id', [a, b])
+    .in('hopeful_2_id', [a, b]);
+  const open = (data || []).filter((m: any) => m.status !== 'rejected' && !m.settlement_completed && m.meeting_status !== 'completed');
+  for (const m of open) {
+    const { data: closed } = await supabase.from('match_requests').update({ status: 'rejected' }).eq('id', m.id).neq('status', 'rejected').select('id');
+    if (!closed?.length) continue;
+    const connectors = [...new Set<string>([m.connector_1_id, m.connector_2_id].filter(Boolean))];
+    await Promise.all([
+      ...connectors.map((id) => createNotification({ userId: id, type: 'match_closed', title: '매칭이 종료되었어요', body: '회원 사정으로 이번 매칭이 진행되지 않게 되었어요', route: '/matching' })),
+      createNotification({ userId: b, type: 'match_closed', title: '이번 소개는 진행되지 않게 되었어요', body: '이용권은 차감되지 않았어요', route: '/home' }),
+    ]);
+  }
 }
 
 export async function unblockUser(blockerId: string, blockedId: string) {

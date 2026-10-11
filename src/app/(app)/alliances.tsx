@@ -11,7 +11,7 @@ import {
   FlatList,
   TextInput,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import BottomSheet from '@/components/BottomSheet';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +24,9 @@ import PartnerComposition from '@/components/PartnerComposition';
 export default function AlliancesScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  // 홈 시작 가이드에서 들어오면 뒤로가기는 홈으로
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const backTo = from === 'home' ? '/home' : '/profile';
   const toast = useToast();
   const confirm = useConfirm();
   const [loading, setLoading] = useState(true);
@@ -262,7 +265,7 @@ export default function AlliancesScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
-        <TouchableOpacity onPress={() => router.replace('/profile')} accessibilityLabel="마이로 돌아가기" style={{ paddingRight: 8, paddingVertical: 4 }}>
+        <TouchableOpacity onPress={() => router.replace(backTo)} accessibilityLabel={from === 'home' ? '홈으로 돌아가기' : '마이로 돌아가기'} style={{ paddingRight: 8, paddingVertical: 4 }}>
           <Text style={{ fontSize: 24, color: '#322F38' }}>‹</Text>
         </TouchableOpacity>
         <Text style={styles.title}>동맹 관리</Text>
