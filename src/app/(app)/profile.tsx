@@ -1463,6 +1463,13 @@ export default function ProfileScreen() {
                       <Text style={styles.freeNote}>🎁 선물받은 무료 이용권 {c.freeReceived}회 · {c.freeAvailable > 0 ? '먼저 사용돼요' : '사용함'}</Text>
                     )}
                     {c.refunded > 0 && <Text style={styles.refundedNote}>환불 {c.refunded}회</Text>}
+                    <TouchableOpacity
+                      style={styles.creditBuyBtn}
+                      onPress={() => { setShowCreditsModal(false); router.push({ pathname: '/connectors', params: { open: c.connectorId, buy: '1' } }); }}
+                      accessibilityLabel={`${c.connectorName} 이용권 구매하기`}
+                    >
+                      <Text style={styles.creditBuyBtnText}>이용권 구매하기</Text>
+                    </TouchableOpacity>
                   </View>
                 ))
               )}
@@ -1842,6 +1849,8 @@ const styles = StyleSheet.create({
   },
   partnerIntro: { fontSize: 14, color: '#434049', lineHeight: 21, backgroundColor: '#F7F4FF', borderRadius: 12, padding: 14, marginBottom: 16 },
   freeNote: { fontSize: 12, color: '#5B21FF', marginTop: 8 },
+  creditBuyBtn: { marginTop: 12, borderWidth: 1, borderColor: '#5B21FF', borderRadius: 10, paddingVertical: 11, alignItems: 'center', backgroundColor: '#fff' },
+  creditBuyBtnText: { color: '#5B21FF', fontSize: 14, fontWeight: '700' },
   reviewBanner: { backgroundColor: '#F7F4FF', borderRadius: 12, padding: 12, marginBottom: 12 },
   reviewBannerRejected: { backgroundColor: '#FFF1F0' },
   reviewBannerTitle: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },

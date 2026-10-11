@@ -98,7 +98,9 @@ export default function ConnectorsScreen() {
   const pullRefresh = usePullRefresh(() => fetchConnectors());
 
   // 초대 링크로 들어온 회원: 초대한 파트너 정보를 바로 열어 준다
-  const params = useLocalSearchParams<{ open?: string; tab?: string }>();
+  const params = useLocalSearchParams<{ open?: string; tab?: string; buy?: string }>();
+  // 마이 › 이용권/결제에서 '이용권 구매하기'로 들어오면 구매 칸을 맨 위에 보여준다
+  const [buyFirst, setBuyFirst] = useState(false);
   // 홈 '지금 할 일'의 가입 신청에서 들어오면 대기중 목록을 연다
   useEffect(() => {
     if (params.tab === 'pending' || params.tab === 'approved') {
@@ -110,7 +112,8 @@ export default function ConnectorsScreen() {
     if (!params.open || user?.role !== 'hopeful' || loading) return;
     const target = connectors.find((c) => c.id === params.open);
     if (target) setSelectedConnector(target);
-    router.setParams({ open: undefined });
+    setBuyFirst(!!params.buy);
+    router.setParams({ open: undefined, buy: undefined });
   }, [params.open, loading, connectors]);
 
   async function fetchConnectors() {
@@ -644,6 +647,43 @@ export default function ConnectorsScreen() {
     ? connectors.filter((c) => [c.business_name, formatRegions(c.main_region), partnerIntro(c)].some((v) => v?.includes(query)))
     : connectors;
 
+
+  // 이용권 구매 칸 (파트너 정보 시트 안. 구매하러 들어온 경우 맨 위에)
+  const purchaseBlock = selectedConnector ? (
+    <>
+                        <Text style={styles.modalSectionTitle}>이용권 구매</Text>
+                        <View style={styles.infoRow}>
+                          <Text style={styles.infoLabel}>사용할 수 있는 이용권</Text>
+                          <Text style={styles.infoValue}>{myCredit}회{freeWithinAvailable(myFree.free, myFree.total, myCredit) > 0 ? ` (무료 ${freeWithinAvailable(myFree.free, myFree.total, myCredit)}회 포함)` : ''}</Text>
+                        </View>
+
+                        <View style={styles.buttonGroup}>
+                          {PACKAGE_OPTIONS.map((count) => (
+                            <TouchableOpacity
+                              key={count}
+                              style={[styles.optionBtn, selectedPackage === count && styles.optionBtnSelected]}
+                              onPress={() => setSelectedPackage(count)}
+                            >
+                              <Text style={[styles.optionBtnText, selectedPackage === count && styles.optionBtnTextSelected]}>
+                                {count}회
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+
+                        <Text style={styles.packagePrice}>
+                          {((selectedConnector.fee_per_session || 0) * selectedPackage).toLocaleString()}원
+                        </Text>
+
+                        <TouchableOpacity
+                          style={[styles.contactBtn, purchasing && styles.buttonDisabled]}
+                          onPress={handlePurchase}
+                          disabled={purchasing}
+                        >
+                          <Text style={styles.contactBtnText}>{purchasing ? '결제 중...' : '결제하기'}</Text>
+                        </TouchableOpacity>
+    </>
+  ) : null;
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -702,7 +742,7 @@ export default function ConnectorsScreen() {
         contentContainerStyle={styles.list}
       />
 
-      <BottomSheet visible={selectedConnector !== null} onClose={() => setSelectedConnector(null)} title="파트너 정보">
+      <BottomSheet visible={selectedConnector !== null} onClose={() => { setSelectedConnector(null); setBuyFirst(false); }} title={buyFirst ? '이용권 구매' : '파트너 정보'}>
             <View>
               {selectedConnector && (
                 <>
@@ -715,6 +755,8 @@ export default function ConnectorsScreen() {
                         {selectedConnector.verified ? ' · ✓ 인증' : ''}
                       </Text>
                     </View>
+
+                    {buyFirst && selectedConnector.is_approved && <View style={styles.modalSection}>{purchaseBlock}</View>}
 
                     <View style={styles.modalSection}>
                       <Text style={styles.modalSectionTitle}>파트너 소개</Text>
@@ -792,37 +834,7 @@ export default function ConnectorsScreen() {
                           <Text style={styles.chatShortcutBtnWideText}>💬 채팅하기</Text>
                         </TouchableOpacity>
 
-                        <Text style={styles.modalSectionTitle}>이용권 구매</Text>
-                        <View style={styles.infoRow}>
-                          <Text style={styles.infoLabel}>사용할 수 있는 이용권</Text>
-                          <Text style={styles.infoValue}>{myCredit}회{freeWithinAvailable(myFree.free, myFree.total, myCredit) > 0 ? ` (무료 ${freeWithinAvailable(myFree.free, myFree.total, myCredit)}회 포함)` : ''}</Text>
-                        </View>
-
-                        <View style={styles.buttonGroup}>
-                          {PACKAGE_OPTIONS.map((count) => (
-                            <TouchableOpacity
-                              key={count}
-                              style={[styles.optionBtn, selectedPackage === count && styles.optionBtnSelected]}
-                              onPress={() => setSelectedPackage(count)}
-                            >
-                              <Text style={[styles.optionBtnText, selectedPackage === count && styles.optionBtnTextSelected]}>
-                                {count}회
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-
-                        <Text style={styles.packagePrice}>
-                          {((selectedConnector.fee_per_session || 0) * selectedPackage).toLocaleString()}원
-                        </Text>
-
-                        <TouchableOpacity
-                          style={[styles.contactBtn, purchasing && styles.buttonDisabled]}
-                          onPress={handlePurchase}
-                          disabled={purchasing}
-                        >
-                          <Text style={styles.contactBtnText}>{purchasing ? '결제 중...' : '결제하기'}</Text>
-                        </TouchableOpacity>
+                        {!buyFirst && purchaseBlock}
                       </View>
                     ) : (
                       <View>
