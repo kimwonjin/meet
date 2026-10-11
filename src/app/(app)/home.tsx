@@ -36,6 +36,7 @@ import ReviewSheet from '@/components/ReviewSheet';
 import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
 
 const RESELECT_KEY = 'reselectMarks';
+const SKIP_REVIEW_KEY = 'skippedReviews';
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 const meetTime = (iso: string) => {
   const d = new Date(iso);
@@ -391,6 +392,20 @@ export default function HomeScreen() {
       AsyncStorage.setItem(RESELECT_KEY, JSON.stringify(next)).catch(() => {});
       return next;
     });
+  }
+
+  // 후기는 선택이라 홈 할 일에서 건너뛸 수 있다 (이 기기에 기억, 지난 소개 카드에서는 계속 남길 수 있음)
+  const [skippedReviews, setSkippedReviews] = useState<string[]>([]);
+  useEffect(() => {
+    AsyncStorage.getItem(SKIP_REVIEW_KEY).then((v) => { try { setSkippedReviews(v ? JSON.parse(v) : []); } catch {} }).catch(() => {});
+  }, []);
+  function skipReviews(ids: string[]) {
+    setSkippedReviews((prev) => {
+      const next = [...new Set([...prev, ...ids])];
+      AsyncStorage.setItem(SKIP_REVIEW_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+    toast.show('후기는 지난 소개에서 언제든 남길 수 있어요', 'info');
   }
 
   async function handleReselectDates(matchId: string, dates: string[]) {
@@ -802,7 +817,7 @@ export default function HomeScreen() {
       : bothApproved && noDateOverlap && reselectMarks[item.id] !== JSON.stringify((item.isHopeful1 ? item.available_dates_2 : item.available_dates_1) || []) ? 'reselect'
       : item.meeting_status === 'completed' && !myAfterCare ? 'after'
       : null;
-    const review = item.meeting_status === 'completed' && !!myAfterCare && !reviewedMatchIds.includes(item.id);
+    const review = item.meeting_status === 'completed' && !!myAfterCare && !reviewedMatchIds.includes(item.id) && !skippedReviews.includes(item.id);
     const upcoming = !ended && !kind && !!item.meeting_scheduled_at && item.meeting_status !== 'completed';
     return { item, kind, review, ended, upcoming, waiting: !ended && !kind && !upcoming };
   });
@@ -1147,6 +1162,16 @@ export default function HomeScreen() {
       <View style={styles.aHero}>
         {isNew && idle?.btn && profileGaps.length > 0 && <Text style={styles.mBadge}>시작하기</Text>}
         <Text style={styles.aHeroK}>지금 할 일</Text>
+        {firstTask?.k === 'review' && (
+          <TouchableOpacity
+            style={styles.heroSkip}
+            onPress={() => skipReviews(firstTask.items.map((m: any) => m.id))}
+            accessibilityLabel="후기 건너뛰기"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.heroSkipT}>✕</Text>
+          </TouchableOpacity>
+        )}
         {firstTask ? (
           <>
             <Text style={styles.mHeroT}>{KIND[firstTask.k].title}</Text>
@@ -1394,6 +1419,8 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  heroSkip: { position: 'absolute', top: 16, right: 16, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.16)', zIndex: 1 },
+  heroSkipT: { color: '#fff', fontSize: 15, fontWeight: '700' },
   changeLink: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 8, marginTop: 4 },
   changeLinkText: { fontSize: 13, color: '#65626B', textDecorationLine: 'underline' },
   changeHint: { fontSize: 13, color: '#65626B', lineHeight: 19, marginBottom: 14 },
