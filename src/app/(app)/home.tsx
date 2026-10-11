@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
@@ -17,6 +18,7 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
+import { getOrCreateThread, sendMessage } from '@/lib/chat';
 import { getMyConnectorCredits } from '@/lib/payments';
 import BottomSheet from '@/components/BottomSheet';
 import { formatMeetingDate } from '@/lib/format';
@@ -28,7 +30,7 @@ import { Avatar } from '@/components/ProfilePhoto';
 import MemberProfileView from '@/components/MemberProfileView';
 import SafetyActions from '@/components/SafetyActions';
 import InviteSheet from '@/components/InviteSheet';
-import { isOverdueForMe, isWaitingOnOthers, matchStage, MatchStage, needsMyConsent, needsMyDate, schedulerOf } from '@/lib/matchStage';
+import { isOverdueForMe, isWaitingOnOthers, matchStage, MatchStage, needsMyConsent, needsMyDate, noShowReporter, schedulerOf } from '@/lib/matchStage';
 import ReviewSheet from '@/components/ReviewSheet';
 import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
 
@@ -84,6 +86,11 @@ export default function HomeScreen() {
       .then(({ data }) => setReviewPartnerName(data?.business_name || undefined));
   }, [reviewTarget]);
   // 날짜 선택 시트: 승인할 때(approve) 또는 날짜가 겹치지 않아 다시 고를 때(reselect)
+  // 승인한 뒤 회원이 파트너에게 보내는 일정 변경·취소 요청
+  const [changeTarget, setChangeTarget] = useState<any | null>(null);
+  const [changeKind, setChangeKind] = useState<'date' | 'cancel'>('date');
+  const [changeNote, setChangeNote] = useState('');
+  const [sendingChange, setSendingChange] = useState(false);
   const [datesTarget, setDatesTarget] = useState<{ matchId: string; mode: 'approve' | 'reselect' } | null>(null);
 
   useEffect(() => {
@@ -389,6 +396,35 @@ export default function HomeScreen() {
     }
   }
 
+  async function sendChangeRequest() {
+    if (!user || !changeTarget || sendingChange) return;
+    const item = changeTarget;
+    const connectorId = item.isHopeful1 ? item.connector_1_id : item.connector_2_id;
+    setSendingChange(true);
+    try {
+      const what = changeKind === 'date' ? '일정을 바꾸고 싶어요' : '이번 소개를 취소하고 싶어요';
+      const threadId = await getOrCreateThread(user.id, connectorId);
+      if (!threadId) throw new Error('no thread');
+      const { error } = await sendMessage(threadId, user.id, `[${changeKind === 'date' ? '일정 변경' : '소개 취소'} 요청] ${item.partner?.name || '상대'}님과의 소개 — ${what}${changeNote.trim() ? `\n${changeNote.trim()}` : ''}`);
+      if (error) throw error;
+      await createNotification({
+        userId: connectorId,
+        type: 'member_change_request',
+        title: changeKind === 'date' ? '회원이 일정 변경을 요청했어요' : '회원이 소개 취소를 요청했어요',
+        body: `${user.name || '회원'}님 · ${item.partner?.name || '상대'}님과의 소개`,
+        route: '/chat',
+        routeParams: { with: user.id, name: user.name },
+      }).catch(() => {});
+      toast.show('파트너에게 요청을 보냈어요. 채팅으로 답을 드릴 거예요', 'success');
+      setChangeTarget(null);
+    } catch (e) {
+      console.error('change request error:', e);
+      toast.show('요청을 보내지 못했어요. 잠시 후 다시 시도해주세요', 'error');
+    } finally {
+      setSendingChange(false);
+    }
+  }
+
   async function handleRejectMatch(matchId: string) {
     setProcessingId(matchId);
     try {
@@ -426,6 +462,17 @@ export default function HomeScreen() {
           body: `${user?.name}님이 매칭 제안을 거절했습니다`,
           route: '/matching',
         });
+      }
+
+      // 상대 회원에게는 누가 거절했는지 밝히지 않고 소개가 끝났다는 것만 알린다
+      if (match?.partner?.id) {
+        await createNotification({
+          userId: match.partner.id,
+          type: 'match_closed',
+          title: '이번 소개는 진행되지 않게 되었어요',
+          body: '이용권은 차감되지 않았어요. 파트너가 다른 분을 찾아볼게요',
+          route: '/home',
+        }).catch(() => {});
       }
 
       toast.show('✓ 매칭을 거절했습니다', 'success');
@@ -477,13 +524,22 @@ export default function HomeScreen() {
         .eq('id', matchId)
         .single();
 
-      // 노쇼 신고는 상대 응답을 기다리지 않고 바로 (정산 없이) 종료한다
-      if (afterCareType === '노쇼신고' || (freshMatch?.after_care_hopeful_1 && freshMatch?.after_care_hopeful_2)) {
+      // 노쇼 신고는 바로 끝내지 않고 담당 파트너가 확인한다 (실제로 만난 뒤 비용을 피하려는 신고 방지)
+      const noShowPending = freshMatch?.after_care_hopeful_1 === '노쇼신고' || freshMatch?.after_care_hopeful_2 === '노쇼신고';
+      if (afterCareType === '노쇼신고') {
+        const connectors = [...new Set<string>([match?.connector_1_id, match?.connector_2_id].filter(Boolean))];
+        await Promise.all(connectors.map((id) => createNotification({
+          userId: id,
+          type: 'no_show_reported',
+          title: '노쇼 신고를 확인해 주세요',
+          body: `${user.name || '회원'}님이 상대가 나오지 않았다고 신고했어요`,
+          route: '/matching',
+        }).catch(() => {})));
+        toast.show('신고를 접수했어요. 파트너가 확인한 뒤 알려드릴게요', 'success');
+      } else if (!noShowPending && freshMatch?.after_care_hopeful_1 && freshMatch?.after_care_hopeful_2) {
         const { data: settledNow, error: settleError } = await supabase.rpc('fn_settle_match', { p_match_id: matchId });
         if (settleError) {
           toast.show('마무리 처리 중 문제가 발생했습니다. 파트너에게 문의해주세요', 'error');
-        } else if (afterCareType === '노쇼신고') {
-          toast.show('노쇼 신고가 접수되어 매칭이 종료되었어요. 이용권은 차감되지 않아요', 'success');
         } else {
           toast.show('소개팅 결과가 나왔어요', 'success');
           // 두 회원이 거의 동시에 고르면 둘 다 여기까지 온다. 실제로 마무리한 쪽만 알린다
@@ -523,11 +579,16 @@ export default function HomeScreen() {
     const consentList = matchingRequests.filter((m) => needsMyConsent(m, me));
     const scheduleList = matchingRequests.filter((m) => needsMyDate(m, me));
     const finishList = matchingRequests.filter((m) => isOverdueForMe(m, me));
+    const noShowList = matchingRequests.filter((m) => noShowReporter(m));
     type TodoItem = { key: string; label: string; action: string; go: () => void };
     type Todo = TodoItem & { name: string; items: TodoItem[]; total: number };
     const goPending = () => router.push({ pathname: '/connectors', params: { tab: 'pending' } });
     const goStageList = (st: MatchStage) => () => router.push({ pathname: '/matching', params: { view: 'history', stage: st } });
     const todos: Todo[] = [
+      noShowList.length > 0 && {
+        key: 'noshow', name: '노쇼 신고 확인', label: `노쇼 신고 확인 ${noShowList.length}건`, action: '확인하기', go: focusMatch(noShowList[0].id), total: noShowList.length,
+        items: noShowList.slice(0, 3).map((m) => ({ key: m.id, label: pair(m), action: '확인', go: focusMatch(m.id) })),
+      },
       pendingSignupCount > 0 && {
         key: 'signup', name: '가입 신청', label: `가입 신청 ${pendingSignupCount}건`, action: '승인하기', go: goPending, total: pendingSignupCount,
         items: pendingMembers.map((p) => ({ key: p.id, label: `${p.name}님`, action: '확인', go: goPending })),
@@ -946,6 +1007,17 @@ export default function HomeScreen() {
             )
           )}
 
+          {/* 승인한 뒤에도 만남 전까지는 파트너에게 일정 변경·취소를 요청할 수 있다 */}
+          {myApproved && item.meeting_status !== 'completed' && !item.settlement_completed && (
+            <TouchableOpacity
+              style={styles.changeLink}
+              onPress={() => { setMatchSheet(null); setChangeKind('date'); setChangeNote(''); setChangeTarget(item); }}
+              accessibilityLabel="일정 변경·취소 요청"
+            >
+              <Text style={styles.changeLinkText}>일정 변경·취소 요청</Text>
+            </TouchableOpacity>
+          )}
+
           {/* 3단계: 애프터의사 버튼 (소개팅 완료 후, 본인이 아직 선택 안 함) */}
           {item.meeting_status === 'completed' && !item.settlement_completed &&
           ((item.isHopeful1 && !item.after_care_hopeful_1) ||
@@ -979,7 +1051,7 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   style={[styles.afterCareBtn, styles.afterCareDanger, processingId === item.id && styles.buttonDisabled]}
                   onPress={async () => {
-                    if (await confirm({ title: '노쇼로 신고할까요?', message: '상대가 약속 장소에 나오지 않은 경우에만 신고해주세요. 신고 후에는 취소할 수 없습니다.', confirmText: '신고', destructive: true })) handleSubmitAfterCare(item.id, '노쇼신고');
+                    if (await confirm({ title: '노쇼로 신고할까요?', message: '상대가 약속 장소에 나오지 않은 경우에만 신고해주세요. 파트너가 확인하면 정산 없이 종료되고 이용권은 차감되지 않아요.', confirmText: '신고', destructive: true })) handleSubmitAfterCare(item.id, '노쇼신고');
                   }}
                   disabled={processingId !== null}
                 >
@@ -1004,6 +1076,10 @@ export default function HomeScreen() {
                     : item.after_care_hopeful_1 === '신청' && item.after_care_hopeful_2 === '신청'
                       ? '💞 상대도 다시 만나고 싶어해요! 채팅에서 받은 연락처로 다시 연락해보세요.'
                       : '이번 만남은 여기서 마무리되었어요. 좋은 인연을 계속 응원할게요.'
+                  : (item.isHopeful1 ? item.after_care_hopeful_1 : item.after_care_hopeful_2) === '노쇼신고'
+                    ? '신고를 접수했어요. 파트너가 확인한 뒤 알려드릴게요.'
+                  : item.after_care_hopeful_1 === '노쇼신고' || item.after_care_hopeful_2 === '노쇼신고'
+                    ? '✓ 의사를 전달했어요. 파트너가 만남 결과를 확인하고 있어요.'
                   : item.after_care_hopeful_1 && item.after_care_hopeful_2
                     ? '두 분 모두 골랐어요. 결과를 정리하고 있으니 잠시 후 다시 확인해주세요.'
                     : `✓ 의사를 전달했어요. 상대방도 고르면 결과를 알려드릴게요.${item.meeting_completed_at ? ` (늦어도 ${formatDeadline(afterCareDeadline(item.meeting_completed_at))})` : ''}`}
@@ -1062,11 +1138,13 @@ export default function HomeScreen() {
               </Text>
             )}
             <TouchableOpacity
-              style={[styles.aHeroBtnWide, { marginTop: 14 }]}
+              style={[styles.aHeroBtnWide, { marginTop: 14 }, processingId !== null && { opacity: 0.7 }]}
               onPress={() => openTask(firstTask.k, firstItem)}
+              disabled={processingId !== null}
               accessibilityLabel={KIND[firstTask.k].btn}
             >
-              <Text style={styles.mHeroBtnT}>{KIND[firstTask.k].btn}</Text>
+              {/* 승인·의사 저장을 처리하는 동안은 다시 누르지 못하게 하고 진행 중임을 보여준다 */}
+              {processingId !== null ? <ActivityIndicator color="#5B21FF" /> : <Text style={styles.mHeroBtnT}>{KIND[firstTask.k].btn}</Text>}
             </TouchableOpacity>
           </>
         ) : idle && (
@@ -1211,6 +1289,29 @@ export default function HomeScreen() {
       />
 
       {/* 소개 카드 / 상대 프로필 시트 */}
+      <BottomSheet visible={changeTarget !== null} onClose={() => setChangeTarget(null)} title="일정 변경·취소 요청">
+        <Text style={styles.changeHint}>담당 파트너에게 채팅으로 요청이 가요. 파트너가 상대와 조율한 뒤 알려드려요.</Text>
+        <View style={styles.changeOptions}>
+          {([['date', '일정을 바꾸고 싶어요'], ['cancel', '이번 소개를 취소하고 싶어요']] as const).map(([k, label]) => (
+            <TouchableOpacity key={k} style={[styles.changeOption, changeKind === k && styles.changeOptionOn]} onPress={() => setChangeKind(k)} accessibilityLabel={label}>
+              <Text style={[styles.changeOptionText, changeKind === k && styles.changeOptionTextOn]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TextInput
+          style={styles.changeInput}
+          placeholder="파트너에게 남길 말 (선택)"
+          placeholderTextColor="#98959E"
+          value={changeNote}
+          onChangeText={setChangeNote}
+          multiline
+          maxLength={200}
+        />
+        <TouchableOpacity style={[styles.changeSend, sendingChange && styles.buttonDisabled]} onPress={sendChangeRequest} disabled={sendingChange} accessibilityLabel="파트너에게 요청 보내기">
+          {sendingChange ? <ActivityIndicator color="#fff" /> : <Text style={styles.changeSendText}>파트너에게 요청 보내기</Text>}
+        </TouchableOpacity>
+      </BottomSheet>
+
       <BottomSheet visible={matchSheet !== null} onClose={() => setMatchSheet(null)} title={sheetProfile ? '소개팅 상대' : matchSheet?.title}>
         {sheetProfile ? (
           <>
@@ -1253,6 +1354,17 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  changeLink: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 8, marginTop: 4 },
+  changeLinkText: { fontSize: 13, color: '#65626B', textDecorationLine: 'underline' },
+  changeHint: { fontSize: 13, color: '#65626B', lineHeight: 19, marginBottom: 14 },
+  changeOptions: { gap: 8 },
+  changeOption: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, paddingVertical: 14, paddingHorizontal: 14 },
+  changeOptionOn: { borderColor: '#5B21FF', backgroundColor: '#F7F5FA' },
+  changeOptionText: { fontSize: 15, color: '#322F38' },
+  changeOptionTextOn: { color: '#5B21FF', fontWeight: '700' },
+  changeInput: { marginTop: 12, borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, padding: 12, minHeight: 72, fontSize: 15, textAlignVertical: 'top' },
+  changeSend: { marginTop: 16, backgroundColor: '#5B21FF', borderRadius: 10, minHeight: 50, alignItems: 'center', justifyContent: 'center' },
+  changeSendText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   aPage: { flex: 1, backgroundColor: '#fff' },
   aTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 22, paddingTop: 20, paddingBottom: 6 },
   aHi: { fontSize: 15, color: '#6A6770' },

@@ -29,6 +29,8 @@ type AfterCareMatch = {
 export async function expireAfterCareIfDue(m: AfterCareMatch) {
   // 취소된 매칭은 마무리(정산)하지 않는다
   if (m.status === 'rejected' || m.meeting_status !== 'completed' || m.settlement_completed) return false;
+  // 노쇼 신고는 파트너가 확인할 때까지 자동으로 마무리하지 않는다
+  if (m.after_care_hopeful_1 === '노쇼신고' || m.after_care_hopeful_2 === '노쇼신고') return false;
 
   // 두 회원이 모두 골랐는데 마무리가 안 된 경우 (네트워크 오류 등) 다시 시도한다
   if (m.after_care_hopeful_1 && m.after_care_hopeful_2) {

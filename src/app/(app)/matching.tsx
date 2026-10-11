@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
-import { FILTER_LABEL, FILTERS, MatchFilter, membersPickedDates, passesFilter } from '@/lib/matchStage';
+import { FILTER_LABEL, FILTERS, MatchFilter, membersPickedDates, noShowReporter, passesFilter } from '@/lib/matchStage';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -511,6 +511,46 @@ export default function MatchingScreen() {
   }
 
   // 만남 완료 전까지 담당 파트너는 매칭을 취소(동맹 매칭은 거절)할 수 있다. 묶여 있던 이용권은 풀린다
+  // 회원의 노쇼 신고 확인: 맞으면 정산 없이 종료, 아니면 신고를 되돌리고 애프터 의사를 다시 묻는다
+  async function handleNoShowDecision(item: any, confirmed: boolean) {
+    const side = noShowReporter(item);
+    if (!side || processingId) return;
+    const ok = await confirm(confirmed
+      ? { title: '노쇼로 종료할까요?', message: '정산 없이 매칭이 종료되고, 두 회원의 이용권은 차감되지 않아요.', confirmText: '노쇼로 종료', destructive: true }
+      : { title: '만남이 있었던 것으로 할까요?', message: '신고가 취소되고, 신고한 회원에게 애프터 의사를 다시 골라 달라고 알려요.', confirmText: '신고 반려' });
+    if (!ok) return;
+    const reporterId = (side === 1 ? item.hopeful_1 : item.hopeful_2)?.id;
+    const otherId = (side === 1 ? item.hopeful_2 : item.hopeful_1)?.id;
+    setProcessingId(item.id);
+    try {
+      if (confirmed) {
+        const { data: closed, error } = await supabase.rpc('fn_settle_match', { p_match_id: item.id });
+        if (error) throw error;
+        if (closed) {
+          await Promise.all([
+            createNotification({ userId: reporterId, type: 'no_show_confirmed', title: '노쇼 신고가 확인되었어요', body: '매칭이 종료되었고 이용권은 차감되지 않았어요', route: '/home' }),
+            createNotification({ userId: otherId, type: 'match_closed', title: '이번 소개는 종료되었어요', body: '이용권은 차감되지 않았어요', route: '/home' }),
+          ]);
+        }
+        toast.show('노쇼로 종료했어요', 'success');
+      } else {
+        const col = side === 1 ? 'after_care_hopeful_1' : 'after_care_hopeful_2';
+        const { error } = await supabase.from('match_requests')
+          .update({ [col]: null, [side === 1 ? 'after_care_requested_at_1' : 'after_care_requested_at_2']: null })
+          .eq('id', item.id).eq(col, '노쇼신고').eq('settlement_completed', false);
+        if (error) throw error;
+        await createNotification({ userId: reporterId, type: 'no_show_rejected', title: '만남이 있었던 것으로 확인됐어요', body: '파트너가 확인했어요. 홈에서 애프터 의사를 다시 골라 주세요', route: '/home' });
+        toast.show('신고를 반려하고 회원에게 다시 물어봤어요', 'success');
+      }
+      await fetchMatches();
+    } catch (e) {
+      console.error('no-show decision error:', e);
+      toast.show('처리하지 못했어요. 잠시 후 다시 시도해주세요', 'error');
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
   async function handleCancelMatch(matchId: string, isDecline: boolean) {
     if (!user) return;
     const match = matchRequests.find((m) => m.id === matchId);
@@ -1141,7 +1181,22 @@ export default function MatchingScreen() {
               </View>
             )}
 
-            {item.meeting_status === 'completed' && (item.settlement_completed || (item.after_care_hopeful_1 && item.after_care_hopeful_2)) && (
+            {noShowReporter(item) && (
+              <View style={styles.afterCareBox}>
+                <Text style={styles.afterCareTitle}>
+                  {(noShowReporter(item) === 1 ? item.hopeful_1 : item.hopeful_2)?.name || '회원'}님이 '상대가 안 나왔어요'로 신고했어요
+                </Text>
+                <Text style={styles.afterCareHint}>상대 회원에게 확인해 보고 처리해 주세요. 노쇼가 맞으면 정산 없이 종료되고 두 회원의 이용권은 차감되지 않아요.</Text>
+                <TouchableOpacity style={[styles.noShowBtn, processingId === item.id && styles.buttonDisabled]} disabled={processingId !== null} onPress={() => handleNoShowDecision(item, true)} accessibilityLabel="노쇼가 맞아요">
+                  {processingId === item.id ? <ActivityIndicator color="#fff" /> : <Text style={styles.noShowBtnText}>노쇼가 맞아요</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.noShowLink} disabled={processingId !== null} onPress={() => handleNoShowDecision(item, false)} accessibilityLabel="만났어요 신고 반려">
+                  <Text style={styles.noShowLinkText}>만났어요 · 신고 반려</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {!noShowReporter(item) && item.meeting_status === 'completed' && (item.settlement_completed || (item.after_care_hopeful_1 && item.after_care_hopeful_2)) && (
               <View style={styles.statusMessage}>
                 <Text style={styles.statusMessageText}>
                   ✓ 소개팅 완료
@@ -1155,7 +1210,7 @@ export default function MatchingScreen() {
               </View>
             )}
 
-            {item.meeting_status === 'completed' && !item.settlement_completed && !(item.after_care_hopeful_1 && item.after_care_hopeful_2) && (
+            {!noShowReporter(item) && item.meeting_status === 'completed' && !item.settlement_completed && !(item.after_care_hopeful_1 && item.after_care_hopeful_2) && (
               <View style={styles.afterCareBox}>
                 <Text style={styles.afterCareTitle}>소개팅 완료 · 두 회원의 애프터 의사를 기다리는 중</Text>
                 <Text style={styles.afterCareHint}>
@@ -1315,6 +1370,10 @@ const BLOCK_MESSAGE: Record<BlockLabel, string> = {
 const styles = StyleSheet.create({
   pairHint: { color: '#322F38', fontWeight: '700' },
   memberRowBusy: { opacity: 0.5 },
+  noShowBtn: { marginTop: 12, backgroundColor: '#5B21FF', borderRadius: 10, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
+  noShowBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  noShowLink: { alignItems: 'center', paddingVertical: 12 },
+  noShowLinkText: { fontSize: 13, color: '#65626B', textDecorationLine: 'underline' },
   busyBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: '#EFEDF2' },
   busyBadgeText: { fontSize: 12, fontWeight: '700', color: '#65626B' },
   stageBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F7F4FF', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12 },

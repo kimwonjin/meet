@@ -65,7 +65,7 @@ export default function SafetyActions({ targetId, targetName, context, variant =
 
   const blockEffect =
     context === 'match'
-      ? '다시 매칭되지 않아요. 지금 받은 제안은 거절해주세요.'
+      ? '다시 매칭되지 않아요. 진행 중인 소개는 거절하거나 "일정 변경·취소 요청"으로 취소해주세요.'
       : '서로 메시지를 보낼 수 없어요.';
 
   return (

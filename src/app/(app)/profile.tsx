@@ -59,7 +59,8 @@ export default function ProfileScreen() {
   const [profileLoaded, setProfileLoaded] = useState(false);
   // 마이 하단에서 여는 약관 전문
   const [viewingTerms, setViewingTerms] = useState<TermsDocKey | null>(null);
-  const [connectorApplicationStatus, setConnectorApplicationStatus] = useState<string | null>(null);
+  // undefined = 아직 불러오는 중
+  const [connectorApplicationStatus, setConnectorApplicationStatus] = useState<string | null | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showStoreModal, setShowStoreModal] = useState(false);
@@ -179,6 +180,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (showConnectorModal && user) {
+      setConnectorApplicationStatus(undefined);
       supabase.from('connectors').select('status').eq('id', user.id).maybeSingle().then(({ data }) => {
         setConnectorApplicationStatus(data?.status || null);
       });
@@ -751,6 +753,13 @@ export default function ProfileScreen() {
 
     setLoading(true);
     try {
+      // 이미 승인된 파트너 기록은 덮어쓰지 않는다 (상태를 불러오기 전에 신청을 누른 경우)
+      const { data: existing } = await supabase.from('connectors').select('status').eq('id', user!.id).maybeSingle();
+      if (existing?.status === 'approved') {
+        setConnectorApplicationStatus('approved');
+        toast.show('이미 파트너로 승인되었어요', 'info');
+        return;
+      }
       // 위촉 온보딩 신청: 운영자 승인 전까지는 role을 바꾸지 않는다
       const { error: connectorError } = await supabase
         .from('connectors')
@@ -764,6 +773,15 @@ export default function ProfileScreen() {
       if (connectorError) throw connectorError;
 
       await recordConsents(user!.id, ['partner']);
+      // 운영자에게 새 신청을 알린다 (정산관리 화면에서 승인)
+      const { data: operators } = await supabase.from('users').select('id').eq('role', 'operator');
+      await Promise.all((operators || []).map((o: any) => createNotification({
+        userId: o.id,
+        type: 'partner_applied',
+        title: '새 파트너 신청이 들어왔어요',
+        body: `${user!.name || '회원'}님 · ${businessName.trim()}`,
+        route: '/settlements',
+      }).catch(() => {})));
       setConnectorApplicationStatus('pending');
       toast.show('✓ 신청했어요. 운영자가 확인하면 알려드릴게요', 'success');
       setBusinessName('');
@@ -1159,7 +1177,9 @@ export default function ProfileScreen() {
         onClose={() => setShowConnectorModal(false)}
         title={connectorApplicationStatus === 'pending' ? '심사 중입니다' : connectorApplicationStatus === 'approved' ? '매칭 파트너' : '파트너로 활동하기'}
       >
-            {connectorApplicationStatus === 'approved' ? (
+            {connectorApplicationStatus === undefined ? (
+              <ActivityIndicator color="#5B21FF" style={{ marginVertical: 32 }} />
+            ) : connectorApplicationStatus === 'approved' ? (
               <>
                 <Text style={{ color: '#65626B', fontSize: 13, marginBottom: 20, lineHeight: 20 }}>
                   이미 승인된 매칭 파트너입니다.{'\n'}파트너 화면으로 돌아갈 수 있어요.

@@ -52,6 +52,14 @@ export function isOverdueForMe(m: any, me?: string, now = new Date()) {
   return !mineDone;
 }
 
+// 회원이 '상대가 안 나왔어요'로 신고했고 파트너 확인을 기다리는 매칭: 신고한 쪽(1·2), 없으면 null
+export function noShowReporter(m: any): 1 | 2 | null {
+  if (m.settlement_completed || m.meeting_status !== 'completed') return null;
+  if (m.after_care_hopeful_1 === '노쇼신고') return 1;
+  if (m.after_care_hopeful_2 === '노쇼신고') return 2;
+  return null;
+}
+
 // 두 회원이 승인하면서 가능한 날짜를 골랐는지 (겹치면 자동으로 날짜가 정해지고, 안 겹치면 회원이 다시 고른다)
 export function membersPickedDates(m: any) {
   return (m.available_dates_1?.length ?? 0) > 0 && (m.available_dates_2?.length ?? 0) > 0;
