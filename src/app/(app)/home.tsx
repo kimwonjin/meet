@@ -1320,9 +1320,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       )}
 
-      {/* 내 소개: 다가오는 소개팅 · 답을 기다리는 소개 · 지난 소개 */}
-      {(upcomingList.length > 0 || waitingList.length > 0 || pastList.length > 0) && <View style={styles.band} />}
-      {upcomingList.length === 0 && (waitingList.length > 0 || pastList.length > 0) && <Text style={styles.aH3}>내 소개</Text>}
+      {/* 다가오는 소개팅 (회원 홈은 내용이 짧아 구획 띠 없이 한 판으로 둔다) */}
       {upcomingList.length > 0 && (
         <>
           <Text style={styles.aH3}>다가오는 소개팅</Text>
