@@ -774,7 +774,9 @@ export default function HomeScreen() {
           );
         })()}
 
-        {/* 현황 숫자 */}
+        {/* 구획마다 굵은 회색 띠로 나눈다: 할 일 · 현황 · 만남 · 동맹 */}
+        <View style={styles.band} />
+        <Text style={styles.aH3}>내 현황</Text>
         <View style={styles.aStats} accessibilityLabel="내 현황">
           <TouchableOpacity style={styles.aStat} onPress={() => router.push('/connectors')} accessibilityLabel={`내 회원 ${approvedMemberCount}명`}>
             <Text style={styles.aStatV}>{approvedMemberCount}명</Text>
@@ -791,6 +793,7 @@ export default function HomeScreen() {
         </View>
 
         {/* 다가오는 만남 (2개) */}
+        <View style={styles.band} />
         <Text style={styles.aH3}>다가오는 만남</Text>
         {upcoming.length === 0 ? (
           <Text style={styles.aNone}>확정된 만남이 아직 없어요</Text>
@@ -822,6 +825,7 @@ export default function HomeScreen() {
         {/* 동맹: 소개할 수 있는 회원을 늘리는 곳 (마이 › 동맹 관리로 이어짐) */}
         {allySummary && (
           <>
+            <View style={styles.band} />
             <Text style={styles.aH3}>동맹</Text>
             <TouchableOpacity
               style={styles.allyRow}
@@ -1296,6 +1300,7 @@ export default function HomeScreen() {
       )}
 
       {/* 남은 이용권 (2단계 안에 확인) */}
+      <View style={styles.band} />
       <TouchableOpacity
         style={styles.mCredit}
         onPress={() => router.push({ pathname: '/profile', params: { open: 'credits' } })}
@@ -1316,7 +1321,9 @@ export default function HomeScreen() {
         </TouchableOpacity>
       )}
 
-      {/* 다가오는 소개팅 */}
+      {/* 내 소개: 다가오는 소개팅 · 답을 기다리는 소개 · 지난 소개 */}
+      {(upcomingList.length > 0 || waitingList.length > 0 || pastList.length > 0) && <View style={styles.band} />}
+      {upcomingList.length === 0 && (waitingList.length > 0 || pastList.length > 0) && <Text style={styles.aH3}>내 소개</Text>}
       {upcomingList.length > 0 && (
         <>
           <Text style={styles.aH3}>다가오는 소개팅</Text>
@@ -1498,15 +1505,16 @@ const styles = StyleSheet.create({
   aRowT: { fontSize: 16, color: '#18151E' },
   aRowC: { fontSize: 16, fontWeight: '700', color: '#5B21FF' },
   aChev: { fontSize: 16, fontWeight: '400', color: '#C4C1CA' },
-  aStats: { flexDirection: 'row', marginHorizontal: 20, marginTop: 24, paddingVertical: 16, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#F1EFF4' },
+  aStats: { flexDirection: 'row', marginHorizontal: 20, paddingVertical: 8 },
   aStat: { flex: 1, alignItems: 'center' },
   aStatMid: { borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#F1EFF4' },
   aStatV: { fontSize: 19, fontWeight: '700', color: '#18151E' },
   aStatL: { fontSize: 12, color: '#8F8C95', marginTop: 3 },
-  allyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 20, paddingVertical: 14, paddingHorizontal: 2, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#F1EFF4' },
+  band: { height: 8, backgroundColor: '#F4F2F7', marginTop: 24 },
+  allyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 20, paddingVertical: 8, paddingHorizontal: 2 },
   allyBadge: { backgroundColor: '#5B21FF', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
   allyBadgeT: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  aH3: { fontSize: 17, fontWeight: '700', color: '#18151E', marginHorizontal: 22, marginTop: 26, marginBottom: 10 },
+  aH3: { fontSize: 17, fontWeight: '700', color: '#18151E', marginHorizontal: 22, marginTop: 20, marginBottom: 10 },
   aNone: { fontSize: 14, color: '#8F8C95', marginHorizontal: 22, marginBottom: 6 },
   aMeet: { flexDirection: 'row', alignItems: 'center', gap: 14, marginHorizontal: 20, marginBottom: 10 },
   aDate: { width: 52, alignItems: 'center', backgroundColor: '#F4F1FF', borderRadius: 12, paddingVertical: 8 },
@@ -1542,7 +1550,7 @@ const styles = StyleSheet.create({
   mStepNumT: { fontSize: 13, fontWeight: '700', color: '#5B21FF' },
   mStepT: { fontSize: 15, color: '#54515A' },
   mStepDoneT: { color: '#B1AEB7' },
-  mCredit: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginTop: 18, paddingVertical: 16, paddingHorizontal: 18, borderRadius: 16, backgroundColor: '#F7F5FA' },
+  mCredit: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginTop: 6, paddingVertical: 16, paddingHorizontal: 2 },
   mCreditL: { fontSize: 15, color: '#54515A' },
   mCreditV: { fontSize: 16, fontWeight: '700', color: '#18151E' },
   mCreditS: { fontSize: 12, fontWeight: '400', color: '#8F8C95' },
