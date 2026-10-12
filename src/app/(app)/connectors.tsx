@@ -204,10 +204,9 @@ export default function ConnectorsScreen() {
           .in('id', connectorIds);
 
         // 파트너 지표: 내 성별·나이 기준 '나와 비슷한 나이 이성 회원' 수 등
-        if (!statsLoadedRef.current) supabase.from('users').select('gender, age, birth_date').eq('id', user!.id).maybeSingle().then(async ({ data: me }) => {
+        // 서버가 내 성별·나이를 직접 읽어 5살 단위로 계산한다 (임의의 나이로 조회해 회원 나이를 알아내지 못하게)
+        if (!statsLoadedRef.current) supabase.rpc('fn_partner_public_stats', { p_viewer_id: user!.id }).then(({ data: st, error: stErr }) => {
           statsLoadedRef.current = true;
-          const age = me?.birth_date ? Math.floor((Date.now() - new Date(me.birth_date).getTime()) / (365.25 * 86400000)) : me?.age ?? null;
-          const { data: st, error: stErr } = await supabase.rpc('fn_partner_public_stats', { p_gender: me?.gender ?? null, p_age: age });
           setPublicStats(stErr || !Array.isArray(st) ? null : Object.fromEntries(st.map((x: any) => [x.id, x])));
         });
 
@@ -775,7 +774,7 @@ export default function ConnectorsScreen() {
               <>
                 <Text style={styles.pfLabel}>이런 파트너만</Text>
                 <View style={styles.pfRow}>
-                  {pfChip('동일연령 5명 이상', pfNear, () => setPfNear((v) => !v))}
+                  {pfChip('비슷한연령 5명 이상', pfNear, () => setPfNear((v) => !v))}
                   {pfChip('최근활동', pfActive, () => setPfActive((v) => !v))}
                 </View>
               </>
@@ -820,7 +819,7 @@ export default function ConnectorsScreen() {
             {!!publicStats?.[item.id] && (
               <Text style={styles.statsLine} numberOfLines={2}>
                 {[
-                  publicStats[item.id].near_few ? '동일연령 5명 미만' : `동일연령 ${publicStats[item.id].near}명`,
+                  publicStats[item.id].near_few ? '비슷한연령 5명 미만' : `비슷한연령 ${publicStats[item.id].near}명`,
                   `최근활동 ${publicStats[item.id].recent}건`,
                   reviewSummaries[item.id] && `★ ${reviewSummaries[item.id].avg.toFixed(1)}`,
                 ].filter(Boolean).join(' · ')}
@@ -882,7 +881,7 @@ export default function ConnectorsScreen() {
                         return (
                           <>
                             <View style={styles.infoRow}>
-                              <Text style={styles.infoLabel}>동일연령 이성 회원</Text>
+                              <Text style={styles.infoLabel}>비슷한연령 이성 회원</Text>
                               <Text style={styles.infoValue}>{st.near_few ? '5명 미만' : `${st.near}명`}</Text>
                             </View>
                             <View style={styles.infoRow}>
@@ -895,7 +894,7 @@ export default function ConnectorsScreen() {
                                 {st.settled >= AFTER_RATE_MIN ? `만남 ${st.settled}건 중 ${st.mutual}건` : `만남 ${st.settled}건 · ${AFTER_RATE_MIN}건부터 보여드려요`}
                               </Text>
                             </View>
-                            <Text style={styles.statsHint}>동일연령은 내 나이 ±5살 이성 회원 수로 동맹 파트너 회원도 포함해요. 최근활동은 최근 한 달 소개 건수예요. 애프터 성사 비율은 만남이 {AFTER_RATE_MIN}건 이상 쌓이면 보여드려요.</Text>
+                            <Text style={styles.statsHint}>비슷한연령은 내 나이 앞뒤 약 5살 이성 회원 수로 동맹 파트너 회원도 포함해요. 최근활동은 최근 한 달 소개 건수예요. 애프터 성사 비율은 만남이 {AFTER_RATE_MIN}건 이상 쌓이면 보여드려요.</Text>
                           </>
                         );
                       })() : (

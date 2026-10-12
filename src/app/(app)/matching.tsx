@@ -192,6 +192,8 @@ export default function MatchingScreen() {
             meeting_status: m.meeting_status,
             after_care_hopeful_1: m.after_care_hopeful_1,
             after_care_hopeful_2: m.after_care_hopeful_2,
+            after_care_auto_1: !!m.after_care_auto_1,
+            after_care_auto_2: !!m.after_care_auto_2,
             settlement_completed: m.settlement_completed,
             status: m.status,
             created_at: m.created_at,
@@ -1230,7 +1232,7 @@ export default function MatchingScreen() {
                     : ' - 결과 정리 중 (자동으로 다시 시도해요)'}
                 </Text>
                 {item.closed_reason !== 'no_show' && item.after_care_hopeful_1 && item.after_care_hopeful_2 && (() => {
-                  const o = afterCareOutcome(item.after_care_hopeful_1, item.after_care_hopeful_2, item.hopeful_1?.gender, item.hopeful_2?.gender);
+                  const o = afterCareOutcome(item.after_care_hopeful_1, item.after_care_hopeful_2, item.hopeful_1?.gender, item.hopeful_2?.gender, item.after_care_auto_1, item.after_care_auto_2);
                   return <Text style={o.mutual ? styles.mutualText : styles.outcomeText}>{o.label}</Text>;
                 })()}
               </View>

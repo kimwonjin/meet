@@ -46,11 +46,14 @@ export async function expireAfterCareIfDue(m: AfterCareMatch) {
   if (!m.meeting_completed_at) return false;
   if (Date.now() < afterCareDeadline(m.meeting_completed_at).getTime()) return false;
 
+  // 답하지 않은 쪽은 '미신청'으로 채우고, 자동으로 채웠다는 표시를 따로 남긴다 (표시 칸이 없으면 조용히 넘어간다)
   if (!m.after_care_hopeful_1) {
-    await supabase.from('match_requests').update({ after_care_hopeful_1: '미신청' }).eq('id', m.id).is('after_care_hopeful_1', null);
+    const { data: f1 } = await supabase.from('match_requests').update({ after_care_hopeful_1: '미신청' }).eq('id', m.id).is('after_care_hopeful_1', null).select('id');
+    if (f1?.length) await supabase.from('match_requests').update({ after_care_auto_1: true }).eq('id', m.id);
   }
   if (!m.after_care_hopeful_2) {
-    await supabase.from('match_requests').update({ after_care_hopeful_2: '미신청' }).eq('id', m.id).is('after_care_hopeful_2', null);
+    const { data: f2 } = await supabase.from('match_requests').update({ after_care_hopeful_2: '미신청' }).eq('id', m.id).is('after_care_hopeful_2', null).select('id');
+    if (f2?.length) await supabase.from('match_requests').update({ after_care_auto_2: true }).eq('id', m.id);
   }
   // 여러 화면이 동시에 처리해도 실제로 마무리한 한 곳만 결과를 알린다
   const { data: settledNow, error } = await supabase.rpc('fn_settle_match', { p_match_id: m.id });
@@ -64,13 +67,19 @@ export async function expireAfterCareIfDue(m: AfterCareMatch) {
 // exceptUserId: 방금 화면에서 결과를 확인한 회원 (알림 생략)
 // 파트너에게 보여주는 애프터 결과: 둘 다 / 남성만 / 여성만 / 둘 다 마무리
 // (회원에게는 누가 원하지 않았는지 알리지 않지만, 주선자는 다음 소개를 위해 알아야 한다)
-export function afterCareOutcome(a1?: string | null, a2?: string | null, g1?: string | null, g2?: string | null) {
+// auto1·auto2: 기한 안에 답하지 않아 자동으로 마무리된 쪽 (직접 '이번이 마지막이에요'를 고른 것과 구분)
+export function afterCareOutcome(a1?: string | null, a2?: string | null, g1?: string | null, g2?: string | null, auto1?: boolean, auto2?: boolean) {
   const w1 = a1 === '신청', w2 = a2 === '신청';
+  const who = (g?: string | null) => (g === 'M' ? '남성' : g === 'F' ? '여성' : '한 분');
   if (w1 && w2) return { mutual: true, label: '💞 두 회원 모두 다시 만나고 싶어해요' };
-  if (!w1 && !w2) return { mutual: false, label: '두 회원 모두 이번 만남으로 마무리했어요' };
-  const g = w1 ? g1 : g2;
-  const who = g === 'M' ? '남성' : g === 'F' ? '여성' : '한 분';
-  return { mutual: false, label: `${who}만 다시 만나고 싶어해요` };
+  if (!w1 && !w2) {
+    if (auto1 && auto2) return { mutual: false, label: '두 회원 모두 기한 안에 답하지 않았어요' };
+    if (auto1 || auto2) return { mutual: false, label: `${who(auto1 ? g2 : g1)}은 마무리, ${who(auto1 ? g1 : g2)}은 답하지 않았어요` };
+    return { mutual: false, label: '두 회원 모두 이번 만남으로 마무리했어요' };
+  }
+  const otherAuto = w1 ? auto2 : auto1;
+  const base = `${who(w1 ? g1 : g2)}만 다시 만나고 싶어해요`;
+  return { mutual: false, label: otherAuto ? `${base} · ${who(w1 ? g2 : g1)}은 답하지 않았어요` : base };
 }
 
 export async function notifyAfterCareResult(matchId: string, exceptUserId?: string) {
@@ -80,7 +89,7 @@ export async function notifyAfterCareResult(matchId: string, exceptUserId?: stri
   const { data: people } = await supabase.from('users').select('id, name, gender').in('id', [m.hopeful_1_id, m.hopeful_2_id]);
   const g = Object.fromEntries((people || []).map((u: any) => [u.id, u.gender]));
   const names: Record<string, string> = Object.fromEntries((people || []).map((u: any) => [u.id, u.name]));
-  const outcome = afterCareOutcome(m.after_care_hopeful_1, m.after_care_hopeful_2, g[m.hopeful_1_id], g[m.hopeful_2_id]);
+  const outcome = afterCareOutcome(m.after_care_hopeful_1, m.after_care_hopeful_2, g[m.hopeful_1_id], g[m.hopeful_2_id], !!m.after_care_auto_1, !!m.after_care_auto_2);
 
   const members = [m.hopeful_1_id, m.hopeful_2_id].filter((id: string) => id !== exceptUserId);
   const connectors = [...new Set<string>([m.connector_1_id, m.connector_2_id])];
