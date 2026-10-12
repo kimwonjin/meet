@@ -823,7 +823,7 @@ export default function HomeScreen() {
         {waitingMatches.length > 0 && (
           <TouchableOpacity style={styles.aWait} onPress={() => router.push({ pathname: '/matching', params: { view: 'history', stage: 'waiting' } })} accessibilityLabel={`답을 기다리는 매칭 ${waitingMatches.length}건 보기`}>
             <Text style={styles.aWaitT}>답을 기다리는 매칭 {waitingMatches.length}건</Text>
-            <Text style={styles.aChev}>›</Text>
+            <Text style={styles.aAct}>보기 ›</Text>
           </TouchableOpacity>
         )}
         {/* 동맹: 소개할 수 있는 회원을 늘리는 곳 (마이 › 동맹 관리로 이어짐) */}
@@ -1320,7 +1320,7 @@ export default function HomeScreen() {
       {!isNew && profileGaps.length > 0 && (
         <TouchableOpacity style={styles.aWait} onPress={() => router.push({ pathname: '/profile', params: { open: 'profile' } })} accessibilityLabel="프로필 채우기">
           <Text style={styles.aWaitT}>프로필을 채우면 소개받기 쉬워요 · {profileGaps.join(' · ')}</Text>
-          <Text style={styles.aChev}>›</Text>
+          <Text style={styles.aAct}>채우기 ›</Text>
         </TouchableOpacity>
       )}
 
@@ -1355,13 +1355,13 @@ export default function HomeScreen() {
       {waitingList.length > 0 && (
         <TouchableOpacity style={styles.aWait} onPress={() => setMatchSheet({ title: `답을 기다리는 소개 ${waitingList.length}건`, ids: waitingList.map((m) => m.id) })} accessibilityLabel={`답을 기다리는 소개 ${waitingList.length}건 보기`}>
           <Text style={styles.aWaitT}>답을 기다리는 소개 {waitingList.length}건</Text>
-          <Text style={styles.aChev}>›</Text>
+          <Text style={styles.aAct}>보기 ›</Text>
         </TouchableOpacity>
       )}
       {pastList.length > 0 && (
         <TouchableOpacity style={styles.aWait} onPress={() => setMatchSheet({ title: `지난 소개 ${pastList.length}건`, ids: pastList.map((m) => m.id) })} accessibilityLabel={`지난 소개 ${pastList.length}건 보기`}>
           <Text style={styles.aWaitT}>지난 소개 {pastList.length}건</Text>
-          <Text style={styles.aChev}>›</Text>
+          <Text style={styles.aAct}>보기 ›</Text>
         </TouchableOpacity>
       )}
       <View style={{ height: 32 }} />
@@ -1524,7 +1524,9 @@ const styles = StyleSheet.create({
   aWho: { fontSize: 15, fontWeight: '600', color: '#18151E' },
   aWhen: { fontSize: 13, color: '#8F8C95', marginTop: 2 },
   aWait: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginTop: 14, paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#F1EFF4' },
-  aWaitT: { fontSize: 14, color: '#8F8C95', flexShrink: 1 },
+  aWaitT: { fontSize: 15, color: '#322F38', flexShrink: 1 },
+  // 누를 수 있는 줄의 동작 표시 (무엇을 하는 줄인지 알려준다)
+  aAct: { fontSize: 14, fontWeight: '600', color: '#5B21FF', marginLeft: 12, flexShrink: 0 },
   guide: { marginHorizontal: 20, marginTop: 18, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#E9E2FF', backgroundColor: '#FBFAFF' },
   guideHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   guideTitle: { fontSize: 15, fontWeight: '700', color: '#18151E' },
