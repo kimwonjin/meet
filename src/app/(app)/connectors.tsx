@@ -59,6 +59,8 @@ interface Connector {
 type PublicStats = { id: string; near: number | null; near_few: boolean; recent: number; settled: number; mutual: number };
 // 애프터 성사율은 만남이 이만큼 쌓였을 때만 보여준다 (몇 건으로 비율이 크게 흔들리지 않도록)
 const AFTER_RATE_MIN = 5;
+// 파트너 필터의 소개 지역 (회원 필터·동맹 필터와 같은 8개)
+const PF_REGIONS = ['서울', '경기', '인천', '강원', '충청', '전라', '경상', '제주'];
 
 export default function ConnectorsScreen() {
   const { user } = useAuth();
@@ -83,6 +85,12 @@ export default function ConnectorsScreen() {
   const memberFilter = useMemberFilter();
   // 회원이 보는 파트너 정보 (회원 구성·실적)
   const [overview, setOverview] = useState<any | null>(null);
+  // 회원이 파트너를 찾을 때 쓰는 필터 (지역 · 1회 비용 · 나와 맞는 회원 · 최근 활동)
+  const [pfOpen, setPfOpen] = useState(false);
+  const [pfRegions, setPfRegions] = useState<string[]>([]);
+  const [pfFee, setPfFee] = useState<'all' | 'u3' | '3to5' | '5to10' | 'o10'>('all');
+  const [pfNear, setPfNear] = useState(false);
+  const [pfActive, setPfActive] = useState(false);
   // 희망자가 파트너를 고를 때 보는 지표 (add_partner_public_stats.sql 실행 전이면 null → 예전 지표만)
   const [publicStats, setPublicStats] = useState<Record<string, PublicStats> | null>(null);
   const [networkOverview, setNetworkOverview] = useState<any | null>(null);
@@ -656,9 +664,30 @@ export default function ConnectorsScreen() {
 
   // 회원 구성 그래프 (내 회원 / 동맹 포함 공용)
   const query = search.trim();
-  const visiblePartners = query
-    ? connectors.filter((c) => [c.business_name, formatRegions(c.main_region), partnerIntro(c)].some((v) => v?.includes(query)))
-    : connectors;
+  const feeOk = (fee?: number | null) => {
+    const f = fee || 0;
+    if (pfFee === 'all') return true;
+    if (pfFee === 'u3') return f > 0 && f <= 30000;
+    if (pfFee === '3to5') return f > 30000 && f <= 50000;
+    if (pfFee === '5to10') return f > 50000 && f <= 100000;
+    return f > 100000;
+  };
+  const visiblePartners = connectors.filter((c) => {
+    if (query && ![c.business_name, formatRegions(c.main_region), partnerIntro(c)].some((v) => v?.includes(query))) return false;
+    if (pfRegions.length && !pfRegions.some((r) => formatRegions(c.main_region)?.includes(r))) return false;
+    if (!feeOk(c.fee_per_session)) return false;
+    const st = publicStats?.[c.id];
+    if (pfNear && !(st && !st.near_few)) return false;
+    if (pfActive && !(st && st.recent > 0)) return false;
+    return true;
+  });
+  const pfCount = pfRegions.length + (pfFee !== 'all' ? 1 : 0) + (pfNear ? 1 : 0) + (pfActive ? 1 : 0);
+  const pfReset = () => { setPfRegions([]); setPfFee('all'); setPfNear(false); setPfActive(false); };
+  const pfChip = (label: string, on: boolean, onPress: () => void) => (
+    <TouchableOpacity key={label} style={[styles.pfChip, on && styles.pfChipOn]} onPress={onPress} accessibilityLabel={`필터 ${label}`} accessibilityState={{ selected: on }}>
+      <Text style={[styles.pfChipText, on && styles.pfChipTextOn]}>{label}</Text>
+    </TouchableOpacity>
+  );
 
 
   // 이용권 구매 칸 (파트너 정보 시트 안. 구매하러 들어온 경우 맨 위에)
@@ -704,22 +733,59 @@ export default function ConnectorsScreen() {
           <Text style={styles.title}>매칭 파트너</Text>
           <NotificationBell />
         </View>
-        <View style={styles.searchBar}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="🔍 회사명, 지역, 서비스로 찾기"
-            placeholderTextColor="#98959E"
-            value={search}
-            onChangeText={setSearch}
-          />
+        <View style={styles.pfTop}>
+          <View style={[styles.searchBar, { flex: 1 }]}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="🔍 회사명, 지역, 서비스로 찾기"
+              placeholderTextColor="#98959E"
+              value={search}
+              onChangeText={setSearch}
+            />
+          </View>
+          <TouchableOpacity
+            style={[styles.pfToggle, (pfOpen || pfCount > 0) && styles.pfToggleOn]}
+            onPress={() => setPfOpen((v) => !v)}
+            accessibilityLabel="파트너 필터"
+          >
+            <Text style={[styles.pfToggleText, (pfOpen || pfCount > 0) && styles.pfToggleTextOn]}>
+              필터{pfCount > 0 ? ` ${pfCount}` : ''} {pfOpen ? '▴' : '▾'}
+            </Text>
+          </TouchableOpacity>
         </View>
+        {pfOpen && (
+          <View style={styles.pfBox}>
+            <Text style={styles.pfLabel}>소개 지역</Text>
+            <View style={styles.pfRow}>
+              {PF_REGIONS.map((r) => pfChip(r, pfRegions.includes(r), () => setPfRegions((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]))))}
+            </View>
+            <Text style={styles.pfLabel}>1회 소개 비용</Text>
+            <View style={styles.pfRow}>
+              {([['all', '전체'], ['u3', '3만원 이하'], ['3to5', '3~5만원'], ['5to10', '5~10만원'], ['o10', '10만원 초과']] as const).map(([k, l]) => pfChip(l, pfFee === k, () => setPfFee(k)))}
+            </View>
+            {!!publicStats && (
+              <>
+                <Text style={styles.pfLabel}>이런 파트너만</Text>
+                <View style={styles.pfRow}>
+                  {pfChip('비슷한 나이 이성 5명 이상', pfNear, () => setPfNear((v) => !v))}
+                  {pfChip('최근 한 달 소개함', pfActive, () => setPfActive((v) => !v))}
+                </View>
+              </>
+            )}
+            {pfCount > 0 && (
+              <TouchableOpacity onPress={pfReset} style={styles.pfReset}>
+                <Text style={styles.pfResetText}>필터 초기화</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
 
       <FlatList
         data={visiblePartners}
         ListEmptyComponent={
           <View style={styles.emptyTab}>
-            <Text style={styles.placeholderText}>{search ? '찾는 파트너가 없습니다' : '아직 등록된 파트너가 없습니다'}</Text>
+            <Text style={styles.placeholderText}>{search || pfCount > 0 ? '조건에 맞는 파트너가 없어요' : '아직 등록된 파트너가 없습니다'}</Text>
           </View>
         }
         keyExtractor={(item) => item.id}
@@ -1069,6 +1135,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#98959E',
   },
+  pfTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pfToggle: { borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, backgroundColor: '#fff' },
+  pfToggleOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
+  pfToggleText: { fontSize: 14, color: '#65626B' },
+  pfToggleTextOn: { color: '#5B21FF', fontWeight: '600' },
+  pfBox: { marginTop: 10, gap: 8 },
+  pfLabel: { fontSize: 12, color: '#8F8C95', marginTop: 4 },
+  pfRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  pfChip: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#fff' },
+  pfChipOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
+  pfChipText: { fontSize: 13, color: '#54515A' },
+  pfChipTextOn: { color: '#5B21FF', fontWeight: '600' },
+  pfReset: { alignSelf: 'flex-start', paddingVertical: 6 },
+  pfResetText: { fontSize: 13, color: '#65626B', textDecorationLine: 'underline' },
   statsLine: { fontSize: 12, color: '#54515A', marginBottom: 6, lineHeight: 18 },
   statsHint: { fontSize: 12, color: '#98959E', marginTop: 8, lineHeight: 18 },
   meta: {
