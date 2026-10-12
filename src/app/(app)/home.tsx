@@ -1300,7 +1300,6 @@ export default function HomeScreen() {
       )}
 
       {/* 남은 이용권 (2단계 안에 확인) */}
-      <View style={styles.band} />
       <TouchableOpacity
         style={styles.mCredit}
         onPress={() => router.push({ pathname: '/profile', params: { open: 'credits' } })}
@@ -1550,7 +1549,7 @@ const styles = StyleSheet.create({
   mStepNumT: { fontSize: 13, fontWeight: '700', color: '#5B21FF' },
   mStepT: { fontSize: 15, color: '#54515A' },
   mStepDoneT: { color: '#B1AEB7' },
-  mCredit: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginTop: 6, paddingVertical: 16, paddingHorizontal: 2 },
+  mCredit: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginTop: 18, paddingVertical: 16, paddingHorizontal: 18, borderRadius: 16, backgroundColor: '#F7F5FA' },
   mCreditL: { fontSize: 15, color: '#54515A' },
   mCreditV: { fontSize: 16, fontWeight: '700', color: '#18151E' },
   mCreditS: { fontSize: 12, fontWeight: '400', color: '#8F8C95' },
