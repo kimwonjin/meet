@@ -56,6 +56,10 @@ interface Connector {
   body_type?: string;
 }
 
+type PublicStats = { id: string; near: number | null; near_few: boolean; recent: number; settled: number; mutual: number };
+// 애프터 성사율은 만남이 이만큼 쌓였을 때만 보여준다 (몇 건으로 비율이 크게 흔들리지 않도록)
+const AFTER_RATE_MIN = 5;
+
 export default function ConnectorsScreen() {
   const { user } = useAuth();
   const router = useRouter();
@@ -79,6 +83,8 @@ export default function ConnectorsScreen() {
   const memberFilter = useMemberFilter();
   // 회원이 보는 파트너 정보 (회원 구성·실적)
   const [overview, setOverview] = useState<any | null>(null);
+  // 희망자가 파트너를 고를 때 보는 지표 (add_partner_public_stats.sql 실행 전이면 null → 예전 지표만)
+  const [publicStats, setPublicStats] = useState<Record<string, PublicStats> | null>(null);
   const [networkOverview, setNetworkOverview] = useState<any | null>(null);
   // 파트너 후기: 목록용 평균 별점 / 선택한 파트너의 후기 목록
   const [reviewSummaries, setReviewSummaries] = useState<Record<string, ReviewSummary>>({});
@@ -182,6 +188,13 @@ export default function ConnectorsScreen() {
           .from('users')
           .select('id, name, withdrawn_at, suspended_at, photo_urls')
           .in('id', connectorIds);
+
+        // 파트너 지표: 내 성별·나이 기준 '나와 비슷한 나이 이성 회원' 수 등
+        supabase.from('users').select('gender, age, birth_date').eq('id', user!.id).maybeSingle().then(async ({ data: me }) => {
+          const age = me?.birth_date ? Math.floor((Date.now() - new Date(me.birth_date).getTime()) / (365.25 * 86400000)) : me?.age ?? null;
+          const { data: st, error: stErr } = await supabase.rpc('fn_partner_public_stats', { p_gender: me?.gender ?? null, p_age: age });
+          setPublicStats(stErr || !Array.isArray(st) ? null : Object.fromEntries(st.map((x: any) => [x.id, x])));
+        });
 
         // 내 요청 상태 (승인됨 / 승인 대기)
         const { data: myRequests } = await supabase
@@ -729,9 +742,19 @@ export default function ConnectorsScreen() {
                 <Text style={styles.desc}>파트너</Text>
               </View>
             </View>
+            {/* 고르는 데 필요한 지표: 나와 맞는 이성 · 최근 소개 활동 · 별점 */}
+            {!!publicStats?.[item.id] && (
+              <Text style={styles.statsLine} numberOfLines={2}>
+                {[
+                  publicStats[item.id].near_few ? '비슷한 나이 이성 5명 미만' : `비슷한 나이 이성 ${publicStats[item.id].near}명`,
+                  `최근 한 달 소개 ${publicStats[item.id].recent}건`,
+                  reviewSummaries[item.id] && `★ ${reviewSummaries[item.id].avg.toFixed(1)} (${reviewSummaries[item.id].count})`,
+                ].filter(Boolean).join(' · ')}
+              </Text>
+            )}
             <View style={styles.meta}>
               <Text style={styles.price}>{item.fee_per_session ? `${item.fee_per_session.toLocaleString()}원 / 건` : '-'}</Text>
-              {!!reviewSummaries[item.id] && (
+              {!publicStats?.[item.id] && !!reviewSummaries[item.id] && (
                 <Text style={styles.reviewScore}>★ {reviewSummaries[item.id].avg.toFixed(1)} ({reviewSummaries[item.id].count})</Text>
               )}
               {!!item.main_region && <Text style={styles.rating}>{formatRegions(item.main_region)}</Text>}
@@ -780,14 +803,39 @@ export default function ConnectorsScreen() {
                         <Text style={styles.infoLabel}>1회 소개 비용</Text>
                         <Text style={styles.infoValue}>{selectedConnector.fee_per_session ? `${selectedConnector.fee_per_session.toLocaleString()}원` : '-'}</Text>
                       </View>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>성사된 만남</Text>
-                        <Text style={styles.infoValue}>{overview && !overview.error ? `${overview.settled}건` : '-'}</Text>
-                      </View>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>애프터로 이어진 만남</Text>
-                        <Text style={styles.infoValue}>{overview && !overview.error ? `${overview.mutual}건` : '-'}</Text>
-                      </View>
+                      {publicStats?.[selectedConnector.id] ? (() => {
+                        const st = publicStats[selectedConnector.id];
+                        return (
+                          <>
+                            <View style={styles.infoRow}>
+                              <Text style={styles.infoLabel}>나와 비슷한 나이 이성 회원</Text>
+                              <Text style={styles.infoValue}>{st.near_few ? '5명 미만' : `${st.near}명`}</Text>
+                            </View>
+                            <View style={styles.infoRow}>
+                              <Text style={styles.infoLabel}>최근 한 달 소개</Text>
+                              <Text style={styles.infoValue}>{st.recent}건</Text>
+                            </View>
+                            <View style={styles.infoRow}>
+                              <Text style={styles.infoLabel}>애프터 성사</Text>
+                              <Text style={styles.infoValue}>
+                                {st.settled >= AFTER_RATE_MIN ? `만남 ${st.settled}건 중 ${st.mutual}건` : '신규 파트너'}
+                              </Text>
+                            </View>
+                            <Text style={styles.statsHint}>비슷한 나이는 내 나이 ±5살, 동맹 파트너 회원 포함이에요. 애프터 성사는 만남이 {AFTER_RATE_MIN}건 이상일 때 보여드려요.</Text>
+                          </>
+                        );
+                      })() : (
+                        <>
+                          <View style={styles.infoRow}>
+                            <Text style={styles.infoLabel}>성사된 만남</Text>
+                            <Text style={styles.infoValue}>{overview && !overview.error ? `${overview.settled}건` : '-'}</Text>
+                          </View>
+                          <View style={styles.infoRow}>
+                            <Text style={styles.infoLabel}>애프터로 이어진 만남</Text>
+                            <Text style={styles.infoValue}>{overview && !overview.error ? `${overview.mutual}건` : '-'}</Text>
+                          </View>
+                        </>
+                      )}
                     </View>
 
                     <View style={styles.modalSection}>
@@ -1021,6 +1069,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#98959E',
   },
+  statsLine: { fontSize: 12, color: '#54515A', marginBottom: 6, lineHeight: 18 },
+  statsHint: { fontSize: 12, color: '#98959E', marginTop: 8, lineHeight: 18 },
   meta: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -77,6 +77,8 @@ export default function HomeScreen() {
   const [startState, setStartState] = useState<{ proposed: boolean; settled: boolean } | null>(null);
   // 시작 가이드 '동맹 파트너 맺기': 맺은 동맹이 있는지, 보낸·받은 신청이 기다리는 중인지
   const [allyState, setAllyState] = useState<{ active: boolean; pending: boolean }>({ active: false, pending: false });
+  // 홈 맨 아래 '동맹' 요약: 맺은 동맹 수, 내가 받은 요청 수, 동맹 회원 수 (null = 아직 모름)
+  const [allySummary, setAllySummary] = useState<{ partners: number; incoming: number; members: number } | null>(null);
 
   // 후기를 남긴 매칭 / 후기 작성 중인 매칭
   const [reviewedMatchIds, setReviewedMatchIds] = useState<string[]>([]);
@@ -191,15 +193,23 @@ export default function HomeScreen() {
           proposed: (matchData || []).some((m: any) => (m.proposer_connector_id || m.connector_1_id) === user.id),
           settled: settledOnce,
         });
-        if (!settledOnce) {
-          supabase.from('connector_alliances').select('status')
-            .or(`connector_1_id.eq.${user.id},connector_2_id.eq.${user.id}`)
-            .in('status', ['PENDING', 'ACTIVE'])
-            .then(({ data }) => setAllyState({
-              active: (data || []).some((a: any) => a.status === 'ACTIVE'),
-              pending: (data || []).some((a: any) => a.status === 'PENDING'),
-            }));
-        }
+        supabase.from('connector_alliances').select('status, connector_1_id, connector_2_id, requested_by')
+          .or(`connector_1_id.eq.${user.id},connector_2_id.eq.${user.id}`)
+          .in('status', ['PENDING', 'ACTIVE'])
+          .then(async ({ data }) => {
+            const rows = data || [];
+            const active = rows.filter((a: any) => a.status === 'ACTIVE');
+            setAllyState({ active: active.length > 0, pending: rows.some((a: any) => a.status === 'PENDING') });
+            const allyIds = active.map((a: any) => (a.connector_1_id === user.id ? a.connector_2_id : a.connector_1_id));
+            const { count } = allyIds.length
+              ? await supabase.from('hopeful_requests').select('*', { count: 'exact', head: true }).in('connector_id', allyIds).eq('status', 'approved')
+              : { count: 0 };
+            setAllySummary({
+              partners: active.length,
+              incoming: rows.filter((a: any) => a.status === 'PENDING' && a.requested_by !== user.id).length,
+              members: count || 0,
+            });
+          });
 
         // 이번 달 성사된 만남 (노쇼 등으로 정산 없이 끝난 건 제외)
         const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
@@ -269,6 +279,8 @@ export default function HomeScreen() {
             created_at: r.created_at,
             connector_1_id: r.connector_1_id,
             connector_2_id: r.connector_2_id,
+            // 후기 건너뛰기 (add_review_skip.sql 실행 후 다른 기기에서도 유지)
+            review_skipped: !!(isHopeful1 ? r.review_skipped_1 : r.review_skipped_2),
           };
         });
 
@@ -406,6 +418,12 @@ export default function HomeScreen() {
       return next;
     });
     toast.show('후기는 지난 소개에서 언제든 남길 수 있어요', 'info');
+    // 서버에도 남겨 다른 기기에서도 다시 묻지 않는다 (SQL 실행 전이면 조용히 이 기기에만 남는다)
+    for (const id of ids) {
+      const m = receivedMatches.find((x) => x.id === id);
+      if (!m) continue;
+      supabase.from('match_requests').update(m.isHopeful1 ? { review_skipped_1: true } : { review_skipped_2: true }).eq('id', id).then(() => {});
+    }
   }
 
   async function handleReselectDates(matchId: string, dates: string[]) {
@@ -797,6 +815,32 @@ export default function HomeScreen() {
             <Text style={styles.aChev}>›</Text>
           </TouchableOpacity>
         )}
+        {/* 동맹: 소개할 수 있는 회원을 늘리는 곳 (마이 › 동맹 관리로 이어짐) */}
+        {allySummary && (
+          <>
+            <Text style={styles.aH3}>동맹</Text>
+            <TouchableOpacity
+              style={styles.allyRow}
+              onPress={() => router.push({ pathname: '/alliances', params: { from: 'home' } })}
+              accessibilityLabel="동맹 관리 열기"
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.aWho}>
+                  {allySummary.partners > 0 ? `동맹 파트너 ${allySummary.partners}명` : '아직 동맹이 없어요'}
+                </Text>
+                <Text style={styles.aWhen}>
+                  {allySummary.partners > 0
+                    ? `동맹 회원 ${allySummary.members}명과도 소개할 수 있어요`
+                    : '동맹을 맺으면 다른 파트너 회원과도 소개할 수 있어요'}
+                </Text>
+              </View>
+              {allySummary.incoming > 0 && (
+                <View style={styles.allyBadge}><Text style={styles.allyBadgeT}>새 요청 {allySummary.incoming}</Text></View>
+              )}
+              <Text style={styles.aChev}>›</Text>
+            </TouchableOpacity>
+          </>
+        )}
         <View style={{ height: 32 }} />
         <InviteSheet visible={showInvite} onClose={() => setShowInvite(false)} partnerName={user.name} />
       </ScrollView>
@@ -817,7 +861,7 @@ export default function HomeScreen() {
       : bothApproved && noDateOverlap && reselectMarks[item.id] !== JSON.stringify((item.isHopeful1 ? item.available_dates_2 : item.available_dates_1) || []) ? 'reselect'
       : item.meeting_status === 'completed' && !myAfterCare ? 'after'
       : null;
-    const review = item.meeting_status === 'completed' && !!myAfterCare && !reviewedMatchIds.includes(item.id) && !skippedReviews.includes(item.id);
+    const review = item.meeting_status === 'completed' && !!myAfterCare && !reviewedMatchIds.includes(item.id) && !skippedReviews.includes(item.id) && !item.review_skipped;
     const upcoming = !ended && !kind && !!item.meeting_scheduled_at && item.meeting_status !== 'completed';
     return { item, kind, review, ended, upcoming, waiting: !ended && !kind && !upcoming };
   });
@@ -1455,6 +1499,9 @@ const styles = StyleSheet.create({
   aStatMid: { borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#F1EFF4' },
   aStatV: { fontSize: 19, fontWeight: '700', color: '#18151E' },
   aStatL: { fontSize: 12, color: '#8F8C95', marginTop: 3 },
+  allyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 20, paddingVertical: 14, paddingHorizontal: 2, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#F1EFF4' },
+  allyBadge: { backgroundColor: '#5B21FF', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
+  allyBadgeT: { color: '#fff', fontSize: 12, fontWeight: '700' },
   aH3: { fontSize: 17, fontWeight: '700', color: '#18151E', marginHorizontal: 22, marginTop: 26, marginBottom: 10 },
   aNone: { fontSize: 14, color: '#8F8C95', marginHorizontal: 22, marginBottom: 6 },
   aMeet: { flexDirection: 'row', alignItems: 'center', gap: 14, marginHorizontal: 20, marginBottom: 10 },
