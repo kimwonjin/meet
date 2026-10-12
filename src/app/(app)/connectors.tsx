@@ -767,8 +767,8 @@ export default function ConnectorsScreen() {
               <>
                 <Text style={styles.pfLabel}>이런 파트너만</Text>
                 <View style={styles.pfRow}>
-                  {pfChip('비슷한 나이 이성 5명 이상', pfNear, () => setPfNear((v) => !v))}
-                  {pfChip('최근 한 달 소개함', pfActive, () => setPfActive((v) => !v))}
+                  {pfChip('동일연령 5명 이상', pfNear, () => setPfNear((v) => !v))}
+                  {pfChip('최근활동', pfActive, () => setPfActive((v) => !v))}
                 </View>
               </>
             )}
@@ -812,9 +812,9 @@ export default function ConnectorsScreen() {
             {!!publicStats?.[item.id] && (
               <Text style={styles.statsLine} numberOfLines={2}>
                 {[
-                  publicStats[item.id].near_few ? '비슷한 나이 이성 5명 미만' : `비슷한 나이 이성 ${publicStats[item.id].near}명`,
-                  `최근 한 달 소개 ${publicStats[item.id].recent}건`,
-                  reviewSummaries[item.id] && `★ ${reviewSummaries[item.id].avg.toFixed(1)} (${reviewSummaries[item.id].count})`,
+                  publicStats[item.id].near_few ? '동일연령 5명 미만' : `동일연령 ${publicStats[item.id].near}명`,
+                  `최근활동 ${publicStats[item.id].recent}건`,
+                  reviewSummaries[item.id] && `★ ${reviewSummaries[item.id].avg.toFixed(1)}`,
                 ].filter(Boolean).join(' · ')}
               </Text>
             )}
@@ -874,11 +874,11 @@ export default function ConnectorsScreen() {
                         return (
                           <>
                             <View style={styles.infoRow}>
-                              <Text style={styles.infoLabel}>나와 비슷한 나이 이성 회원</Text>
+                              <Text style={styles.infoLabel}>동일연령 이성 회원</Text>
                               <Text style={styles.infoValue}>{st.near_few ? '5명 미만' : `${st.near}명`}</Text>
                             </View>
                             <View style={styles.infoRow}>
-                              <Text style={styles.infoLabel}>최근 한 달 소개</Text>
+                              <Text style={styles.infoLabel}>최근활동</Text>
                               <Text style={styles.infoValue}>{st.recent}건</Text>
                             </View>
                             <View style={styles.infoRow}>
@@ -887,7 +887,7 @@ export default function ConnectorsScreen() {
                                 {st.settled >= AFTER_RATE_MIN ? `만남 ${st.settled}건 중 ${st.mutual}건` : '신규 파트너'}
                               </Text>
                             </View>
-                            <Text style={styles.statsHint}>비슷한 나이는 내 나이 ±5살, 동맹 파트너 회원 포함이에요. 애프터 성사는 만남이 {AFTER_RATE_MIN}건 이상일 때 보여드려요.</Text>
+                            <Text style={styles.statsHint}>동일연령은 내 나이 ±5살 이성 회원 수로 동맹 파트너 회원도 포함해요. 최근활동은 최근 한 달 소개 건수예요. 애프터 성사는 만남이 {AFTER_RATE_MIN}건 이상일 때 보여드려요.</Text>
                           </>
                         );
                       })() : (
