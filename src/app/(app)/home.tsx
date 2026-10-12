@@ -201,13 +201,17 @@ export default function HomeScreen() {
             const active = rows.filter((a: any) => a.status === 'ACTIVE');
             setAllyState({ active: active.length > 0, pending: rows.some((a: any) => a.status === 'PENDING') });
             const allyIds = active.map((a: any) => (a.connector_1_id === user.id ? a.connector_2_id : a.connector_1_id));
-            // 동맹 회원 수: 여러 동맹에 함께 가입했거나 이미 내 회원인 사람은 한 번만 센다
+            // 동맹 회원 수: 동맹 관리 카드의 '회원 n명'과 같은 기준 (파트너별 회원 수의 합, 탈퇴 회원 제외)
             const { data: allyReqs } = allyIds.length
-              ? await supabase.from('hopeful_requests').select('hopeful_id').in('connector_id', allyIds).eq('status', 'approved')
+              ? await supabase.from('hopeful_requests').select('hopeful_id, connector_id').in('connector_id', allyIds).eq('status', 'approved')
               : { data: [] as any[] };
-            const { data: mineReqs } = await supabase.from('hopeful_requests').select('hopeful_id').eq('connector_id', user.id).eq('status', 'approved');
-            const mine = new Set((mineReqs || []).map((r: any) => r.hopeful_id));
-            const count = new Set((allyReqs || []).map((r: any) => r.hopeful_id).filter((id: string) => !mine.has(id))).size;
+            const pairs = [...new Set((allyReqs || []).map((r: any) => `${r.connector_id}|${r.hopeful_id}`))];
+            const memberIds = [...new Set((allyReqs || []).map((r: any) => r.hopeful_id))];
+            const { data: gone } = memberIds.length
+              ? await supabase.from('users').select('id').in('id', memberIds).not('withdrawn_at', 'is', null)
+              : { data: [] as any[] };
+            const goneIds = new Set((gone || []).map((u: any) => u.id));
+            const count = pairs.filter((k) => !goneIds.has(k.split('|')[1])).length;
             setAllySummary({
               partners: active.length,
               incoming: rows.filter((a: any) => a.status === 'PENDING' && a.requested_by !== user.id).length,
