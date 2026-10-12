@@ -109,7 +109,11 @@ export default function ConnectorsScreen() {
   }, []);
 
   useFocusPolling(() => fetchConnectors(), 15000, !!user);
-  const pullRefresh = usePullRefresh(() => fetchConnectors());
+  // 파트너 지표는 무거운 계산이라 화면에 처음 들어올 때와 당겨서 새로고침할 때만 다시 불러온다
+  const statsLoadedRef = useRef(false);
+  const pullRefresh = usePullRefresh(() => { statsLoadedRef.current = false; return fetchConnectors(); });
+  // 시트가 어떤 경로로 닫혀도 '이용권 구매' 모드는 풀린다
+  useEffect(() => { if (!selectedConnector) setBuyFirst(false); }, [selectedConnector]);
 
   // 초대 링크로 들어온 회원: 초대한 파트너 정보를 바로 열어 준다
   const params = useLocalSearchParams<{ open?: string; tab?: string; buy?: string }>();
@@ -126,7 +130,9 @@ export default function ConnectorsScreen() {
     if (!params.open || user?.role !== 'hopeful' || loading) return;
     const target = connectors.find((c) => c.id === params.open);
     if (target) setSelectedConnector(target);
-    setBuyFirst(!!params.buy);
+    const canBuy = !!target && !!target.is_approved;
+    setBuyFirst(!!params.buy && canBuy);
+    if (params.buy && !canBuy) toast.show('지금은 이 파트너의 이용권을 살 수 없어요', 'info');
     router.setParams({ open: undefined, buy: undefined });
   }, [params.open, loading, connectors]);
 
@@ -198,7 +204,8 @@ export default function ConnectorsScreen() {
           .in('id', connectorIds);
 
         // 파트너 지표: 내 성별·나이 기준 '나와 비슷한 나이 이성 회원' 수 등
-        supabase.from('users').select('gender, age, birth_date').eq('id', user!.id).maybeSingle().then(async ({ data: me }) => {
+        if (!statsLoadedRef.current) supabase.from('users').select('gender, age, birth_date').eq('id', user!.id).maybeSingle().then(async ({ data: me }) => {
+          statsLoadedRef.current = true;
           const age = me?.birth_date ? Math.floor((Date.now() - new Date(me.birth_date).getTime()) / (365.25 * 86400000)) : me?.age ?? null;
           const { data: st, error: stErr } = await supabase.rpc('fn_partner_public_stats', { p_gender: me?.gender ?? null, p_age: age });
           setPublicStats(stErr || !Array.isArray(st) ? null : Object.fromEntries(st.map((x: any) => [x.id, x])));
@@ -677,11 +684,12 @@ export default function ConnectorsScreen() {
     if (pfRegions.length && !pfRegions.some((r) => formatRegions(c.main_region)?.includes(r))) return false;
     if (!feeOk(c.fee_per_session)) return false;
     const st = publicStats?.[c.id];
-    if (pfNear && !(st && !st.near_few)) return false;
-    if (pfActive && !(st && st.recent > 0)) return false;
+    // 지표를 못 불러왔으면 이 두 조건은 적용하지 않는다 (칩도 숨겨져 있으므로)
+    if (publicStats && pfNear && !(st && !st.near_few)) return false;
+    if (publicStats && pfActive && !(st && st.recent > 0)) return false;
     return true;
   });
-  const pfCount = pfRegions.length + (pfFee !== 'all' ? 1 : 0) + (pfNear ? 1 : 0) + (pfActive ? 1 : 0);
+  const pfCount = pfRegions.length + (pfFee !== 'all' ? 1 : 0) + (publicStats && pfNear ? 1 : 0) + (publicStats && pfActive ? 1 : 0);
   const pfReset = () => { setPfRegions([]); setPfFee('all'); setPfNear(false); setPfActive(false); };
   const pfChip = (label: string, on: boolean, onPress: () => void) => (
     <TouchableOpacity key={label} style={[styles.pfChip, on && styles.pfChipOn]} onPress={onPress} accessibilityLabel={`필터 ${label}`} accessibilityState={{ selected: on }}>
@@ -884,10 +892,10 @@ export default function ConnectorsScreen() {
                             <View style={styles.infoRow}>
                               <Text style={styles.infoLabel}>애프터 성사</Text>
                               <Text style={styles.infoValue}>
-                                {st.settled >= AFTER_RATE_MIN ? `만남 ${st.settled}건 중 ${st.mutual}건` : '신규 파트너'}
+                                {st.settled >= AFTER_RATE_MIN ? `만남 ${st.settled}건 중 ${st.mutual}건` : `만남 ${st.settled}건 · ${AFTER_RATE_MIN}건부터 보여드려요`}
                               </Text>
                             </View>
-                            <Text style={styles.statsHint}>동일연령은 내 나이 ±5살 이성 회원 수로 동맹 파트너 회원도 포함해요. 최근활동은 최근 한 달 소개 건수예요. 애프터 성사는 만남이 {AFTER_RATE_MIN}건 이상일 때 보여드려요.</Text>
+                            <Text style={styles.statsHint}>동일연령은 내 나이 ±5살 이성 회원 수로 동맹 파트너 회원도 포함해요. 최근활동은 최근 한 달 소개 건수예요. 애프터 성사 비율은 만남이 {AFTER_RATE_MIN}건 이상 쌓이면 보여드려요.</Text>
                           </>
                         );
                       })() : (

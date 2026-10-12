@@ -201,9 +201,13 @@ export default function HomeScreen() {
             const active = rows.filter((a: any) => a.status === 'ACTIVE');
             setAllyState({ active: active.length > 0, pending: rows.some((a: any) => a.status === 'PENDING') });
             const allyIds = active.map((a: any) => (a.connector_1_id === user.id ? a.connector_2_id : a.connector_1_id));
-            const { count } = allyIds.length
-              ? await supabase.from('hopeful_requests').select('*', { count: 'exact', head: true }).in('connector_id', allyIds).eq('status', 'approved')
-              : { count: 0 };
+            // 동맹 회원 수: 여러 동맹에 함께 가입했거나 이미 내 회원인 사람은 한 번만 센다
+            const { data: allyReqs } = allyIds.length
+              ? await supabase.from('hopeful_requests').select('hopeful_id').in('connector_id', allyIds).eq('status', 'approved')
+              : { data: [] as any[] };
+            const { data: mineReqs } = await supabase.from('hopeful_requests').select('hopeful_id').eq('connector_id', user.id).eq('status', 'approved');
+            const mine = new Set((mineReqs || []).map((r: any) => r.hopeful_id));
+            const count = new Set((allyReqs || []).map((r: any) => r.hopeful_id).filter((id: string) => !mine.has(id))).size;
             setAllySummary({
               partners: active.length,
               incoming: rows.filter((a: any) => a.status === 'PENDING' && a.requested_by !== user.id).length,
@@ -417,7 +421,7 @@ export default function HomeScreen() {
       AsyncStorage.setItem(SKIP_REVIEW_KEY, JSON.stringify(next)).catch(() => {});
       return next;
     });
-    toast.show('후기는 지난 소개에서 언제든 남길 수 있어요', 'info');
+    toast.show('후기는 소개 카드에서 언제든 남길 수 있어요', 'info');
     // 서버에도 남겨 다른 기기에서도 다시 묻지 않는다 (SQL 실행 전이면 조용히 이 기기에만 남는다)
     for (const id of ids) {
       const m = receivedMatches.find((x) => x.id === id);
