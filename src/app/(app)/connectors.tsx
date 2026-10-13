@@ -506,9 +506,12 @@ export default function ConnectorsScreen() {
         {tabMembers.length > 0 && (
           <View style={styles.filterWrap}>
             <View style={styles.listHead}>
-              <Text style={styles.listHeadTitle} numberOfLines={1}>
-                {{ approved: '내 회원', pending: '가입 신청', ally: '동맹 파트너의 회원' }[tabStatus]} {displayRequests.length}명
-              </Text>
+              {/* 탭에 이미 인원수가 있어, 필터·검색으로 줄었을 때만 걸러진 인원을 보여준다 */}
+              {displayRequests.length !== tabMembers.length ? (
+                <Text style={styles.listHeadTitle} numberOfLines={1}>
+                  {{ approved: '내 회원', pending: '가입 신청', ally: '동맹 파트너의 회원' }[tabStatus]} {displayRequests.length}명
+                </Text>
+              ) : <View style={{ flex: 1 }} />}
               {memberFilter.renderToggle()}
             </View>
             {memberFilter.render(tabMembers, false)}
