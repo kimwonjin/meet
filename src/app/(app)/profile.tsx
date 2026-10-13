@@ -715,6 +715,16 @@ export default function ProfileScreen() {
     if (!user) return;
     setLoading(true);
     try {
+      // 회원으로 소개가 진행 중이면 바꾸지 않는다 (파트너 화면에서는 그 소개에 답할 수 없다)
+      const cols = 'id, status, settlement_completed';
+      const [{ data: m1 }, { data: m2 }] = await Promise.all([
+        supabase.from('match_requests').select(cols).eq('hopeful_1_id', user.id),
+        supabase.from('match_requests').select(cols).eq('hopeful_2_id', user.id),
+      ]);
+      if ([...(m1 || []), ...(m2 || [])].some((m: any) => m.status !== 'rejected' && !m.settlement_completed)) {
+        toast.show('진행 중인 소개가 끝나면 파트너 화면으로 바꿀 수 있어요', 'info');
+        return;
+      }
       const { error } = await supabase.from('users').update({ role: 'connector' }).eq('id', user.id);
       if (error) throw error;
       setShowConnectorModal(false);

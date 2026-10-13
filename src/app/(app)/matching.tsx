@@ -174,7 +174,7 @@ export default function MatchingScreen() {
         const connectorName = (id: string) => (connectorUsers || []).find((u: any) => u.id === id)?.name || '상대 파트너';
 
         // 희望자 정보 조회
-        const hopefulUserIds = matchData.flatMap((m: any) => [m.hopeful_1_id, m.hopeful_2_id]);
+        const hopefulUserIds = [...new Set(matchData.flatMap((m: any) => [m.hopeful_1_id, m.hopeful_2_id]))];
         const { data: hopefulUsers } = await supabase
           .from('users')
           .select('*')
@@ -278,10 +278,10 @@ export default function MatchingScreen() {
   }
 
   useEffect(() => {
-    const ids = [...ownMembers.map((m) => m.id), ...allyMembersForRest];
+    const ids = [...new Set([...ownMembers.map((m) => m.id), ...allyMembersForRest])];
     if (!ids.length) return;
     (async () => {
-      const cols = 'hopeful_1_id, hopeful_2_id, created_at, status, settlement_completed';
+      const cols = 'hopeful_1_id, hopeful_2_id, created_at, status, settlement_completed, closed_reason';
       const [a, b, pay] = await Promise.all([
         supabase.from('match_requests').select(cols).in('hopeful_1_id', ids),
         supabase.from('match_requests').select(cols).in('hopeful_2_id', ids),
@@ -293,7 +293,8 @@ export default function MatchingScreen() {
       if (!pay.error) {
         const partnerOf: Record<string, string> = {};
         for (const m of ownMembers) partnerOf[m.id] = user?.id || '';
-        for (const g of allyMembers) for (const m of g.members) partnerOf[m.id] = g.connector.id;
+        // 내 회원이면서 동맹 회원이기도 한 경우 내 이용권을 본다 (먼저 정한 담당을 덮어쓰지 않음)
+        for (const g of allyMembers) for (const m of g.members) if (!(m.id in partnerOf)) partnerOf[m.id] = g.connector.id;
         const cr: Record<string, number> = {};
         for (const id of ids) cr[id] = 0;
         for (const r of (pay.data || []) as any[]) if (partnerOf[r.hopeful_id] === r.connector_id) cr[r.hopeful_id] += Number(r.sessions_remaining) || 0;
@@ -305,7 +306,8 @@ export default function MatchingScreen() {
         const active = m.status !== 'rejected' && !m.settlement_completed;
         const pk = [m.hopeful_1_id, m.hopeful_2_id].sort().join('|');
         if (m.settlement_completed) pairs[pk] = 'met';
-        else if (m.status === 'rejected' && pairs[pk] !== 'met') pairs[pk] = 'rejected';
+        // 회원·파트너가 직접 거절한 경우만 (답이 없어 끝났거나 취소된 매칭은 제외)
+        else if (m.status === 'rejected' && !m.closed_reason && pairs[pk] !== 'met') pairs[pk] = 'rejected';
         for (const id of [m.hopeful_1_id, m.hopeful_2_id]) {
           if (!ids.includes(id)) continue;
           const cur = map[id];
@@ -315,7 +317,8 @@ export default function MatchingScreen() {
       setLastMatch(map);
       setPairHistory(pairs);
     })();
-  }, [ownMembers, allyMembersForRest, matchRequests.length]);
+  // 15초마다 목록을 다시 받아도 회원 구성이 그대로면 다시 조회하지 않는다
+  }, [ownMembers.map((m) => m.id).join(','), allyMembersForRest.join(','), matchRequests.length]);
 
   // 회원 탭에서 골라 온 회원이 만남중이거나 이용권이 없으면 선택을 풀고 알려준다
   useEffect(() => {
@@ -498,6 +501,8 @@ export default function MatchingScreen() {
         .eq('id', matchId)
         .single();
       if (fresh?.connector_1_consented && fresh?.connector_2_consented && match.hopeful_1?.id && match.hopeful_2?.id) {
+        // 회원 답변 기한(7일)을 이때부터 센다. consented_at 칸이 아직 없으면 조용히 넘어간다
+        await supabase.from('match_requests').update({ consented_at: new Date().toISOString() }).eq('id', matchId).then(() => {}, () => {});
         await Promise.all([
           createNotification({ userId: match.hopeful_1.id, type: 'match_proposed', title: '새로운 매칭 제안이 도착했습니다', route: '/home' }),
           createNotification({ userId: match.hopeful_2.id, type: 'match_proposed', title: '새로운 매칭 제안이 도착했습니다', route: '/home' }),
@@ -553,7 +558,11 @@ export default function MatchingScreen() {
       } else {
         const col = side === 1 ? 'after_care_hopeful_1' : 'after_care_hopeful_2';
         const { error } = await supabase.from('match_requests')
-          .update({ [col]: null, [side === 1 ? 'after_care_requested_at_1' : 'after_care_requested_at_2']: null })
+          .update({
+            [col]: null, [side === 1 ? 'after_care_requested_at_1' : 'after_care_requested_at_2']: null,
+            // 다시 고를 시간을 주려고 애프터 기한(7일)을 지금부터 다시 센다
+            meeting_completed_at: new Date().toISOString(),
+          })
           .eq('id', item.id).eq(col, '노쇼신고').eq('settlement_completed', false);
         if (error) throw error;
         await createNotification({ userId: reporterId, type: 'no_show_rejected', title: '만남이 있었던 것으로 확인됐어요', body: '파트너가 확인했어요. 홈에서 애프터 의사를 다시 골라 주세요', route: '/home' });

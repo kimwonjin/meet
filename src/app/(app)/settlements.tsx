@@ -60,7 +60,7 @@ export default function SettlementsScreen() {
 
       if (error) throw error;
 
-      const userIds = (data || []).flatMap((s: any) => [s.hopeful_id, s.connector_id]);
+      const userIds = [...new Set((data || []).flatMap((s: any) => [s.hopeful_id, s.connector_id]))];
       const { data: users } = await supabase.from('users').select('id, name').in('id', userIds.length ? userIds : ['00000000-0000-0000-0000-000000000000']);
 
       const enriched = (data || []).map((s: any) => ({
@@ -532,7 +532,7 @@ export default function SettlementsScreen() {
 
                 <View style={styles.paidBadge}>
                   <Text style={styles.paidBadgeText}>
-                    ✓ {item.settled_at ? new Date(item.settled_at).toLocaleDateString('ko-KR') : ''}
+                    ✓ {item.settled_at ? `${new Date(item.settled_at).toLocaleDateString('ko-KR')} 지급` : '지급'}
                   </Text>
                 </View>
               </View>

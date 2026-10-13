@@ -33,7 +33,7 @@ export async function blockUser(blockerId: string, blockedId: string) {
 async function closeMatchesBetween(a: string, b: string) {
   const { data } = await supabase
     .from('match_requests')
-    .select('id, hopeful_1_id, hopeful_2_id, connector_1_id, connector_2_id, status, settlement_completed, meeting_status')
+    .select('id, hopeful_1_id, hopeful_2_id, connector_1_id, connector_2_id, connector_1_consented, connector_2_consented, status, settlement_completed, meeting_status')
     .in('hopeful_1_id', [a, b])
     .in('hopeful_2_id', [a, b]);
   const open = (data || []).filter((m: any) => m.status !== 'rejected' && !m.settlement_completed && m.meeting_status !== 'completed');
@@ -43,7 +43,10 @@ async function closeMatchesBetween(a: string, b: string) {
     const connectors = [...new Set<string>([m.connector_1_id, m.connector_2_id].filter(Boolean))];
     await Promise.all([
       ...connectors.map((id) => createNotification({ userId: id, type: 'match_closed', title: '매칭이 종료되었어요', body: '회원 사정으로 이번 매칭이 진행되지 않게 되었어요', route: '/matching' })),
-      createNotification({ userId: b, type: 'match_closed', title: '이번 소개는 진행되지 않게 되었어요', body: '이용권은 차감되지 않았어요', route: '/home' }),
+      // 상대 회원에게는 제안이 전달된 경우(동맹 매칭은 두 파트너 동의 후)만 알린다
+      ...(m.connector_1_id === m.connector_2_id || (m.connector_1_consented && m.connector_2_consented)
+        ? [createNotification({ userId: b, type: 'match_closed', title: '이번 소개는 진행되지 않게 되었어요', body: '이용권은 차감되지 않았어요', route: '/home' })]
+        : []),
     ]);
   }
 }

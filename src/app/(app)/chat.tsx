@@ -125,7 +125,13 @@ export default function ChatScreen() {
       activeThreadRef.current = threadId;
       setActiveThreadId(threadId);
       const block = operator?.id === otherId ? { iBlocked: false, blockedMe: false } : await getBlockState(user.id, otherId);
-      setActiveOther({ id: otherId, name: otherName || known?.otherName || operator?.name || '상대방', withdrawn, ...block });
+      let name = otherName || known?.otherName || (operator?.id === otherId ? operator?.name : undefined);
+      if (!name) {
+        // 이름 없이 채팅으로 바로 들어온 경우 (예: 홈의 채팅 확인하기)
+        const { data } = await supabase.from('users').select('name').eq('id', otherId).maybeSingle();
+        name = data?.name;
+      }
+      setActiveOther({ id: otherId, name: name || '상대방', withdrawn, ...block });
       setMessages([]);
       const msgs = await fetchMessages(threadId);
       if (activeThreadRef.current !== threadId) return;

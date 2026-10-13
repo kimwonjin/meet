@@ -151,10 +151,7 @@ export default function HomeScreen() {
         if (expiredConn.some(Boolean) && !retried) return fetchDashboard(true);
 
         // 매칭 데이터와 희망자 정보 결합
-        const hopefulUserIds = (matchData || []).flatMap((m: any) => [
-          m.hopeful_1_id,
-          m.hopeful_2_id,
-        ]);
+        const hopefulUserIds = [...new Set((matchData || []).flatMap((m: any) => [m.hopeful_1_id, m.hopeful_2_id]))];
         const { data: matchHopefuls } = await supabase
           .from('users')
           .select('*')

@@ -127,6 +127,7 @@ type ProposalMatch = {
   connector_1_id?: string; connector_2_id?: string;
   connector_1_consented?: boolean; connector_2_consented?: boolean;
   hopeful_1_approved?: boolean; hopeful_2_approved?: boolean;
+  consented_at?: string | null;
 };
 
 // 별도 서버 작업 없이 화면을 열 때 처리한다. 실제로 종료한 경우 true (여러 화면이 동시에 해도 한 번만 알린다)
@@ -135,13 +136,15 @@ export async function expireStaleProposalIfDue(m: ProposalMatch) {
   const consentDone = m.connector_1_id === m.connector_2_id || (m.connector_1_consented && m.connector_2_consented);
   const membersDone = m.hopeful_1_approved && m.hopeful_2_approved;
   if (consentDone && membersDone) return false;
-  const due = new Date(m.created_at);
+  // 동맹 매칭은 두 파트너 동의가 끝난 뒤에야 회원에게 전달되므로, 그때부터 다시 센다 (consented_at 칸이 없으면 만든 날 기준)
+  const start = consentDone && m.consented_at && m.consented_at > m.created_at ? m.consented_at : m.created_at;
+  const due = new Date(start);
   due.setDate(due.getDate() + PROPOSAL_EXPIRE_DAYS);
   if (Date.now() < due.getTime()) return false;
 
   const { data: closed } = await supabase
     .from('match_requests')
-    .update({ status: 'rejected' })
+    .update({ status: 'rejected', closed_reason: 'expired' })
     .eq('id', m.id)
     .neq('status', 'rejected')
     .eq('settlement_completed', false)
