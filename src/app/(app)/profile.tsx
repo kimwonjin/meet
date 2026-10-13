@@ -1538,15 +1538,15 @@ export default function ProfileScreen() {
                   <View style={styles.statsContainer}>
                     <View style={styles.statBox}>
                       <Text style={styles.statLabel}>쌓인 정산금</Text>
-                      <Text style={styles.statValue}>{earned.toLocaleString()}원</Text>
+                      <Text style={[styles.statValue, moneyFit(earned)]} numberOfLines={1}>{earned.toLocaleString()}원</Text>
                     </View>
                     <View style={styles.statBox}>
                       <Text style={styles.statLabel}>내 통장 입금</Text>
-                      <Text style={styles.statValue}>{paidOut.toLocaleString()}원</Text>
+                      <Text style={[styles.statValue, moneyFit(paidOut)]} numberOfLines={1}>{paidOut.toLocaleString()}원</Text>
                     </View>
                     <View style={styles.statBox}>
                       <Text style={styles.statLabel}>출금 가능</Text>
-                      <Text style={[styles.statValue, { color: '#5B21FF' }]}>{available.toLocaleString()}원</Text>
+                      <Text style={[styles.statValue, moneyFit(available), { color: '#5B21FF' }]} numberOfLines={1}>{available.toLocaleString()}원</Text>
                     </View>
                   </View>
                   {available > 0 && (
@@ -1752,6 +1752,12 @@ export default function ProfileScreen() {
       </BottomSheet>
     </SafeAreaView>
   );
+}
+
+// 금액 칸이 좁아 '원'이 다음 줄로 넘어가지 않도록, 자릿수가 길면 글자를 줄인다
+function moneyFit(n: number) {
+  const len = `${n.toLocaleString()}원`.length;
+  return { fontSize: len <= 6 ? 18 : len <= 9 ? 15 : 13 };
 }
 
 const styles = StyleSheet.create({
@@ -2131,7 +2137,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1ECFF',
     borderRadius: 12,
     paddingVertical: 16,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E8E0FF',
