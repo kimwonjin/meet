@@ -20,9 +20,11 @@ export function useMemberFilter() {
   const active = !!query.trim() || gender !== 'all' || ages.length > 0 || regions.length > 0;
   const chipCount = (gender !== 'all' ? 1 : 0) + ages.length + regions.length;
 
-  function passes(m: FilterableMember, keepIds: string[] = []) {
+  // partnerName: 동맹 회원이면 소속 파트너 이름도 같이 찾는다
+  function passes(m: FilterableMember, keepIds: string[] = [], partnerName?: string) {
     if (keepIds.includes(m.id)) return true;
-    if (query.trim() && !(m.name || '').includes(query.trim())) return false;
+    const q = query.trim();
+    if (q && !(m.name || '').includes(q) && !(partnerName || '').includes(q)) return false;
     if (gender !== 'all' && m.gender !== gender) return false;
     if (ages.length) {
       if (!m.age) return false;
@@ -71,7 +73,7 @@ export function useMemberFilter() {
         <View style={styles.topRow}>
           <TextInput
             style={styles.search}
-            placeholder="🔍 이름으로 찾기"
+            placeholder="🔍 회원·파트너 이름으로 찾기"
             placeholderTextColor="#A9A6AF"
             value={query}
             onChangeText={setQuery}

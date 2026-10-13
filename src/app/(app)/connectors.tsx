@@ -470,7 +470,7 @@ export default function ConnectorsScreen() {
   // connector면 회원 관리 화면
   if (user?.role === 'connector') {
     const tabMembers = tabStatus === 'ally' ? allyMembers : allRequests.filter(r => r.request_status === tabStatus);
-    const displayRequests = tabMembers.filter((m: any) => memberFilter.passes(m));
+    const displayRequests = tabMembers.filter((m: any) => memberFilter.passes(m, [], m.ally_connector_name));
     const emptyText = {
       approved: '승인한 회원이 없습니다',
       pending: '대기 중인 요청이 없습니다',

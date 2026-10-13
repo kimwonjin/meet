@@ -834,7 +834,8 @@ export default function MatchingScreen() {
   // 회원 후보 목록: 줄을 누르면 선택, 사진을 누르면 프로필 크게 보기
   function renderMemberChips(allMembers: Member[], connectorId: string) {
     // 이미 고른 회원은 필터와 관계없이 계속 보인다
-    const members = allMembers.filter((m) => memberFilter.passes(m, selectedForMatch.map((x) => x.id)));
+    const partnerName = allyConnectors.find((c) => c.id === connectorId)?.name;
+    const members = allMembers.filter((m) => memberFilter.passes(m, selectedForMatch.map((x) => x.id), partnerName));
     // 오래 쉰 회원 먼저 (기본): 이력 없음 → 오래전 매칭 → 최근 매칭, 진행 중인 회원은 맨 뒤
     {
       // 지금 고를 수 없는 회원(만남중·이용권 없음·같은 성별 등)은 맨 뒤로
