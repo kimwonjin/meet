@@ -1,15 +1,18 @@
 -- 테스트 데이터: 010-4444
--- 파트너 10명: 010-4444-0001 ~ 0010
--- 파트너 k의 회원 9명: 010-4444-(k*10+2) ~ (k*10+10)
---   예) 0001 → 0012~0020, 0002 → 0022~0030, … 0010 → 0102~0110
--- 회원 번호 끝자리 짝수 = 남자, 홀수 = 여자. 프로필·사진은 무작위
+-- 앞 두 자리 = 파트너 번호, 뒤 두 자리 = 00은 파트너, 01~09는 그 파트너의 회원
+--   1번 파트너 010-4444-0100 → 회원 0101 ~ 0109
+--   2번 파트너 010-4444-0200 → 회원 0201 ~ 0209
+--   …
+--  10번 파트너 010-4444-1000 → 회원 1001 ~ 1009
+-- 회원 끝자리 홀수 = 여자(5명), 짝수 = 남자(4명). 프로필·사진은 무작위
+-- 회원마다 담당 파트너 이용권 10회
 -- 다시 실행해도 중복으로 생기지 않는다
 
 BEGIN;
 
 -- 1) 파트너
 INSERT INTO users (phone, name, birth_date, gender, role)
-SELECT '010-4444-' || lpad(k::text, 4, '0'),
+SELECT '010-4444-' || lpad((k * 100)::text, 4, '0'),
        '테스트파트너' || k, '1985-01-01', 'M', 'connector'
 FROM generate_series(1, 10) k
 ON CONFLICT (phone) DO NOTHING;
@@ -24,15 +27,15 @@ SELECT u.id,
        '진지한 만남을 원하는 분들을 정성껏 소개해 드려요.',
        'APPROVED'
 FROM generate_series(1, 10) k
-JOIN users u ON u.phone = '010-4444-' || lpad(k::text, 4, '0')
+JOIN users u ON u.phone = '010-4444-' || lpad((k * 100)::text, 4, '0')
 ON CONFLICT (id) DO NOTHING;
 
 -- 2) 회원 (90명)
 WITH m AS (
-  SELECT k, n, k * 10 + n AS num,
-         CASE WHEN (k * 10 + n) % 2 = 0 THEN 'M' ELSE 'F' END AS g,
+  SELECT k, n, k * 100 + n AS num,
+         CASE WHEN n % 2 = 0 THEN 'M' ELSE 'F' END AS g,
          make_date(1986 + floor(random() * 14)::int, 1 + floor(random() * 12)::int, 1 + floor(random() * 28)::int) AS bd
-  FROM generate_series(1, 10) k, generate_series(2, 10) n
+  FROM generate_series(1, 10) k, generate_series(1, 9) n
 )
 INSERT INTO users (phone, name, birth_date, age, gender, role,
                    location, height, job, education, bio, religion, smoking, drinking, body_type, photo_urls)
@@ -59,7 +62,7 @@ SELECT '010-4444-' || lpad(num::text, 4, '0'),
        (ARRAY['비흡연','비흡연','비흡연','흡연','가끔'])[1 + floor(random() * 5)::int],
        (ARRAY['비음주','가끔','가끔','자주'])[1 + floor(random() * 4)::int],
        (ARRAY['마름','보통','보통','통통','근육질'])[1 + floor(random() * 5)::int],
-       ARRAY['https://randomuser.me/api/portraits/' || CASE WHEN g = 'M' THEN 'men' ELSE 'women' END || '/' || (num % 100) || '.jpg']
+       ARRAY['https://randomuser.me/api/portraits/' || CASE WHEN g = 'M' THEN 'men' ELSE 'women' END || '/' || (k * 9 + n) || '.jpg']
 FROM m
 ON CONFLICT (phone) DO NOTHING;
 
@@ -67,18 +70,28 @@ ON CONFLICT (phone) DO NOTHING;
 INSERT INTO hopeful_requests (hopeful_id, connector_id, status, message)
 SELECT h.id, c.id, 'approved', h.name || '님이 가입을 요청했습니다.'
 FROM generate_series(1, 10) k
-CROSS JOIN generate_series(2, 10) n
-JOIN users c ON c.phone = '010-4444-' || lpad(k::text, 4, '0')
-JOIN users h ON h.phone = '010-4444-' || lpad((k * 10 + n)::text, 4, '0')
+CROSS JOIN generate_series(1, 9) n
+JOIN users c ON c.phone = '010-4444-' || lpad((k * 100)::text, 4, '0')
+JOIN users h ON h.phone = '010-4444-' || lpad((k * 100 + n)::text, 4, '0')
 WHERE NOT EXISTS (SELECT 1 FROM hopeful_requests r WHERE r.hopeful_id = h.id AND r.connector_id = c.id);
+
+-- 4) 이용권 10회씩
+INSERT INTO payments (hopeful_id, connector_id, session_count, amount_total, amount_per_session, sessions_remaining, status, pg_provider, paid_at)
+SELECT r.hopeful_id, r.connector_id, 10, c.fee_per_session * 10, c.fee_per_session, 10, 'paid', 'mock', now()
+FROM hopeful_requests r
+JOIN users h ON h.id = r.hopeful_id
+JOIN connectors c ON c.id = r.connector_id
+WHERE h.phone LIKE '010-4444-%' AND r.status = 'approved'
+  AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.hopeful_id = r.hopeful_id AND p.connector_id = r.connector_id);
 
 COMMIT;
 
--- 확인
+-- 확인: 파트너 10줄, 각 회원 9 · 남 4 · 여 5 · 이용권 90
 SELECT c.phone AS 파트너, count(*) AS 회원수,
-       count(*) FILTER (WHERE h.gender = 'M') AS 남, count(*) FILTER (WHERE h.gender = 'F') AS 여
+       count(*) FILTER (WHERE h.gender = 'M') AS 남, count(*) FILTER (WHERE h.gender = 'F') AS 여,
+       (SELECT sum(p.sessions_remaining) FROM payments p WHERE p.connector_id = c.id AND p.status = 'paid') AS 이용권
 FROM hopeful_requests r
 JOIN users c ON c.id = r.connector_id
 JOIN users h ON h.id = r.hopeful_id
 WHERE c.phone LIKE '010-4444-%' AND r.status = 'approved'
-GROUP BY c.phone ORDER BY c.phone;
+GROUP BY c.id, c.phone ORDER BY c.phone;
