@@ -837,7 +837,6 @@ export default function ConnectorsScreen() {
             </View>
           </TouchableOpacity>
         )}
-        scrollEnabled={false}
         contentContainerStyle={styles.list}
       />
 
