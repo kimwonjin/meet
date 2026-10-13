@@ -122,14 +122,7 @@ export default function MatchingScreen() {
   const [selectedForMatch, setSelectedForMatch] = useState<{ id: string; connectorId: string }[]>([]);
   const [proposing, setProposing] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchMatches();
-      fetchOwnMembers();
-      fetchAllyConnectors();
-    }
-  }, [user]);
-
+  // 화면에 들어올 때 한 번 + 15초마다 (처음 열 때 두 번 불러오지 않도록 이것 하나로)
   useFocusPolling(() => {
     fetchMatches();
     fetchOwnMembers();
@@ -262,17 +255,20 @@ export default function MatchingScreen() {
   }
 
   async function fetchAllyMembers(allies: { id: string; name: string }[]) {
-    const groups = await Promise.all(allies.map(async (conn) => {
-      const { data } = await supabase
-        .from('hopeful_requests')
-        .select('hopeful_id')
-        .eq('connector_id', conn.id)
-        .eq('status', 'approved');
-      const ids = (data || []).map((r: any) => r.hopeful_id);
-      if (ids.length === 0) return { connector: conn, members: [] as Member[] };
-      const { data: users } = await supabase.from('users').select(MEMBER_FIELDS).in('id', ids);
-      return { connector: conn, members: active(users) };
-    }));
+    // 동맹 파트너 수와 관계없이 두 번의 조회로 가져온다
+    const { data: reqs } = await supabase
+      .from('hopeful_requests')
+      .select('hopeful_id, connector_id')
+      .in('connector_id', allies.map((c) => c.id))
+      .eq('status', 'approved');
+    const memberIds = [...new Set((reqs || []).map((r: any) => r.hopeful_id))];
+    const { data: users } = memberIds.length
+      ? await supabase.from('users').select(MEMBER_FIELDS).in('id', memberIds)
+      : { data: [] as any[] };
+    const groups = allies.map((conn) => {
+      const ids = new Set((reqs || []).filter((r: any) => r.connector_id === conn.id).map((r: any) => r.hopeful_id));
+      return { connector: conn, members: active((users || []).filter((u: any) => ids.has(u.id))) };
+    });
     setAllyMembers(groups);
     setAllyMembersForRest(groups.flatMap((g: any) => g.members.map((m: any) => m.id)));
   }

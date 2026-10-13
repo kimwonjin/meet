@@ -3,7 +3,7 @@ import BottomSheet from '@/components/BottomSheet';
 import SkeletonScreen from '@/components/Skeleton';
 import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, TextInput } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { Redirect, useFocusEffect } from 'expo-router';
 import { partnerIntro } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
@@ -450,6 +450,11 @@ export default function SettlementsScreen() {
                   <Text style={styles.freeHint}>무료 이용권으로 성사된 만남은 정산금·수수료가 0원이에요. 한 파트너가 유독 많이 주면 확인해 보세요.</Text>
                 </View>
   ) : null;
+
+  // 운영자 전용 화면: 주소를 직접 입력해 들어온 회원·파트너는 홈으로
+  if (user && user.role !== 'operator') {
+    return <Redirect href="/home" />;
+  }
 
   return (
     <View style={styles.container}>

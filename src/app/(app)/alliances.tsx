@@ -11,7 +11,7 @@ import {
   FlatList,
   TextInput,
 } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import BottomSheet from '@/components/BottomSheet';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -260,6 +260,11 @@ export default function AlliancesScreen() {
 
   if (loading) {
     return <SkeletonScreen />;
+  }
+
+  // 동맹은 파트너끼리만 (회원이 주소로 직접 들어온 경우 홈으로)
+  if (user && user.role !== 'connector') {
+    return <Redirect href="/home" />;
   }
 
   return (
