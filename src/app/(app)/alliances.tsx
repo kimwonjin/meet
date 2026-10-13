@@ -357,7 +357,7 @@ export default function AlliancesScreen() {
                           {composing && matchCount(item) !== null ? <Text style={styles.fMatch}>  조건에 맞는 회원 {matchCount(item)}명</Text> : null}
                         </Text>
                       )}
-                      <Text style={styles.desc}>{isActive ? '동맹 중 · ' : isIncoming ? '동맹 요청이 왔어요 · ' : ''}프로필 보기 ›</Text>
+                      <Text style={styles.desc}>{isActive ? '동맹 중 · ' : ''}프로필 보기 ›</Text>
                     </View>
                   </View>
                 </TouchableOpacity>

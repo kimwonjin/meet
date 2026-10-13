@@ -229,9 +229,11 @@ export default function ChatScreen() {
               <View style={styles.threadInfo}>
                 <View style={styles.threadTopRow}>
                   <Text style={styles.threadName}>{operator!.name}</Text>
-                  <View style={styles.roleBadge}>
-                    <Text style={styles.roleBadgeText}>운영자</Text>
-                  </View>
+                  {filter === '전체' && (
+                    <View style={styles.roleBadge}>
+                      <Text style={styles.roleBadgeText}>운영자</Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={styles.threadPreview} numberOfLines={1}>
                   {operatorThread?.lastMessagePreview || '운영자에게 문의하기'}
@@ -260,9 +262,12 @@ export default function ChatScreen() {
             <View style={styles.threadInfo}>
               <View style={styles.threadTopRow}>
                 <Text style={styles.threadName}>{item.otherName}</Text>
-                <View style={styles.roleBadge}>
-                  <Text style={styles.roleBadgeText}>{roleLabel(item.otherRole)}</Text>
-                </View>
+                {/* 역할 필터를 고른 상태에서는 모든 줄이 같은 역할이라 배지를 숨긴다 */}
+                {filter === '전체' && (
+                  <View style={styles.roleBadge}>
+                    <Text style={styles.roleBadgeText}>{roleLabel(item.otherRole)}</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.threadPreview} numberOfLines={1}>
                 {item.lastMessagePreview || '대화를 시작해보세요'}

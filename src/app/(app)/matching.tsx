@@ -1088,7 +1088,7 @@ export default function MatchingScreen() {
         {!consentDone ? (
           needsMyConsent ? (
             <>
-              <Text style={styles.consentHint}>위 두 회원 프로필을 눌러 확인한 뒤 동의해 주세요</Text>
+              <Text style={styles.consentHint}>위 두 회원 프로필을 눌러 확인해 주세요</Text>
               <TouchableOpacity
                 style={[styles.actionBtn, processingId === item.id && styles.buttonDisabled]}
                 onPress={() => handleConsentApprove(item.id)}

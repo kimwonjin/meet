@@ -1062,7 +1062,7 @@ export default function HomeScreen() {
           {/* 참여 의사 대기 */}
           {myApproved && !bothApproved && (
             <View style={styles.waitingMessage}>
-              <Text style={styles.waitingText}>✓ 승인했습니다. 상대방의 승인을 기다리는 중입니다.</Text>
+              <Text style={styles.waitingText}>상대의 답을 기다리는 중이에요.</Text>
             </View>
           )}
 
@@ -1092,7 +1092,7 @@ export default function HomeScreen() {
             item.meeting_scheduled_at ? (
               // 연락처는 화면에 보여주지 않고 담당 파트너와의 채팅으로만 전달된다
               <View style={styles.meetingBox}>
-                <Text style={styles.meetingDate}>📅 {formatMeetingDate(item.meeting_scheduled_at)} 소개팅</Text>
+                <Text style={styles.meetingDate}>📅 {formatMeetingDate(item.meeting_scheduled_at)}</Text>
                 <Text style={styles.meetingHint}>상대 연락처를 채팅으로 보내드렸어요. 시간과 장소는 서로 연락해 정해주세요.</Text>
                 <TouchableOpacity
                   style={styles.openChatBtn}
@@ -1127,7 +1127,7 @@ export default function HomeScreen() {
           ((item.isHopeful1 && !item.after_care_hopeful_1) ||
             (!item.isHopeful1 && !item.after_care_hopeful_2)) && (
             <View style={styles.afterCareSection}>
-              <Text style={styles.afterCareLabel}>소개팅은 어떠셨나요? 두 분 모두 고른 뒤에 결과를 알려드려요</Text>
+              <Text style={styles.afterCareLabel}>두 분 모두 고른 뒤에 결과를 알려드려요</Text>
               {!!item.meeting_completed_at && (
                 <Text style={styles.afterCareDeadline}>
                   {formatDeadline(afterCareDeadline(item.meeting_completed_at))}까지 고르지 않으면 '이번이 마지막이에요'로 처리돼요

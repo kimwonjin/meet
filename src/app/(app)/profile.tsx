@@ -1201,9 +1201,6 @@ export default function ProfileScreen() {
               <ActivityIndicator color="#5B21FF" style={{ marginVertical: 32 }} />
             ) : connectorApplicationStatus === 'approved' ? (
               <>
-                <Text style={{ color: '#65626B', fontSize: 13, marginBottom: 20, lineHeight: 20 }}>
-                  이미 승인된 매칭 파트너입니다.{'\n'}파트너 화면으로 돌아갈 수 있어요.
-                </Text>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.modalBtnConfirm, loading && styles.modalBtnDisabled]}
                   onPress={handleSwitchToConnector}
@@ -1562,7 +1559,7 @@ export default function ProfileScreen() {
               {mySettlements.map((s) => (
                 <View key={s.id} style={styles.creditCard}>
                   <View style={styles.creditCardHeader}>
-                    <Text style={styles.creditConnectorName}>{s.hopefulName}님의 이용권 사용</Text>
+                    <Text style={styles.creditConnectorName}>{s.hopefulName}님</Text>
                     <Text style={styles.creditFee}>{new Date(s.created_at).toLocaleDateString('ko-KR')}</Text>
                   </View>
                   <View style={styles.infoRow}>

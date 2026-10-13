@@ -538,7 +538,7 @@ export default function ConnectorsScreen() {
                       <Text style={styles.desc}>
                         {tabStatus === 'ally'
                           ? [item.ally_connector_name + ' 소속', item.gender === 'M' ? '남' : item.gender === 'F' ? '여' : null, item.age && `${item.age}세`, item.location].filter(Boolean).join(' · ')
-                          : [item.gender === 'M' ? '남' : item.gender === 'F' ? '여' : null, item.age && `${item.age}세`, item.location].filter(Boolean).join(' · ') || (tabStatus === 'pending' ? '가입 요청' : '내 회원')}
+                          : [item.gender === 'M' ? '남' : item.gender === 'F' ? '여' : null, item.age && `${item.age}세`, item.location].filter(Boolean).join(' · ')}
                       </Text>
                     </View>
                     {tabStatus !== 'ally' && (
@@ -568,7 +568,7 @@ export default function ConnectorsScreen() {
                 )}
                 {tabStatus === 'ally' && !!item.ally_connector_id && (
                   <View style={styles.meta}>
-                    <Text style={styles.desc}>담당 {item.ally_connector_name}</Text>
+                    <View />
                     <TouchableOpacity
                       style={styles.chatShortcutBtn}
                       onPress={() => router.push({ pathname: '/chat', params: { with: item.ally_connector_id, name: item.ally_connector_name } })}
@@ -580,7 +580,8 @@ export default function ConnectorsScreen() {
                 )}
                 {tabStatus === 'approved' && (
                   <View style={styles.meta}>
-                    <Text style={styles.approvedStatusBadge}>✓ 승인됨</Text>
+                    {/* '승인함' 탭이라 '승인됨' 표시는 두지 않는다 */}
+                    <View />
                     <TouchableOpacity
                       style={styles.chatShortcutBtn}
                       onPress={() => router.push({ pathname: '/chat', params: { with: item.id, name: item.business_name } })}
@@ -700,7 +701,7 @@ export default function ConnectorsScreen() {
   // 이용권 구매 칸 (파트너 정보 시트 안. 구매하러 들어온 경우 맨 위에)
   const purchaseBlock = selectedConnector ? (
     <>
-                        <Text style={styles.modalSectionTitle}>이용권 구매</Text>
+                        {!buyFirst && <Text style={styles.modalSectionTitle}>이용권 구매</Text>}
                         <View style={styles.infoRow}>
                           <Text style={styles.infoLabel}>사용할 수 있는 이용권</Text>
                           <Text style={styles.infoValue}>{myCredit}회{freeWithinAvailable(myFree.free, myFree.total, myCredit) > 0 ? ` (무료 ${freeWithinAvailable(myFree.free, myFree.total, myCredit)}회 포함)` : ''}</Text>
@@ -810,9 +811,8 @@ export default function ConnectorsScreen() {
                 <View style={styles.nameRow}>
                   <Text style={styles.name}>{item.business_name}</Text>
                   {item.verified && <View style={styles.badge}><Text style={styles.badgeText}>인증</Text></View>}
-                  {item.is_approved && <View style={styles.approvedBadge}><Text style={styles.approvedBadgeText}>✓ 승인됨</Text></View>}
+                  {item.is_approved && <View style={styles.approvedBadge}><Text style={styles.approvedBadgeText}>내 파트너</Text></View>}
                 </View>
-                <Text style={styles.desc}>파트너</Text>
               </View>
             </View>
             {/* 고르는 데 필요한 지표: 나와 맞는 이성 · 최근 소개 활동 · 별점 */}
@@ -847,8 +847,7 @@ export default function ConnectorsScreen() {
                       <Avatar photoUrls={selectedConnector.partner_photo_urls} size={80} />
                       <Text style={styles.modalTitle}>{selectedConnector.business_name}</Text>
                       <Text style={styles.partnerSub}>
-                        {selectedConnector.name ? `${selectedConnector.name} 파트너` : '파트너'}
-                        {selectedConnector.verified ? ' · ✓ 인증' : ''}
+                        {[selectedConnector.name && `${selectedConnector.name} 파트너`, selectedConnector.verified && '✓ 인증'].filter(Boolean).join(' · ')}
                       </Text>
                     </View>
 
@@ -941,10 +940,6 @@ export default function ConnectorsScreen() {
 
                     {selectedConnector.is_approved ? (
                       <View style={styles.modalSection}>
-                        <View style={styles.approvedStatus}>
-                          <Text style={styles.approvedStatusText}>✓ 이미 승인된 파트너입니다</Text>
-                        </View>
-
                         <TouchableOpacity
                           style={styles.chatShortcutBtnWide}
                           onPress={() => {

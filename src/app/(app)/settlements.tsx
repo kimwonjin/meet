@@ -532,7 +532,7 @@ export default function SettlementsScreen() {
 
                 <View style={styles.paidBadge}>
                   <Text style={styles.paidBadgeText}>
-                    ✓ {item.settled_at ? new Date(item.settled_at).toLocaleDateString('ko-KR') : ''} 정산 완료
+                    ✓ {item.settled_at ? new Date(item.settled_at).toLocaleDateString('ko-KR') : ''}
                   </Text>
                 </View>
               </View>

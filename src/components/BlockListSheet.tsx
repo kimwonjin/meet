@@ -42,7 +42,7 @@ export default function BlockListSheet({ visible, onClose }: { visible: boolean;
           <View key={b.id} style={styles.row}>
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{b.name}</Text>
-              <Text style={styles.date}>{new Date(b.created_at).toLocaleDateString('ko-KR')} 차단</Text>
+              <Text style={styles.date}>{new Date(b.created_at).toLocaleDateString('ko-KR')}</Text>
             </View>
             <TouchableOpacity style={styles.btn} onPress={() => unblock(b.id, b.name)} disabled={busyId !== null}>
               {busyId === b.id ? <ActivityIndicator size="small" color="#5B21FF" /> : <Text style={styles.btnText}>차단 해제</Text>}
