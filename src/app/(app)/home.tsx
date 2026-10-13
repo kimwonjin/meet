@@ -59,6 +59,8 @@ export default function HomeScreen() {
   // Hopeful states
   const [receivedMatches, setReceivedMatches] = useState<any[]>([]);
   const [remainingSessions, setRemainingSessions] = useState<number | null>(null);
+  // 진행 중인 소개에 쓰일 이용권 (끝나면 차감되거나 돌아온다)
+  const [inUseSessions, setInUseSessions] = useState(0);
   // 회원 홈 시트: 소개 카드 목록(ids), profileOf가 있으면 그 소개의 상대 프로필
   const [matchSheet, setMatchSheet] = useState<{ title: string; ids: string[]; profileOf?: string } | null>(null);
   const [freeSessions, setFreeSessions] = useState(0);
@@ -309,6 +311,7 @@ export default function HomeScreen() {
 
         const { data: credits } = await getMyConnectorCredits(user!.id);
         setRemainingSessions((credits || []).reduce((sum: number, c: any) => sum + c.available, 0));
+        setInUseSessions((reqData || []).filter((r: any) => !r.settlement_completed).length);
         setFreeSessions((credits || []).reduce((sum: number, c: any) => sum + Math.min(c.freeAvailable || 0, c.available), 0));
 
         // 소개해 준 파트너 이름 (카드에 '○○ 추천')
@@ -1310,6 +1313,7 @@ export default function HomeScreen() {
         <Text style={styles.mCreditL}>남은 이용권</Text>
         <Text style={styles.mCreditV}>
           {remainingSessions === null ? '-' : `${remainingSessions}회`}
+          {inUseSessions > 0 && remainingSessions ? <Text style={styles.mCreditS}>  진행 중 {Math.min(inUseSessions, remainingSessions)}회</Text> : null}
           {freeSessions > 0 && <Text style={styles.mCreditS}>  무료 {freeSessions}회 포함</Text>} ›
         </Text>
       </TouchableOpacity>

@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { createNotification } from '@/lib/notifications';
+import { closeOpenMatchesOf } from '@/lib/safety';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import NotificationBell from '@/components/NotificationBell';
 import { getRefundable } from '@/lib/refunds';
@@ -235,7 +236,8 @@ export default function SettlementsScreen() {
     try {
       const { error } = await supabase.from('users').update({ suspended_at: new Date().toISOString(), suspended_reason: reason }).eq('id', targetId);
       if (error) throw error;
-      toast.show('✓ 이용을 정지했습니다. 이 사람은 로그인할 수 없고 새 매칭에서 빠져요', 'success');
+      const closed = await closeOpenMatchesOf(targetId).catch((e) => { console.error('close on suspend error:', e); return 0; });
+      toast.show(`✓ 이용을 정지했습니다. 로그인할 수 없고 새 매칭에서 빠져요${closed ? ` (만나기 전 소개 ${closed}건 종료)` : ''}`, 'success');
       setSuspendTarget(null);
       await fetchReports();
     } catch (error) {
