@@ -1227,10 +1227,9 @@ export default function MatchingScreen() {
             {!noShowReporter(item) && item.meeting_status === 'completed' && (item.settlement_completed || (item.after_care_hopeful_1 && item.after_care_hopeful_2)) && (
               <View style={styles.statusMessage}>
                 <Text style={styles.statusMessageText}>
-                  ✓ 소개팅 완료
                   {item.settlement_completed
-                    ? item.closed_reason === 'no_show' ? ' - 노쇼 신고로 정산 없이 종료' : ' - 정산 완료'
-                    : ' - 결과 정리 중 (자동으로 다시 시도해요)'}
+                    ? item.closed_reason === 'no_show' ? '노쇼로 종료' : '✓ 완료'
+                    : '결과 정리 중 (자동으로 다시 시도해요)'}
                 </Text>
                 {item.closed_reason !== 'no_show' && item.after_care_hopeful_1 && item.after_care_hopeful_2 && (() => {
                   const o = afterCareOutcome(item.after_care_hopeful_1, item.after_care_hopeful_2, item.hopeful_1?.gender, item.hopeful_2?.gender, item.after_care_auto_1, item.after_care_auto_2);
@@ -1299,7 +1298,7 @@ export default function MatchingScreen() {
       </View>
 
       <View style={styles.viewRow}>
-        {([['active', '매칭'], ['history', `매칭내역${activeMatches.length ? ` (진행 ${activeMatches.length})` : ''}`]] as const).map(([key, label]) => (
+        {([['active', '새 매칭'], ['history', `매칭내역${activeMatches.length ? ` (진행 ${activeMatches.length})` : ''}`]] as const).map(([key, label]) => (
           <TouchableOpacity
             key={key}
             style={[styles.viewBtn, view === key && styles.viewBtnActive]}
