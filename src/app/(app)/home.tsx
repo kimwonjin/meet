@@ -26,7 +26,7 @@ import { formatMeetingDate } from '@/lib/format';
 import AvailableDatesSheet from '@/components/AvailableDatesSheet';
 import { toDateKey } from '@/components/CalendarGrid';
 import { autoScheduleMatch, earliestCommonDate } from '@/lib/schedule';
-import { afterCareDeadline, expireAfterCareIfDue, formatDeadline, notifyAfterCareResult } from '@/lib/afterCare';
+import { afterCareDeadline, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline, notifyAfterCareResult } from '@/lib/afterCare';
 import { Avatar } from '@/components/ProfilePhoto';
 import MemberProfileView from '@/components/MemberProfileView';
 import SafetyActions from '@/components/SafetyActions';
@@ -146,7 +146,8 @@ export default function HomeScreen() {
           .or(`connector_1_id.eq.${user!.id},connector_2_id.eq.${user!.id}`);
 
         // 애프터 응답 기한이 지났거나 마무리가 밀린 매칭은 정리하고 다시 불러온다
-        const expiredConn = await Promise.all((matchData || []).map((m: any) => expireAfterCareIfDue(m)));
+        // 답이 없어 멈춘 제안(7일)도 함께 정리한다
+        const expiredConn = await Promise.all((matchData || []).map(async (m: any) => (await expireStaleProposalIfDue(m)) || expireAfterCareIfDue(m)));
         if (expiredConn.some(Boolean) && !retried) return fetchDashboard(true);
 
         // 매칭 데이터와 희망자 정보 결합
@@ -306,7 +307,7 @@ export default function HomeScreen() {
         }
 
         // 애프터 응답 기한이 지난 매칭은 자동으로 마무리하고 다시 불러온다
-        const expired = await Promise.all(consentedReqData.map((r: any) => expireAfterCareIfDue(r)));
+        const expired = await Promise.all(consentedReqData.map(async (r: any) => (await expireStaleProposalIfDue(r)) || expireAfterCareIfDue(r)));
         if (expired.some(Boolean) && !retried) return fetchDashboard(true);
 
         const { data: credits } = await getMyConnectorCredits(user!.id);

@@ -26,7 +26,7 @@ import { formatMeetingDate } from '@/lib/format';
 import { earliestCommonDate, sendContactsViaChat } from '@/lib/schedule';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar } from '@/components/ProfilePhoto';
-import { AFTER_CARE_DAYS, afterCareDeadline, afterCareOutcome, expireAfterCareIfDue, formatDeadline } from '@/lib/afterCare';
+import { AFTER_CARE_DAYS, afterCareDeadline, afterCareOutcome, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline } from '@/lib/afterCare';
 
 
 // 매칭 후보로 고를 회원 (사진·나이·지역을 보고 고른다)
@@ -152,7 +152,8 @@ export default function MatchingScreen() {
         matchData = [...(myProposals || [])];
 
         // 애프터 응답 기한이 지난 매칭은 자동으로 마무리하고 다시 불러온다
-        const expired = await Promise.all(matchData.map((m: any) => expireAfterCareIfDue(m)));
+        // 답이 없어 멈춘 제안(7일)도 함께 정리한다
+        const expired = await Promise.all(matchData.map(async (m: any) => (await expireStaleProposalIfDue(m)) || expireAfterCareIfDue(m)));
         // 동맹 매칭: 한 파트너만 '만남 완료'를 눌렀고 만남 날짜에서 3일이 지나면 자동으로 완료한다 (상대 파트너가 잊은 경우)
         const stuck = matchData.filter((m: any) =>
           m.status !== 'rejected' && !m.settlement_completed && m.meeting_status !== 'completed' && m.meeting_scheduled_at &&

@@ -19,6 +19,7 @@ type AfterCareMatch = {
   status?: string;
   meeting_status?: string;
   meeting_completed_at?: string | null;
+  meeting_scheduled_at?: string | null;
   settlement_completed?: boolean;
   after_care_hopeful_1?: string | null;
   after_care_hopeful_2?: string | null;
@@ -43,8 +44,10 @@ export async function expireAfterCareIfDue(m: AfterCareMatch) {
     return !!settledNow;
   }
 
-  if (!m.meeting_completed_at) return false;
-  if (Date.now() < afterCareDeadline(m.meeting_completed_at).getTime()) return false;
+  // 만남 완료 시각이 없는 예전 매칭은 만남 날짜를 기준으로 계산한다
+  const base = m.meeting_completed_at || m.meeting_scheduled_at;
+  if (!base) return false;
+  if (Date.now() < afterCareDeadline(base).getTime()) return false;
 
   // 답하지 않은 쪽은 '미신청'으로 채우고, 자동으로 채웠다는 표시를 따로 남긴다 (표시 칸이 없으면 조용히 넘어간다)
   if (!m.after_care_hopeful_1) {
@@ -110,4 +113,52 @@ export async function notifyAfterCareResult(matchId: string, exceptUserId?: stri
       routeParams: connectors.length > 1 ? { segment: 'ally' } : undefined,
     })),
   ]);
+}
+
+// 답이 없는 제안: 회원 승인이나 (동맹 매칭의) 파트너 동의가 이 기간 동안 없으면 자동으로 종료한다
+export const PROPOSAL_EXPIRE_DAYS = 7;
+
+type ProposalMatch = {
+  id: string;
+  status?: string;
+  created_at?: string;
+  settlement_completed?: boolean;
+  hopeful_1_id?: string; hopeful_2_id?: string;
+  connector_1_id?: string; connector_2_id?: string;
+  connector_1_consented?: boolean; connector_2_consented?: boolean;
+  hopeful_1_approved?: boolean; hopeful_2_approved?: boolean;
+};
+
+// 별도 서버 작업 없이 화면을 열 때 처리한다. 실제로 종료한 경우 true (여러 화면이 동시에 해도 한 번만 알린다)
+export async function expireStaleProposalIfDue(m: ProposalMatch) {
+  if (m.status === 'rejected' || m.settlement_completed || !m.created_at) return false;
+  const consentDone = m.connector_1_id === m.connector_2_id || (m.connector_1_consented && m.connector_2_consented);
+  const membersDone = m.hopeful_1_approved && m.hopeful_2_approved;
+  if (consentDone && membersDone) return false;
+  const due = new Date(m.created_at);
+  due.setDate(due.getDate() + PROPOSAL_EXPIRE_DAYS);
+  if (Date.now() < due.getTime()) return false;
+
+  const { data: closed } = await supabase
+    .from('match_requests')
+    .update({ status: 'rejected' })
+    .eq('id', m.id)
+    .neq('status', 'rejected')
+    .eq('settlement_completed', false)
+    .select('id');
+  if (!closed?.length) return false;
+
+  const connectors = [...new Set([m.connector_1_id, m.connector_2_id].filter(Boolean) as string[])];
+  await Promise.all([
+    ...connectors.map((id) => createNotification({
+      userId: id, type: 'match_expired', title: '답이 없어 매칭이 자동 종료되었어요',
+      body: `${PROPOSAL_EXPIRE_DAYS}일 동안 승인·동의가 없었어요. 이용권은 차감되지 않았어요`, route: '/matching',
+    }).catch(() => {})),
+    // 회원에게는 제안이 전달된 경우(파트너 동의가 끝난 경우)만 알린다
+    ...(consentDone ? [m.hopeful_1_id, m.hopeful_2_id].filter(Boolean).map((id) => createNotification({
+      userId: id as string, type: 'match_closed', title: '이번 소개는 진행되지 않게 되었어요',
+      body: '답이 없어 자동으로 종료되었어요. 이용권은 차감되지 않았어요', route: '/home',
+    }).catch(() => {})) : []),
+  ]);
+  return true;
 }
