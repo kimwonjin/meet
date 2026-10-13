@@ -51,7 +51,7 @@ export default function MatchingScreen() {
   // 애프터 응답 요청 알림을 보낸 '매칭id:회원id'
   const [remindedKeys, setRemindedKeys] = useState<string[]>([]);
   // 동맹 파트너 회원까지 후보로 보여줄지
-  const [includeAllies, setIncludeAllies] = useState(false);
+  const [includeAllies, setIncludeAllies] = useState(true);
   // 매칭(제안·진행 중) / 매칭내역(마무리된 매칭)
   const [view, setView] = useState<'active' | 'history'>('active');
   // 회원 후보 필터 (회원 탭과 같은 필터)
