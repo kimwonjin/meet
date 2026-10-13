@@ -488,7 +488,7 @@ export default function ConnectorsScreen() {
 
         <View style={styles.subTabContainer}>
           {([
-            ['approved', `승인함 (${allRequests.filter(r => r.request_status === 'approved').length})`],
+            ['approved', `내 회원 (${allRequests.filter(r => r.request_status === 'approved').length})`],
             ['pending', `대기중 (${allRequests.filter(r => r.request_status === 'pending').length})`],
             ['ally', `동맹 회원 (${allyMembers.length})`],
           ] as const).map(([key, label]) => (
@@ -580,7 +580,7 @@ export default function ConnectorsScreen() {
                 )}
                 {tabStatus === 'approved' && (
                   <View style={styles.meta}>
-                    {/* '승인함' 탭이라 '승인됨' 표시는 두지 않는다 */}
+                    {/* '내 회원' 탭이라 '승인됨' 표시는 두지 않는다 */}
                     <View />
                     <TouchableOpacity
                       style={styles.chatShortcutBtn}
