@@ -12,6 +12,8 @@ DELETE FROM payments WHERE hopeful_id IN (SELECT id FROM users WHERE phone LIKE 
 DELETE FROM hopeful_requests WHERE hopeful_id IN (SELECT id FROM users WHERE phone LIKE '010-4444-%')
                                 OR connector_id IN (SELECT id FROM users WHERE phone LIKE '010-4444-%');
 DELETE FROM notifications WHERE user_id IN (SELECT id FROM users WHERE phone LIKE '010-4444-%');
+DELETE FROM connector_alliances WHERE connector_1_id IN (SELECT id FROM users WHERE phone LIKE '010-4444-%')
+                                   OR connector_2_id IN (SELECT id FROM users WHERE phone LIKE '010-4444-%');
 DELETE FROM connectors WHERE id IN (SELECT id FROM users WHERE phone LIKE '010-4444-%');
 DELETE FROM users WHERE phone LIKE '010-4444-%';
 COMMIT;
