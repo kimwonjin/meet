@@ -26,7 +26,7 @@ import { formatMeetingDate } from '@/lib/format';
 import { earliestCommonDate, sendContactsViaChat } from '@/lib/schedule';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar } from '@/components/ProfilePhoto';
-import { AFTER_CARE_DAYS, afterCareDeadline, afterCareOutcome, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline } from '@/lib/afterCare';
+import { AFTER_CARE_DAYS, afterCareDeadline, afterCareOutcome, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline, proposalDeadline } from '@/lib/afterCare';
 
 
 // 매칭 후보로 고를 회원 (사진·나이·지역을 보고 고른다)
@@ -191,6 +191,7 @@ export default function MatchingScreen() {
             settlement_completed: m.settlement_completed,
             status: m.status,
             created_at: m.created_at,
+            consented_at: m.consented_at,
             connector_1_id: m.connector_1_id,
             connector_2_id: m.connector_2_id,
             connector_1_consented: m.connector_1_consented,
@@ -732,6 +733,19 @@ export default function MatchingScreen() {
     }
   }
 
+  // 답을 기다리는 상대(동맹 파트너·회원)에게 알림으로 한 번 더 요청한다
+  async function handleNudge(matchId: string, targetId: string, title: string, body: string, route: string) {
+    const key = `${matchId}:${targetId}`;
+    setRemindedKeys((prev) => [...prev, key]);
+    try {
+      await createNotification({ userId: targetId, type: 'match_reminder', title, body, route });
+      toast.show('요청을 보냈어요', 'success');
+    } catch {
+      setRemindedKeys((prev) => prev.filter((k) => k !== key));
+      toast.show('요청을 보내지 못했어요. 다시 시도해주세요', 'error');
+    }
+  }
+
   // 만남 완료: 두 연결자가 모두 눌러야 완료된다 (내부 매칭은 한 번에 양쪽 처리)
   // 만남 완료로 바꾸고 두 회원에게 애프터 의사를 묻는다 (한 번만 일어나도록 아직 완료 전일 때만)
   async function completeMeeting(matchId: string, memberIds: (string | undefined)[]) {
@@ -1117,13 +1131,50 @@ export default function MatchingScreen() {
               <Text style={styles.statusMessageText}>
                 {(item.connector_1_consented ? item.connector_2_name : item.connector_1_name)}님의 동의를 기다리는 중입니다
               </Text>
+              <Text style={styles.waitHint}>{formatDeadline(proposalDeadline(item))}까지 동의가 없으면 자동으로 종료돼요</Text>
+              {(() => {
+                const otherId = item.connector_1_consented ? item.connector_2_id : item.connector_1_id;
+                const reminded = remindedKeys.includes(`${item.id}:${otherId}`);
+                return (
+                  <TouchableOpacity
+                    style={[styles.remindBtn, { alignSelf: 'flex-start', marginTop: 8 }, reminded && styles.buttonDisabled]}
+                    disabled={reminded}
+                    onPress={() => handleNudge(item.id, otherId, '동맹 매칭 동의를 기다리고 있어요', `${user?.name || '동맹 파트너'}님이 제안한 매칭을 확인해 주세요`, '/matching')}
+                  >
+                    <Text style={styles.remindBtnText}>{reminded ? '요청 보냄' : '동의 요청 보내기'}</Text>
+                  </TouchableOpacity>
+                );
+              })()}
             </View>
           )
         ) : (
           <>
             {!(item.hopeful_1_approved && item.hopeful_2_approved) && (
               <View style={styles.statusMessage}>
-                <Text style={styles.statusMessageText}>회원 참여 승인 대기 중입니다</Text>
+                {/* 누가 아직 답하지 않았는지, 언제까지인지 */}
+                <Text style={styles.statusMessageText}>
+                  {[!item.hopeful_1_approved && item.hopeful_1?.name, !item.hopeful_2_approved && item.hopeful_2?.name].filter(Boolean).join('·') || '회원'}님의 답을 기다리는 중이에요
+                </Text>
+                <Text style={styles.waitHint}>{formatDeadline(proposalDeadline(item))}까지 답이 없으면 자동으로 종료돼요</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                  {([['hopeful_1', item.hopeful_1_approved, item.connector_1_id], ['hopeful_2', item.hopeful_2_approved, item.connector_2_id]] as const)
+                    .filter(([, approved, connId]) => !approved && connId === user?.id)
+                    .map(([k]) => {
+                      const member = item[k];
+                      if (!member?.id) return null;
+                      const reminded = remindedKeys.includes(`${item.id}:${member.id}`);
+                      return (
+                        <TouchableOpacity
+                          key={k}
+                          style={[styles.remindBtn, reminded && styles.buttonDisabled]}
+                          disabled={reminded}
+                          onPress={() => handleNudge(item.id, member.id, '새 소개가 답을 기다리고 있어요', '홈에서 프로필을 보고 만날지 알려주세요', '/home')}
+                        >
+                          <Text style={styles.remindBtnText}>{reminded ? '요청 보냄' : `${member.name}님께 요청`}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                </View>
               </View>
             )}
 
@@ -1835,5 +1886,10 @@ const styles = StyleSheet.create({
     color: '#5B21FF',
     fontWeight: '500',
     fontSize: 12,
+  },
+  waitHint: {
+    color: '#87848D',
+    fontSize: 11,
+    marginTop: 4,
   },
 });

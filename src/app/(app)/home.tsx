@@ -26,7 +26,7 @@ import { formatMeetingDate } from '@/lib/format';
 import AvailableDatesSheet from '@/components/AvailableDatesSheet';
 import { toDateKey } from '@/components/CalendarGrid';
 import { autoScheduleMatch, earliestCommonDate } from '@/lib/schedule';
-import { afterCareDeadline, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline, notifyAfterCareResult } from '@/lib/afterCare';
+import { afterCareDeadline, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline, notifyAfterCareResult, proposalDeadline } from '@/lib/afterCare';
 import { Avatar } from '@/components/ProfilePhoto';
 import MemberProfileView from '@/components/MemberProfileView';
 import SafetyActions from '@/components/SafetyActions';
@@ -66,7 +66,7 @@ export default function HomeScreen() {
   const [freeSessions, setFreeSessions] = useState(0);
   const [partnerNames, setPartnerNames] = useState<Record<string, string>>({});
   // 내 파트너 가입 상태: 승인된 파트너 수 · 신청(대기 포함) 수
-  const [myPartners, setMyPartners] = useState({ approved: 0, requested: 0 });
+  const [myPartners, setMyPartners] = useState<{ approved: number; requested: number; pendingId?: string }>({ approved: 0, requested: 0 });
   const [approvedMemberCount, setApprovedMemberCount] = useState(0);
   const [profileGaps, setProfileGaps] = useState<string[]>([]);
   const [showInvite, setShowInvite] = useState(false);
@@ -285,6 +285,7 @@ export default function HomeScreen() {
             settlement_completed: r.settlement_completed,
             isHopeful1,
             created_at: r.created_at,
+            consented_at: r.consented_at,
             connector_1_id: r.connector_1_id,
             connector_2_id: r.connector_2_id,
             // 후기 건너뛰기 (add_review_skip.sql 실행 후 다른 기기에서도 유지)
@@ -320,10 +321,12 @@ export default function HomeScreen() {
           const { data: conns } = await supabase.from('connectors').select('id, business_name').in('id', connIds);
           setPartnerNames(Object.fromEntries((conns || []).map((c: any) => [c.id, c.business_name || '파트너'])));
         }
-        const { data: reqs } = await supabase.from('hopeful_requests').select('status').eq('hopeful_id', user!.id);
+        const { data: reqs } = await supabase.from('hopeful_requests').select('status, connector_id').eq('hopeful_id', user!.id);
         setMyPartners({
           approved: (reqs || []).filter((r: any) => r.status === 'approved').length,
           requested: (reqs || []).filter((r: any) => r.status === 'approved' || r.status === 'pending').length,
+          // 승인을 기다리는 파트너 (홈에서 바로 채팅으로 물어볼 수 있게)
+          pendingId: (reqs || []).find((r: any) => r.status === 'pending')?.connector_id,
         });
       }
     } catch (error) {
@@ -912,10 +915,16 @@ export default function HomeScreen() {
       : myPartners.requested === 0
         ? { title: '파트너를 찾아보세요', sub: '파트너에게 가입 신청하면\n맞는 분을 소개받을 수 있어요.', btn: '파트너 찾아보기', go: () => router.push('/connectors') }
         : myPartners.approved === 0
-          ? { title: '파트너 승인을 기다리고 있어요', sub: '승인되면 알림으로 알려드릴게요.' }
+          ? {
+              title: '파트너 승인을 기다리고 있어요',
+              sub: '승인되면 알림으로 알려드릴게요.\n오래 걸리면 파트너에게 채팅으로 물어보세요.',
+              ...(myPartners.pendingId ? { btn: '파트너에게 채팅하기', go: () => router.push({ pathname: '/chat', params: { with: myPartners.pendingId } }) } : {}),
+            }
           : remainingSessions === 0
             ? { title: '이용권을 준비해 주세요', sub: '이용권이 있어야 파트너가\n소개를 시작할 수 있어요.', btn: '이용권 구매하기', go: () => router.push('/connectors') }
-            : { title: '지금은 할 일이 없어요', sub: '파트너가 맞는 분을 찾고 있어요.\n새 소개가 오면 알림으로 알려드릴게요.' }
+            : profileGaps.length > 0
+              ? { title: '지금은 할 일이 없어요', sub: '파트너가 맞는 분을 찾고 있어요.\n프로필을 채우면 더 빨리 소개받을 수 있어요.', btn: '프로필 채우기', go: () => router.push({ pathname: '/profile', params: { open: 'profile' } }) }
+              : { title: '지금은 할 일이 없어요', sub: '파트너가 맞는 분을 찾고 있어요.\n새 소개가 오면 알림으로 알려드릴게요.' }
     : null;
   const steps = [
     { label: '프로필 채우기', done: profileGaps.length === 0 },
@@ -1063,6 +1072,10 @@ export default function HomeScreen() {
           {myApproved && !bothApproved && (
             <View style={styles.waitingMessage}>
               <Text style={styles.waitingText}>상대의 답을 기다리는 중이에요.</Text>
+              {/* 언제까지 기다리는지와 이용권 걱정을 덜어 준다 */}
+              <Text style={styles.waitingSub}>
+                {formatDeadline(proposalDeadline({ ...item, connector_1_consented: true, connector_2_consented: true }))}까지 답이 없으면 자동으로 종료돼요 · 이용권은 차감되지 않아요
+              </Text>
             </View>
           )}
 
@@ -1735,6 +1748,11 @@ const styles = StyleSheet.create({
     color: '#5B21FF',
     fontSize: 12,
     fontWeight: '500',
+  },
+  waitingSub: {
+    color: '#87848D',
+    fontSize: 11,
+    marginTop: 4,
   },
   reviewBtn: {
     marginTop: 10,

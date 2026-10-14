@@ -699,7 +699,7 @@ export default function ProfileScreen() {
           'error'
         );
       } else {
-        toast.show('✓ 출금을 신청했습니다', 'success');
+        toast.show(`✓ 출금을 신청했어요. 영업일 3일 이내 ${bankName} 계좌로 입금돼요`, 'success');
         setWithdrawAmount('');
       }
       await loadBankInfo();
@@ -1740,7 +1740,7 @@ export default function ProfileScreen() {
                       </View>
                     ) : (
                       <View style={styles.pendingBadge}>
-                        <Text style={styles.pendingBadgeText}>처리 대기중</Text>
+                        <Text style={styles.pendingBadgeText}>처리 중 · 영업일 3일 이내 입금</Text>
                       </View>
                     )}
                   </View>

@@ -130,17 +130,23 @@ type ProposalMatch = {
   consented_at?: string | null;
 };
 
+// 답이 없으면 자동 종료되는 날 (화면 안내에도 같은 계산을 쓴다)
+export function proposalDeadline(m: ProposalMatch) {
+  const consentDone = m.connector_1_id === m.connector_2_id || (m.connector_1_consented && m.connector_2_consented);
+  // 동맹 매칭은 두 파트너 동의가 끝난 뒤에야 회원에게 전달되므로, 그때부터 다시 센다 (consented_at 칸이 없으면 만든 날 기준)
+  const start = consentDone && m.consented_at && m.created_at && m.consented_at > m.created_at ? m.consented_at : m.created_at!;
+  const due = new Date(start);
+  due.setDate(due.getDate() + PROPOSAL_EXPIRE_DAYS);
+  return due;
+}
+
 // 별도 서버 작업 없이 화면을 열 때 처리한다. 실제로 종료한 경우 true (여러 화면이 동시에 해도 한 번만 알린다)
 export async function expireStaleProposalIfDue(m: ProposalMatch) {
   if (m.status === 'rejected' || m.settlement_completed || !m.created_at) return false;
   const consentDone = m.connector_1_id === m.connector_2_id || (m.connector_1_consented && m.connector_2_consented);
   const membersDone = m.hopeful_1_approved && m.hopeful_2_approved;
   if (consentDone && membersDone) return false;
-  // 동맹 매칭은 두 파트너 동의가 끝난 뒤에야 회원에게 전달되므로, 그때부터 다시 센다 (consented_at 칸이 없으면 만든 날 기준)
-  const start = consentDone && m.consented_at && m.consented_at > m.created_at ? m.consented_at : m.created_at;
-  const due = new Date(start);
-  due.setDate(due.getDate() + PROPOSAL_EXPIRE_DAYS);
-  if (Date.now() < due.getTime()) return false;
+  if (Date.now() < proposalDeadline(m).getTime()) return false;
 
   const { data: closed } = await supabase
     .from('match_requests')
