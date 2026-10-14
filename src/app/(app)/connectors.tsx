@@ -848,9 +848,7 @@ export default function ConnectorsScreen() {
           // 아직 이 파트너 회원이 아니면, 스크롤하지 않아도 다음 단계가 보이게 아래에 고정한다
           <View>
             <Text style={styles.joinGuide}>
-              {selectedConnector.is_pending
-                ? '신청을 보냈어요. 파트너가 승인하면 알림으로 알려드려요'
-                : '신청 → 파트너 승인 → 이용권 구매 후 소개가 시작돼요'}
+              신청 → 파트너 승인 → 이용권 구매 후 소개가 시작돼요
             </Text>
             <TouchableOpacity
               style={[styles.contactBtn, { marginTop: 0, marginBottom: 0 }, (requesting || selectedConnector.is_pending) && styles.buttonDisabled]}
@@ -873,6 +871,13 @@ export default function ConnectorsScreen() {
               {selectedConnector && (
                 <>
                   <>
+                    {/* 신청을 보낸 상태 (초대 링크로 가입하면 자동으로 신청된다): 지금 어디까지 왔는지 맨 위에 알려준다 */}
+                    {selectedConnector.is_pending && (
+                      <View style={styles.pendingBanner}>
+                        <Text style={styles.pendingBannerTitle}>✓ 이 파트너에게 가입 신청을 보냈어요</Text>
+                        <Text style={styles.pendingBannerBody}>파트너가 승인하면 알림으로 알려드려요. 승인 후 이용권을 사면 소개가 시작돼요.</Text>
+                      </View>
+                    )}
                     <View style={styles.modalHeader}>
                       <Avatar photoUrls={selectedConnector.partner_photo_urls} size={80} />
                       <Text style={styles.modalTitle}>{selectedConnector.business_name}</Text>
@@ -1009,6 +1014,9 @@ export default function ConnectorsScreen() {
 }
 
 const styles = StyleSheet.create({
+  pendingBanner: { backgroundColor: '#F1ECFF', borderRadius: 12, padding: 14, marginBottom: 12 },
+  pendingBannerTitle: { fontSize: 14, fontWeight: '700', color: '#5B21FF', marginBottom: 4 },
+  pendingBannerBody: { fontSize: 13, color: '#54515A', lineHeight: 19 },
   joinGuide: { fontSize: 12, color: '#65626B', textAlign: 'center', marginBottom: 10 },
   proposeBtn: { marginTop: 16, minHeight: 50, borderRadius: 12, backgroundColor: '#5B21FF', alignItems: 'center', justifyContent: 'center' },
   proposeBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
