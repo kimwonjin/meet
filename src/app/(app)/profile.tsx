@@ -63,6 +63,11 @@ export default function ProfileScreen() {
   const [connectorApplicationStatus, setConnectorApplicationStatus] = useState<string | null | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  // 처음 프로필을 채울 때는 한 화면에 한 질문씩 (null이면 지금처럼 한 화면에서 수정)
+  const [wizardStep, setWizardStep] = useState<number | null>(null);
+  // 파트너 신청서 단계 (0 소개 → 1 모임 이름 → 2 약관)
+  const [applyStep, setApplyStep] = useState(0);
+  const applying = showConnectorModal && (connectorApplicationStatus === null || connectorApplicationStatus === 'rejected');
   const [showStoreModal, setShowStoreModal] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   // 환불
@@ -87,6 +92,8 @@ export default function ProfileScreen() {
   const [availableBalance, setAvailableBalance] = useState(0);
   const [myWithdrawals, setMyWithdrawals] = useState<any[]>([]);
   const [withdrawAmount, setWithdrawAmount] = useState('');
+  // 출금 확인 단계: 금액·계좌·입금 시점을 한 번 보여주고 신청한다
+  const [withdrawConfirm, setWithdrawConfirm] = useState<number | null>(null);
   const [requestingWithdrawal, setRequestingWithdrawal] = useState(false);
   const [loadingBank, setLoadingBank] = useState(false);
   const [mySettlements, setMySettlements] = useState<any[]>([]);
@@ -169,6 +176,9 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (showProfileModal && user) {
       loadProfile();
+    } else {
+      setWizardStep(null);
+      setProfileLoaded(false);
     }
   }, [showProfileModal]);
 
@@ -401,6 +411,9 @@ export default function ProfileScreen() {
       body_type: data.body_type ?? '',
     });
     setProfileLoaded(true);
+    // 아직 아무것도 채우지 않았으면 한 질문씩 안내한다 (이미 채운 사람은 한 화면에서 고친다)
+    const firstFill = !data.location && !data.job && !data.bio && !(data.photo_urls ?? []).some(Boolean);
+    setWizardStep(firstFill ? 0 : null);
   }
 
   async function handleProfileSave() {
@@ -664,7 +677,7 @@ export default function ProfileScreen() {
     }
   }
 
-  async function handleRequestWithdrawal() {
+  async function handleRequestWithdrawal(confirmed = false) {
     if (!user || requestingWithdrawal) return;
     // "50,000"처럼 쉼표를 넣어도 숫자만 읽는다
     const amount = Number(withdrawAmount.replace(/[^0-9]/g, ''));
@@ -678,6 +691,10 @@ export default function ProfileScreen() {
     }
     if (!bankName.trim() || !accountNumber.trim() || !accountHolder.trim()) {
       toast.show('먼저 계좌 정보를 저장해주세요', 'error');
+      return;
+    }
+    if (!confirmed) {
+      setWithdrawConfirm(amount);
       return;
     }
     setRequestingWithdrawal(true);
@@ -701,6 +718,7 @@ export default function ProfileScreen() {
       } else {
         toast.show(`✓ 출금을 신청했어요. 영업일 3일 이내 ${bankName} 계좌로 입금돼요`, 'success');
         setWithdrawAmount('');
+        setWithdrawConfirm(null);
       }
       await loadBankInfo();
     } catch (error) {
@@ -1039,7 +1057,93 @@ export default function ProfileScreen() {
         <InviteSheet visible={showInvite} onClose={() => setShowInvite(false)} partnerName={user.name} />
       )}
 
-      <BottomSheet visible={showProfileModal} onClose={() => setShowProfileModal(false)} title="내 프로필 수정">
+      <BottomSheet
+        // 불러오는 동안에도 이 시트가 먼저 떠서 로딩을 보여준다 (불러온 뒤 처음이면 단계별, 아니면 수정 화면)
+        visible={showProfileModal && (wizardStep !== null || !profileLoaded)}
+        onClose={() => { setShowProfileModal(false); setWizardStep(null); }}
+        title={wizardStep !== null ? `프로필 채우기 ${wizardStep + 1}/${PROFILE_STEPS}` : '내 프로필'}
+        footer={wizardStep !== null ? (
+          <View style={styles.wizardFooter}>
+            {wizardStep > 0 && (
+              <TouchableOpacity style={styles.wizardPrev} onPress={() => setWizardStep(wizardStep - 1)} accessibilityLabel="이전">
+                <Text style={styles.wizardPrevText}>이전</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.wizardNext, (loading || !profileLoaded) && styles.storeSaveBtnDisabled]}
+              disabled={loading || !profileLoaded}
+              onPress={() => (wizardStep < PROFILE_STEPS - 1 ? setWizardStep(wizardStep + 1) : handleProfileSave().then(() => setWizardStep(null)))}
+              accessibilityLabel={wizardStep < PROFILE_STEPS - 1 ? '다음' : '저장하기'}
+            >
+              <Text style={styles.wizardNextText}>{loading ? '저장 중...' : wizardStep < PROFILE_STEPS - 1 ? '다음' : '저장하기'}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : undefined}
+      >
+        {!profileLoaded && <ActivityIndicator color="#5B21FF" style={{ marginVertical: 40 }} />}
+        {profileLoaded && wizardStep !== null && (() => {
+          // 하나만 고르는 질문은 고르면 바로 다음으로 넘어간다
+          const pickAndNext = (patch: Partial<typeof profileData>) => {
+            setProfileData({ ...profileData, ...patch });
+            setTimeout(() => setWizardStep((s) => (s !== null && s < PROFILE_STEPS - 1 ? s + 1 : s)), 250);
+          };
+          const chips = (options: string[], value: string, onPick: (v: string) => void) => (
+            <View style={styles.buttonGroup}>
+              {options.map((o) => (
+                <TouchableOpacity key={o} style={[styles.optionBtn, value === o && styles.optionBtnSelected]} onPress={() => onPick(o)}>
+                  <Text style={[styles.optionBtnText, value === o && styles.optionBtnTextSelected]}>{o}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          );
+          const set = (patch: Partial<typeof profileData>) => setProfileData({ ...profileData, ...patch });
+          const steps = [
+            { title: '사진을 올려 주세요', sub: '사진이 있으면 파트너가 소개하기 훨씬 쉬워요. 나중에 올려도 돼요.', body: user && <PhotoEditor userId={user.id} photos={photoUrls} onChange={setPhotoUrls} /> },
+            { title: '어디에 사세요?', sub: '가까운 분 위주로 소개해 드려요.', body: chips(locations, profileData.location, (v) => pickAndNext({ location: v })) },
+            { title: '키와 체형을 알려 주세요', body: (
+              <>
+                <Text style={styles.formLabel}>키 (cm)</Text>
+                <TextInput style={[styles.formInput, { marginBottom: 16 }]} placeholder="170" placeholderTextColor="#DCD9E2" keyboardType="number-pad" value={profileData.height} onChangeText={(t) => set({ height: t })} />
+                <Text style={styles.formLabel}>체형</Text>
+                {chips(bodyTypes, profileData.body_type, (v) => set({ body_type: v }))}
+              </>
+            ) },
+            { title: '하시는 일과 학력은요?', body: (
+              <>
+                <Text style={styles.formLabel}>직업</Text>
+                <TextInput style={[styles.formInput, { marginBottom: 16 }]} placeholder="개발자" placeholderTextColor="#DCD9E2" value={profileData.job} onChangeText={(t) => set({ job: t })} />
+                <Text style={styles.formLabel}>학력</Text>
+                {chips(educations, profileData.education, (v) => set({ education: v }))}
+              </>
+            ) },
+            { title: '종교가 있으신가요?', body: chips(religions, profileData.religion, (v) => pickAndNext({ religion: v })) },
+            { title: '흡연·음주는 어떠세요?', body: (
+              <>
+                <Text style={styles.formLabel}>흡연</Text>
+                <View style={{ marginBottom: 16 }}>{chips(smokings, profileData.smoking, (v) => set({ smoking: v }))}</View>
+                <Text style={styles.formLabel}>음주</Text>
+                {chips(drinkings, profileData.drinking, (v) => set({ drinking: v }))}
+              </>
+            ) },
+            { title: '마지막으로, 자기소개를 남겨 주세요', sub: '취미나 주말을 보내는 방법처럼 편하게 적어 주세요.', body: (
+              <TextInput style={[styles.formInput, { minHeight: 120 }]} placeholder="예) 주말엔 등산하고 맛집 찾아다니는 걸 좋아해요" placeholderTextColor="#DCD9E2" multiline value={profileData.bio} onChangeText={(t) => set({ bio: t })} />
+            ) },
+          ];
+          const st = steps[wizardStep];
+          return (
+            <View style={{ minHeight: 280 }}>
+              <View style={styles.wizardProgress}>
+                {steps.map((_, i) => <View key={i} style={[styles.wizardDot, i <= wizardStep && styles.wizardDotOn]} />)}
+              </View>
+              <Text style={styles.wizardTitle}>{st.title}</Text>
+              {!!st.sub && <Text style={styles.wizardSub}>{st.sub}</Text>}
+              <View style={{ marginTop: 16 }}>{st.body}</View>
+            </View>
+          );
+        })()}
+      </BottomSheet>
+
+      <BottomSheet visible={showProfileModal && profileLoaded && wizardStep === null} onClose={() => setShowProfileModal(false)} title="내 프로필 수정">
         <View style={styles.profileFormSection}>
           <Text style={styles.formLabel}>사진</Text>
           {user && <PhotoEditor userId={user.id} photos={photoUrls} onChange={setPhotoUrls} />}
@@ -1204,8 +1308,37 @@ export default function ProfileScreen() {
 
       <BottomSheet
         visible={showConnectorModal}
-        onClose={() => setShowConnectorModal(false)}
-        title={connectorApplicationStatus === 'pending' ? '심사 중입니다' : connectorApplicationStatus === 'approved' ? '매칭 파트너' : '파트너로 활동하기'}
+        onClose={() => { setShowConnectorModal(false); setApplyStep(0); }}
+        title={connectorApplicationStatus === 'pending' ? '신청이 접수됐어요' : connectorApplicationStatus === 'approved' ? '매칭 파트너' : `파트너 신청 ${applyStep + 1}/3`}
+        footer={applying ? (
+          // 신청서는 한 화면에 한 질문씩, 다음 버튼은 아래에 고정
+          <View style={styles.wizardFooter}>
+            {applyStep > 0 && (
+              <TouchableOpacity style={styles.wizardPrev} onPress={() => setApplyStep(applyStep - 1)} accessibilityLabel="이전">
+                <Text style={styles.wizardPrevText}>이전</Text>
+              </TouchableOpacity>
+            )}
+            {applyStep < 2 ? (
+              <TouchableOpacity
+                style={[styles.wizardNext, applyStep === 1 && !businessName.trim() && styles.storeSaveBtnDisabled]}
+                disabled={applyStep === 1 && !businessName.trim()}
+                onPress={() => setApplyStep(applyStep + 1)}
+                accessibilityLabel="다음"
+              >
+                <Text style={styles.wizardNextText}>{applyStep === 0 ? '시작하기' : '다음'}</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.wizardNext, (loading || !partnerConsents.includes('partner')) && styles.storeSaveBtnDisabled]}
+                onPress={handleConnectorSignup}
+                disabled={loading || !partnerConsents.includes('partner')}
+                accessibilityLabel="신청하기"
+              >
+                <Text style={styles.wizardNextText}>{loading ? '신청 중...' : '신청하기'}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : undefined}
       >
             {connectorApplicationStatus === undefined ? (
               <ActivityIndicator color="#5B21FF" style={{ marginVertical: 32 }} />
@@ -1221,9 +1354,26 @@ export default function ProfileScreen() {
               </>
             ) : connectorApplicationStatus === 'pending' ? (
               <>
-                <Text style={{ color: '#65626B', fontSize: 13, marginBottom: 20, lineHeight: 20 }}>
-                  신청이 접수됐어요.{'\n'}운영자가 확인하면 알려드릴게요. 그때부터 파트너 화면을 쓸 수 있어요.
-                </Text>
+                {/* 접수 후: 지금 어디까지 왔고, 기다리는 동안 무엇을 준비하면 되는지 */}
+                {[
+                  { t: '신청 완료', d: '모임 이름과 약관 동의를 받았어요', done: true },
+                  { t: '운영자 확인', d: '확인되면 알림으로 바로 알려드려요', done: false },
+                  { t: '파트너 시작', d: '승인되면 마이에서 파트너 화면으로 바뀌어요', done: false },
+                ].map((st, i) => (
+                  <View key={st.t} style={styles.applyTimelineRow}>
+                    <View style={[styles.applyTimelineDot, st.done && styles.wizardDotOn]}>
+                      <Text style={styles.applyTimelineNum}>{st.done ? '✓' : i + 1}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.applyTimelineTitle}>{st.t}</Text>
+                      <Text style={styles.applyTimelineDesc}>{st.d}</Text>
+                    </View>
+                  </View>
+                ))}
+                <View style={styles.partnerIntro}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#322F38', marginBottom: 4 }}>기다리는 동안 준비해 두세요</Text>
+                  <Text style={{ fontSize: 13, color: '#54515A', lineHeight: 20 }}>· 한 번 소개에 받을 금액{'\n'}· 소개할 지역{'\n'}· 회원에게 보여 줄 소개 글과 사진</Text>
+                </View>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.modalBtnConfirm]}
                   onPress={() => setShowConnectorModal(false)}
@@ -1232,46 +1382,57 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               </>
             ) : (
-              <>
-                {connectorApplicationStatus === 'rejected' && (
+              <View style={{ minHeight: 260 }}>
+                <View style={styles.wizardProgress}>
+                  {[0, 1, 2].map((i) => <View key={i} style={[styles.wizardDot, i <= applyStep && styles.wizardDotOn]} />)}
+                </View>
+                {connectorApplicationStatus === 'rejected' && applyStep === 0 && (
                   <Text style={{ color: '#E53935', fontSize: 12, marginBottom: 10 }}>
-                    이전 신청이 반려되었습니다. 다시 신청할 수 있습니다.
+                    이전 신청이 반려되었어요. 다시 신청할 수 있어요.
                   </Text>
                 )}
-                <Text style={styles.partnerIntro}>
-                  모임·동호회 대표라면 누구나 시작할 수 있어요. 우리 모임 친구들을 다른 모임 친구들과 이어 주고, 소개가 성사될 때마다 소개비를 받아요. 사업자가 없어도 괜찮아요.
-                </Text>
-                <Text style={styles.modalLabel}>모임 이름 (회원에게 보이는 이름)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="예: 행복매칭, 판교 러닝크루"
-                  placeholderTextColor="#DCD9E2"
-                  value={businessName}
-                  onChangeText={setBusinessName}
-                  editable={!loading}
-                />
-                <View style={{ marginTop: 12 }}>
-                  <ConsentChecklist items={PARTNER_CONSENTS} checked={partnerConsents} onChange={setPartnerConsents} disabled={loading} />
-                </View>
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, styles.modalBtnCancel]}
-                    onPress={() => {
-                      setShowConnectorModal(false);
-                      setBusinessName('');
-                    }}
-                  >
-                    <Text style={styles.modalBtnTextCancel}>취소</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, styles.modalBtnConfirm, (loading || !partnerConsents.includes('partner')) && styles.modalBtnDisabled]}
-                    onPress={handleConnectorSignup}
-                    disabled={loading || !partnerConsents.includes('partner')}
-                  >
-                    <Text style={styles.modalBtnText}>{loading ? '신청 중...' : '신청하기'}</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
+                {applyStep === 0 && (
+                  <>
+                    <Text style={styles.wizardTitle}>모임 대표라면{'\n'}파트너로 활동해 보세요</Text>
+                    <View style={{ marginTop: 16, gap: 12 }}>
+                      {[
+                        ['🤝', '우리 모임 친구를 다른 모임 친구와 이어 줘요'],
+                        ['💰', '소개가 성사될 때마다 소개비를 받아요'],
+                        ['📄', '사업자가 없어도 시작할 수 있어요'],
+                      ].map(([icon, text]) => (
+                        <View key={text} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <Text style={{ fontSize: 20 }}>{icon}</Text>
+                          <Text style={{ flex: 1, fontSize: 14, color: '#434049' }}>{text}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </>
+                )}
+                {applyStep === 1 && (
+                  <>
+                    <Text style={styles.wizardTitle}>모임 이름을 알려 주세요</Text>
+                    <Text style={styles.wizardSub}>회원에게 보이는 이름이에요.</Text>
+                    <TextInput
+                      style={[styles.modalInput, { marginTop: 16 }]}
+                      placeholder="예: 행복매칭, 판교 러닝크루"
+                      placeholderTextColor="#DCD9E2"
+                      value={businessName}
+                      onChangeText={setBusinessName}
+                      editable={!loading}
+                      autoFocus
+                    />
+                  </>
+                )}
+                {applyStep === 2 && (
+                  <>
+                    <Text style={styles.wizardTitle}>약관에 동의해 주세요</Text>
+                    <Text style={styles.wizardSub}>신청하면 운영자가 확인한 뒤 알려드려요.</Text>
+                    <View style={{ marginTop: 16 }}>
+                      <ConsentChecklist items={PARTNER_CONSENTS} checked={partnerConsents} onChange={setPartnerConsents} disabled={loading} />
+                    </View>
+                  </>
+                )}
+              </View>
             )}
       </BottomSheet>
 
@@ -1655,10 +1816,35 @@ export default function ProfileScreen() {
         )}
       </BottomSheet>
 
-      <BottomSheet visible={showBankModal} onClose={() => setShowBankModal(false)} title="계좌 정보">
+      <BottomSheet visible={showBankModal} onClose={() => { setShowBankModal(false); setWithdrawConfirm(null); }} title={withdrawConfirm !== null ? '출금 확인' : '계좌 정보'}>
 
         {loadingBank ? (
           <ActivityIndicator size="large" color="#5B21FF" style={{ marginTop: 40 }} />
+        ) : withdrawConfirm !== null ? (
+          <>
+            <Text style={styles.wizardTitle}>{withdrawConfirm.toLocaleString()}원을{'\n'}출금할까요?</Text>
+            <View style={[styles.gradeBox, { marginTop: 20, alignItems: 'stretch' }]}>
+              {[
+                ['받는 계좌', `${bankName} ${accountNumber}`],
+                ['예금주', accountHolder],
+                ['입금 예정', '영업일 3일 이내'],
+                ['출금 후 남는 금액', `${(availableBalance - withdrawConfirm).toLocaleString()}원`],
+              ].map(([k, v]) => (
+                <View key={k} style={styles.withdrawRow}>
+                  <Text style={styles.withdrawKey}>{k}</Text>
+                  <Text style={styles.withdrawVal}>{v}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={[styles.wizardFooter, { marginTop: 20 }]}>
+              <TouchableOpacity style={styles.wizardPrev} onPress={() => setWithdrawConfirm(null)} disabled={requestingWithdrawal}>
+                <Text style={styles.wizardPrevText}>수정</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.wizardNext, requestingWithdrawal && styles.storeSaveBtnDisabled]} onPress={() => handleRequestWithdrawal(true)} disabled={requestingWithdrawal} accessibilityLabel="출금 신청 확정">
+                {requestingWithdrawal ? <ActivityIndicator color="#fff" /> : <Text style={styles.wizardNextText}>출금 신청</Text>}
+              </TouchableOpacity>
+            </View>
+          </>
         ) : (
           <>
             <View style={styles.gradeBox}>
@@ -1707,18 +1893,23 @@ export default function ProfileScreen() {
 
             <View style={styles.modalSection}>
               <Text style={styles.modalSectionTitle}>출금 신청</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="출금할 금액"
-                placeholderTextColor="#DCD9E2"
-                value={withdrawAmount}
-                onChangeText={setWithdrawAmount}
-                editable={!requestingWithdrawal}
-                keyboardType="number-pad"
-              />
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <TextInput
+                  style={[styles.modalInput, { flex: 1 }]}
+                  placeholder="출금할 금액"
+                  placeholderTextColor="#DCD9E2"
+                  value={withdrawAmount}
+                  onChangeText={setWithdrawAmount}
+                  editable={!requestingWithdrawal}
+                  keyboardType="number-pad"
+                />
+                <TouchableOpacity style={styles.allAmountBtn} onPress={() => setWithdrawAmount(String(availableBalance))} accessibilityLabel="전액 입력">
+                  <Text style={styles.allAmountBtnText}>전액</Text>
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalBtnConfirm, requestingWithdrawal && styles.modalBtnDisabled, { marginTop: 12 }]}
-                onPress={handleRequestWithdrawal}
+                onPress={() => handleRequestWithdrawal()}
                 disabled={requestingWithdrawal}
               >
                 <Text style={styles.modalBtnText}>{requestingWithdrawal ? '신청 중...' : '출금 신청하기'}</Text>
@@ -1760,7 +1951,29 @@ function moneyFit(n: number) {
   return { fontSize: len <= 6 ? 18 : len <= 9 ? 15 : 13 };
 }
 
+const PROFILE_STEPS = 7;
+
 const styles = StyleSheet.create({
+  wizardFooter: { flexDirection: 'row', gap: 8 },
+  withdrawRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
+  withdrawKey: { fontSize: 13, color: '#87848D' },
+  withdrawVal: { fontSize: 14, fontWeight: '600', color: '#211E27', flexShrink: 1, textAlign: 'right', marginLeft: 12 },
+  allAmountBtn: { paddingHorizontal: 14, height: 44, borderRadius: 10, backgroundColor: '#F1ECFF', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  allAmountBtnText: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
+  applyTimelineRow: { flexDirection: 'row', gap: 12, marginBottom: 14 },
+  applyTimelineDot: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#DCD9E2', alignItems: 'center', justifyContent: 'center' },
+  applyTimelineNum: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  applyTimelineTitle: { fontSize: 14, fontWeight: '700', color: '#211E27' },
+  applyTimelineDesc: { fontSize: 12, color: '#87848D', marginTop: 2 },
+  wizardPrev: { flex: 1, height: 52, borderRadius: 12, backgroundColor: '#F1EFF4', alignItems: 'center', justifyContent: 'center' },
+  wizardPrevText: { fontSize: 15, fontWeight: '700', color: '#54515A' },
+  wizardNext: { flex: 2.4, height: 52, borderRadius: 12, backgroundColor: '#5B21FF', alignItems: 'center', justifyContent: 'center' },
+  wizardNextText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  wizardProgress: { flexDirection: 'row', gap: 4, marginBottom: 20 },
+  wizardDot: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#EDEBF0' },
+  wizardDotOn: { backgroundColor: '#5B21FF' },
+  wizardTitle: { fontSize: 22, fontWeight: '700', color: '#211E27', lineHeight: 30 },
+  wizardSub: { fontSize: 14, color: '#87848D', marginTop: 6, lineHeight: 20 },
   container: {
     flex: 1,
     backgroundColor: '#fff',
