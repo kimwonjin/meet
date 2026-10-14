@@ -840,7 +840,35 @@ export default function ConnectorsScreen() {
         contentContainerStyle={styles.list}
       />
 
-      <BottomSheet visible={selectedConnector !== null} onClose={() => { setSelectedConnector(null); setBuyFirst(false); }} title={buyFirst ? '이용권 구매' : '파트너 정보'}>
+      <BottomSheet
+        visible={selectedConnector !== null}
+        onClose={() => { setSelectedConnector(null); setBuyFirst(false); }}
+        title={buyFirst ? '이용권 구매' : '파트너 정보'}
+        footer={selectedConnector && !selectedConnector.is_approved ? (
+          // 아직 이 파트너 회원이 아니면, 스크롤하지 않아도 다음 단계가 보이게 아래에 고정한다
+          <View>
+            <Text style={styles.joinGuide}>
+              {selectedConnector.is_pending
+                ? '신청을 보냈어요. 파트너가 승인하면 알림으로 알려드려요'
+                : '신청 → 파트너 승인 → 이용권 구매 후 소개가 시작돼요'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.contactBtn, { marginTop: 0, marginBottom: 0 }, (requesting || selectedConnector.is_pending) && styles.buttonDisabled]}
+              onPress={handleRequest}
+              disabled={requesting || selectedConnector.is_pending}
+              accessibilityLabel="이 파트너에게 가입 신청하기"
+            >
+              {requesting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.contactBtnText}>
+                  {selectedConnector.is_pending ? '신청 완료 · 승인을 기다리는 중' : '이 파트너에게 가입 신청하기'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : undefined}
+      >
             <View>
               {selectedConnector && (
                 <>
@@ -966,19 +994,6 @@ export default function ConnectorsScreen() {
                         >
                           <Text style={styles.chatShortcutBtnWideText}>💬 궁금한 점 채팅으로 물어보기</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.contactBtn, (requesting || selectedConnector.is_pending) && styles.buttonDisabled]}
-                          onPress={handleRequest}
-                          disabled={requesting || selectedConnector.is_pending}
-                        >
-                          {requesting ? (
-                            <ActivityIndicator color="#fff" />
-                          ) : (
-                            <Text style={styles.contactBtnText}>
-                              {selectedConnector.is_pending ? '가입요청 보냄 · 승인을 기다리는 중' : '가입요청'}
-                            </Text>
-                          )}
-                        </TouchableOpacity>
                       </View>
                     )}
                   </>
@@ -994,6 +1009,7 @@ export default function ConnectorsScreen() {
 }
 
 const styles = StyleSheet.create({
+  joinGuide: { fontSize: 12, color: '#65626B', textAlign: 'center', marginBottom: 10 },
   proposeBtn: { marginTop: 16, minHeight: 50, borderRadius: 12, backgroundColor: '#5B21FF', alignItems: 'center', justifyContent: 'center' },
   proposeBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   allyChatBtn: { marginTop: 10, minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: '#5B21FF', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },

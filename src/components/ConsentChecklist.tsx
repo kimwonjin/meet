@@ -9,12 +9,15 @@ interface Props {
   checked: string[];
   onChange: (checked: string[]) => void;
   disabled?: boolean;
+  // 한 화면 가입용: 처음엔 '전체 동의' 한 줄만 보이고, '자세히'를 누르면 항목이 펼쳐진다
+  compact?: boolean;
 }
 
 // 필수 약관 동의 체크리스트 (전체 동의 + 항목별 동의, 항목마다 전문 보기)
 // 전문은 그 자리에서 펼쳐 보여준다 (시트 안에서 시트를 또 열면 웹에서 뒤에 가려진다)
-export default function ConsentChecklist({ items, checked, onChange, disabled }: Props) {
+export default function ConsentChecklist({ items, checked, onChange, disabled, compact }: Props) {
   const [viewing, setViewing] = useState<TermsDocKey | null>(null);
+  const [expanded, setExpanded] = useState(!compact);
   const allChecked = items.every((i) => checked.includes(i.key));
 
   function toggle(key: string) {
@@ -22,9 +25,10 @@ export default function ConsentChecklist({ items, checked, onChange, disabled }:
   }
 
   return (
-    <View style={styles.box}>
+    <View style={[styles.box, compact && styles.boxCompact]}>
+      <View style={styles.allLine}>
       <TouchableOpacity
-        style={styles.allRow}
+        style={[styles.allRow, { flex: 1 }]}
         disabled={disabled}
         onPress={() => onChange(allChecked ? [] : items.map((i) => i.key))}
         accessibilityRole="checkbox"
@@ -33,10 +37,16 @@ export default function ConsentChecklist({ items, checked, onChange, disabled }:
         <View style={[styles.check, allChecked && styles.checkOn]}>
           {allChecked && <Text style={styles.checkMark}>✓</Text>}
         </View>
-        <Text style={styles.allText}>전체 동의</Text>
+        <Text style={styles.allText}>{compact ? `약관 전체 동의 (필수 ${items.length}개)` : '전체 동의'}</Text>
       </TouchableOpacity>
-      <View style={styles.divider} />
-      {items.map((item) => {
+      {compact && (
+        <TouchableOpacity onPress={() => setExpanded(!expanded)} style={styles.viewBtn} accessibilityLabel={expanded ? '약관 접기' : '약관 자세히 보기'}>
+          <Text style={styles.viewText}>{expanded ? '접기' : '자세히'}</Text>
+        </TouchableOpacity>
+      )}
+      </View>
+      {expanded && <View style={styles.divider} />}
+      {expanded && items.map((item) => {
         const on = checked.includes(item.key);
         return (
           <View key={item.key} style={styles.row}>
@@ -84,6 +94,8 @@ export default function ConsentChecklist({ items, checked, onChange, disabled }:
 
 const styles = StyleSheet.create({
   box: { borderWidth: 1, borderColor: '#EDEBF0', borderRadius: 12, padding: 14 },
+  boxCompact: { paddingVertical: 8 },
+  allLine: { flexDirection: 'row', alignItems: 'center' },
   allRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 36 },
   allText: { fontSize: 15, fontWeight: '700', color: '#211E27' },
   divider: { height: 1, backgroundColor: '#EFEDF2', marginVertical: 8 },

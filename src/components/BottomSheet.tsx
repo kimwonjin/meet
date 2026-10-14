@@ -18,11 +18,13 @@ interface BottomSheetProps {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
+  // 스크롤과 관계없이 시트 아래에 고정되는 영역 (다음 단계 버튼 등)
+  footer?: React.ReactNode;
 }
 
 // 화면 하단에서 올라오는 시트. 배경을 누르거나 ✕/뒤로가기로 닫힌다.
 // 되돌릴 수 없는 액션 확인(삭제·탈퇴 등)이 아니면 모달 대신 이 컴포넌트를 쓴다.
-export default function BottomSheet({ visible, onClose, title, children }: BottomSheetProps) {
+export default function BottomSheet({ visible, onClose, title, children, footer }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -49,6 +51,7 @@ export default function BottomSheet({ visible, onClose, title, children }: Botto
             >
               {children}
             </ScrollView>
+            {footer ? <View style={styles.footer}>{footer}</View> : null}
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -105,6 +108,14 @@ const styles = StyleSheet.create({
   },
   body: {
     flexGrow: 0,
+    // 내용이 길면 본문만 줄어들고 아래 고정 영역은 항상 보인다
+    flexShrink: 1,
+  },
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1EFF4',
   },
   bodyContent: {
     paddingHorizontal: 20,

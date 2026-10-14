@@ -109,72 +109,83 @@ export default function SignupScreen() {
     }
   }
 
+  // 한 화면 가입: 입력은 위에서 스크롤 없이 끝나고, 가입하기 버튼은 아래에 고정
   return (
-    <ScrollView style={styles.container}>
-      <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}>
-        <Text style={styles.back}>← 뒤로가기</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.title}>회원 가입</Text>
-
-      <View style={styles.form}>
-        <View>
-          <Text style={styles.label}>전화번호</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="010-0000-0000"
-            placeholderTextColor="#DCD9E2"
-            value={phone}
-            onChangeText={(text) => setPhone(formatPhone(text))}
-            keyboardType="phone-pad"
-            editable={!loading}
-          />
+    <View style={styles.screen}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.topRow}>
+          <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.backBtn} accessibilityLabel="뒤로가기">
+            <Text style={styles.back}>‹</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>회원 가입</Text>
         </View>
 
-        <View>
-          <Text style={styles.label}>이름</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="홍길동"
-            placeholderTextColor="#DCD9E2"
-            value={name}
-            onChangeText={setName}
-            editable={!loading}
-          />
-        </View>
-
-        <View>
-          <Text style={styles.label}>생년월일</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="1990-01-01"
-            placeholderTextColor="#DCD9E2"
-            value={birthDate}
-            onChangeText={(text) => setBirthDate(formatBirthDate(text))}
-            keyboardType="number-pad"
-            editable={!loading}
-          />
-        </View>
-
-        <View>
-          <Text style={styles.label}>성별</Text>
-          <View style={styles.genderRow}>
-            <TouchableOpacity
-              style={[styles.genderBtn, gender === 'M' && styles.genderBtnActive]}
-              onPress={() => setGender('M')}
-            >
-              <Text style={gender === 'M' ? styles.genderTextActive : styles.genderText}>남성</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.genderBtn, gender === 'F' && styles.genderBtnActive]}
-              onPress={() => setGender('F')}
-            >
-              <Text style={gender === 'F' ? styles.genderTextActive : styles.genderText}>여성</Text>
-            </TouchableOpacity>
+        <View style={styles.form}>
+          <View>
+            <Text style={styles.label}>전화번호</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="010-0000-0000"
+              placeholderTextColor="#DCD9E2"
+              value={phone}
+              onChangeText={(text) => setPhone(formatPhone(text))}
+              keyboardType="phone-pad"
+              editable={!loading}
+            />
           </View>
-        </View>
 
-        <ConsentChecklist items={SIGNUP_CONSENTS} checked={consents} onChange={setConsents} disabled={loading} />
+          <View>
+            <Text style={styles.label}>이름</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="홍길동"
+              placeholderTextColor="#DCD9E2"
+              value={name}
+              onChangeText={setName}
+              editable={!loading}
+            />
+          </View>
+
+          {/* 생년월일·성별은 한 줄에 */}
+          <View style={styles.pairRow}>
+            <View style={{ flex: 1.2 }}>
+              <Text style={styles.label}>생년월일</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="1990-01-01"
+                placeholderTextColor="#DCD9E2"
+                value={birthDate}
+                onChangeText={(text) => setBirthDate(formatBirthDate(text))}
+                keyboardType="number-pad"
+                editable={!loading}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>성별</Text>
+              <View style={styles.genderRow}>
+                <TouchableOpacity
+                  style={[styles.genderBtn, gender === 'M' && styles.genderBtnActive]}
+                  onPress={() => setGender('M')}
+                  accessibilityLabel="남성"
+                >
+                  <Text style={gender === 'M' ? styles.genderTextActive : styles.genderText}>남성</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.genderBtn, gender === 'F' && styles.genderBtnActive]}
+                  onPress={() => setGender('F')}
+                  accessibilityLabel="여성"
+                >
+                  <Text style={gender === 'F' ? styles.genderTextActive : styles.genderText}>여성</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          <ConsentChecklist items={SIGNUP_CONSENTS} checked={consents} onChange={setConsents} disabled={loading} compact />
+        </View>
+      </ScrollView>
+
+      <View style={styles.bottom}>
         <TouchableOpacity
           style={[styles.button, (loading || !allConsented) && styles.buttonDisabled]}
           onPress={handleSignup}
@@ -182,30 +193,55 @@ export default function SignupScreen() {
         >
           <Text style={styles.buttonText}>{loading ? '가입 중...' : '가입하기'}</Text>
         </TouchableOpacity>
-        <Text style={styles.footerNote}>모임 대표라면 가입 후 마이 › 매칭 파트너에서 파트너로 활동할 수 있어요</Text>
+        <Text style={styles.footerNote}>모임 대표라면 가입 후 마이에서 파트너로 활동할 수 있어요</Text>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 50,
     backgroundColor: '#fff',
   },
-  back: {
-    fontSize: 14,
-    color: '#5B21FF',
-    fontWeight: '700',
+  container: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 20,
   },
-  title: {
+  backBtn: {
+    paddingRight: 12,
+    paddingVertical: 4,
+  },
+  back: {
     fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 8,
     color: '#322F38',
+    lineHeight: 30,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#322F38',
+  },
+  pairRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  bottom: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1EFF4',
+    backgroundColor: '#fff',
   },
   subtitle: {
     fontSize: 14,
@@ -213,21 +249,21 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   form: {
-    gap: 18,
-    paddingBottom: 40,
+    gap: 14,
   },
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#BAB7C0',
+    color: '#87848D',
     marginBottom: 6,
   },
   input: {
     borderWidth: 1,
     borderColor: '#DCD9E2',
     borderRadius: 10,
-    padding: 12,
-    fontSize: 14,
+    paddingHorizontal: 12,
+    height: 46,
+    fontSize: 15,
   },
   roleCard: {
     borderWidth: 1,
@@ -257,15 +293,16 @@ const styles = StyleSheet.create({
   },
   genderRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 6,
   },
   genderBtn: {
     flex: 1,
     borderWidth: 1.5,
     borderColor: '#DCD9E2',
     borderRadius: 10,
-    paddingVertical: 12,
+    height: 46,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   genderBtnActive: {
     borderColor: '#5B21FF',
@@ -281,23 +318,23 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#5B21FF',
-    borderRadius: 10,
-    padding: 14,
+    borderRadius: 12,
+    height: 52,
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
   },
   footerNote: {
     fontSize: 11,
     color: '#98959E',
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: 8,
   },
 });
