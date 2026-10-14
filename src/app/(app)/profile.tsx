@@ -1823,7 +1823,7 @@ export default function ProfileScreen() {
         ) : withdrawConfirm !== null ? (
           <>
             <Text style={styles.wizardTitle}>{withdrawConfirm.toLocaleString()}원을{'\n'}출금할까요?</Text>
-            <View style={[styles.gradeBox, { marginTop: 20, alignItems: 'stretch' }]}>
+            <View style={[styles.gradeBox, { marginTop: 20, alignItems: 'stretch', paddingHorizontal: 16, paddingVertical: 12 }]}>
               {[
                 ['받는 계좌', `${bankName} ${accountNumber}`],
                 ['예금주', accountHolder],
