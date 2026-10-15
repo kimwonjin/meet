@@ -58,10 +58,10 @@ export async function afterWithdraw(p: WithdrawPrep) {
   for (const id of p.allies) {
     tasks.push(createNotification({ userId: id, type: 'alliance_ended', title: '동맹이 종료되었어요', body: '동맹 파트너가 탈퇴해 동맹이 끝났어요. 매칭 화면에서 진행 상황을 확인해 주세요', route: '/alliances' }).catch(() => {}));
   }
-  // 3) 다른 사람이 받은 알림 속 내 이름을 '탈퇴회원'으로 (이름 뒤에 '님'이 붙은 경우만 바꿔 같은 글자의 다른 말은 건드리지 않는다)
+  // 3) 다른 사람이 받은 알림 속 내 이름을 '탈퇴회원'으로 (이름 전체가 따로 쓰인 경우만: '민지님', '민지 ↔ 이준호'. '김민지'는 건드리지 않음)
   if (p.name && p.related.length) {
     tasks.push((async () => {
-      const key = `${p.name}님`;
+      const key = p.name;
       const { data: rows } = await supabase
         .from('notifications')
         .select('id, title, body')
@@ -70,9 +70,9 @@ export async function afterWithdraw(p: WithdrawPrep) {
         .limit(300);
       // '민지'가 탈퇴해도 '김민지님'은 바꾸지 않도록, 이름 앞이 한글이 아닌 경우만 바꾼다
       const esc = p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const pattern = `(^|[^가-힣])${esc}님`;
+      const pattern = `(^|[^가-힣])${esc}(?=님|[^가-힣]|$)`;
       const has = (t: string | null) => !!t && new RegExp(pattern).test(t);
-      const anon = (t: string | null) => (t ? t.replace(new RegExp(pattern, 'g'), '$1탈퇴회원님') : t);
+      const anon = (t: string | null) => (t ? t.replace(new RegExp(pattern, 'g'), '$1탈퇴회원') : t);
       await Promise.all(((rows || []) as any[])
         .filter((n) => has(n.title) || has(n.body))
         .map((n) => supabase.from('notifications').update({ title: anon(n.title), body: anon(n.body) }).eq('id', n.id)));

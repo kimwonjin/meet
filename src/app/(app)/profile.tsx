@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import BusinessSettingsSheet from '@/components/BusinessSettingsSheet';
 import WatermarkLookupSheet from '@/components/WatermarkLookupSheet';
 import BusinessInfo from '@/components/BusinessInfo';
@@ -117,6 +118,12 @@ export default function ProfileScreen() {
     drinking: '',
     body_type: '',
   });
+  // 단계를 넘길 때마다 기기에 저장 (닫지 않고 앱을 나가도 이어서 하도록)
+  useEffect(() => {
+    if (wizardStep === null || !user) return;
+    wizardDraftRef.current = { step: wizardStep, data: profileData };
+    AsyncStorage.setItem(`profile_wizard_draft_${user.id}`, JSON.stringify(wizardDraftRef.current)).catch(() => {});
+  }, [wizardStep, profileData]);
   const [storeData, setStoreData] = useState({
     male_count: 0,
     female_count: 0,
@@ -416,7 +423,11 @@ export default function ProfileScreen() {
     setProfileLoaded(true);
     // 아직 아무것도 채우지 않았으면 한 질문씩 안내한다 (이미 채운 사람은 한 화면에서 고친다)
     const firstFill = !data.location && !data.job && !data.bio && !(data.photo_urls ?? []).some(Boolean);
-    const draft = wizardDraftRef.current;
+    // 기기에 저장해 둔 작성 중 내용 (새로고침·앱 재시작 후에도 이어서)
+    let draft = wizardDraftRef.current;
+    if (firstFill && !draft) {
+      try { const raw = await AsyncStorage.getItem(`profile_wizard_draft_${user!.id}`); draft = raw ? JSON.parse(raw) : null; } catch { draft = null; }
+    }
     if (firstFill && draft) {
       setProfileData(draft.data);
       setWizardStep(draft.step);
@@ -454,6 +465,7 @@ export default function ProfileScreen() {
 
       toast.show('프로필이 저장되었습니다', 'success');
       wizardDraftRef.current = null;
+      AsyncStorage.removeItem(`profile_wizard_draft_${user!.id}`).catch(() => {});
       setShowProfileModal(false);
       return true;
     } catch (error) {
@@ -1099,7 +1111,10 @@ export default function ProfileScreen() {
         // 불러오는 동안에도 이 시트가 먼저 떠서 로딩을 보여준다 (불러온 뒤 처음이면 단계별, 아니면 수정 화면)
         visible={showProfileModal && (wizardStep !== null || !profileLoaded)}
         onClose={() => {
-          if (wizardStep !== null) wizardDraftRef.current = { step: wizardStep, data: profileData };
+          if (wizardStep !== null) {
+            wizardDraftRef.current = { step: wizardStep, data: profileData };
+            AsyncStorage.setItem(`profile_wizard_draft_${user!.id}`, JSON.stringify(wizardDraftRef.current)).catch(() => {});
+          }
           setShowProfileModal(false);
           setWizardStep(null);
         }}

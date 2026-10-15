@@ -310,7 +310,11 @@ export default function HomeScreen() {
         const expired = await Promise.all(consentedReqData.map(async (r: any) => (await expireStaleProposalIfDue(r)) || expireAfterCareIfDue(r)));
         if (expired.some(Boolean) && !retried) return fetchDashboard(true);
 
-        const { data: credits } = await getMyConnectorCredits(user!.id);
+        // 지금 가입돼 있는 파트너의 이용권만 센다 (탈퇴했거나 해지한 파트너의 이용권은 쓸 수 없고 환불 대상)
+        const { data: myReqs } = await supabase.from('hopeful_requests').select('connector_id').eq('hopeful_id', user!.id).eq('status', 'approved');
+        const memberOf = new Set((myReqs || []).map((r: any) => r.connector_id));
+        const { data: allCredits } = await getMyConnectorCredits(user!.id);
+        const credits = (allCredits || []).filter((c: any) => memberOf.has(c.connectorId));
         setRemainingSessions((credits || []).reduce((sum: number, c: any) => sum + c.available, 0));
         // 회원에게 전달된 소개만 센다 (동맹 파트너 동의 전인 소개는 회원 화면에 아직 보이지 않음)
         setInUseSessions(consentedReqData.filter((r: any) => r.status !== 'rejected' && !r.settlement_completed).length);
