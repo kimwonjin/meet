@@ -22,9 +22,9 @@ export async function requestJoin(
   me: { id: string; name: string },
   connectorId: string,
   inviteCode?: string | null
-): Promise<'sent' | 'pending' | 'approved' | 'error' | 'unavailable' | 'blocked'> {
+): Promise<'sent' | 'pending' | 'approved' | 'error' | 'unavailable' | 'blocked' | 'inactive'> {
   // 다른 기기에서 탈퇴·정지된 계정이면 신청하지 않는다
-  if (!(await isAccountActive(me.id))) return 'error';
+  if (!(await isAccountActive(me.id))) return 'inactive';
   const state = await getJoinState(me.id, connectorId);
   if (state !== 'none') return state;
   // 초대장을 연 뒤 가입하는 사이에 파트너가 탈퇴·정지했거나 활동을 쉬고 있으면 신청하지 않는다

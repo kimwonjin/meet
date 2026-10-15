@@ -22,7 +22,7 @@ function roleLabel(otherRole: string) {
 }
 
 export default function ChatScreen() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const toast = useToast();
   const router = useRouter();
   const params = useLocalSearchParams<{ with?: string; name?: string }>();
@@ -163,6 +163,12 @@ export default function ChatScreen() {
     setSending(true);
     try {
       const { error } = await sendMessage(threadId, user.id, content);
+      // 다른 기기에서 탈퇴·정지된 계정: 오류 대신 계정 상태를 다시 읽어 로그아웃한다
+      if ((error as any)?.code === 'INACTIVE') {
+        toast.show('계정 상태가 바뀌어 다시 로그인이 필요해요', 'info');
+        await refreshUser(user.id);
+        return;
+      }
       if (error) throw error;
       setMessageInput('');
       const msgs = await fetchMessages(threadId);

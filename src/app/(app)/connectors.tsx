@@ -63,7 +63,7 @@ const AFTER_RATE_MIN = 5;
 const PF_REGIONS = ['서울', '경기', '인천', '강원', '충청', '전라', '경상', '제주'];
 
 export default function ConnectorsScreen() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const router = useRouter();
   const toast = useToast();
   const confirm = useConfirm();
@@ -395,6 +395,11 @@ export default function ConnectorsScreen() {
       if (result === 'pending' || result === 'approved') {
         toast.show(result === 'pending' ? '이미 요청을 보냈어요. 파트너의 승인을 기다리는 중이에요' : '이미 승인된 파트너입니다', 'info');
         setSelectedConnector(null);
+        return;
+      }
+      if (result === 'inactive') {
+        toast.show('계정 상태가 바뀌어 다시 로그인이 필요해요', 'info');
+        await refreshUser(user.id);
         return;
       }
       if (result === 'error') throw new Error('request failed');

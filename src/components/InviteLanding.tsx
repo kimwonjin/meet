@@ -45,7 +45,7 @@ const FAQ = [
 export default function InviteLanding({ partnerId, code, inactive }: { partnerId?: string; code?: string | null; inactive?: boolean }) {
   const p = inactive ? undefined : partnerId;
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const toast = useToast();
   const { ready: bizReady } = useBusiness();
   const [partner, setPartner] = useState<Partner | null | undefined>(undefined);
@@ -113,6 +113,11 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
     setApplying(true);
     const r = await requestJoin(user, partner.id, code);
     setApplying(false);
+    if (r === 'inactive') {
+      toast.show('계정 상태가 바뀌어 다시 로그인이 필요해요', 'info');
+      await refreshUser(user.id);
+      return;
+    }
     if (r === 'error') {
       toast.show('가입 신청을 보내지 못했어요. 잠시 후 다시 시도해주세요', 'error');
       return;
