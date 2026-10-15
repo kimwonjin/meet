@@ -825,6 +825,29 @@ export default function ProfileScreen() {
     }
   }
 
+  // 심사 중인 파트너 신청을 거둔다 (운영자 심사 목록에서 빠지고, 처음부터 다시 신청할 수 있다)
+  async function handleCancelApplication() {
+    if (!user || loading) return;
+    setLoading(true);
+    try {
+      const { data: removed, error } = await supabase.from('connectors').delete().eq('id', user.id).eq('status', 'pending').select('id');
+      if (error) throw error;
+      if (!removed?.length) {
+        toast.show('이미 심사가 끝난 신청이에요', 'info');
+      } else {
+        toast.show('파트너 신청을 취소했어요. 언제든 다시 신청할 수 있어요', 'success');
+        setApplyStep(0);
+      }
+      setShowConnectorModal(false);
+      setConnectorApplicationStatus(removed?.length ? null : undefined);
+    } catch (error) {
+      console.error('신청 취소 오류:', error);
+      toast.show('취소하지 못했어요. 잠시 후 다시 시도해주세요', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleConnectorSignup() {
     if (!businessName.trim()) {
       toast.show('회사명을 입력해주세요', 'error');
@@ -1440,6 +1463,10 @@ export default function ProfileScreen() {
                 >
                   <Text style={styles.modalBtnText}>확인</Text>
                 </TouchableOpacity>
+                {/* 심사 전이면 신청을 거둘 수 있다 (언제든 다시 신청 가능) */}
+                <TouchableOpacity style={styles.applyCancel} onPress={handleCancelApplication} disabled={loading} accessibilityLabel="파트너 신청 취소">
+                  {loading ? <ActivityIndicator color="#87848D" /> : <Text style={styles.applyCancelText}>신청 취소</Text>}
+                </TouchableOpacity>
               </>
             ) : (
               <View style={{ minHeight: 260 }}>
@@ -2015,6 +2042,8 @@ const PROFILE_STEPS = 7;
 
 const styles = StyleSheet.create({
   wizardFooter: { flexDirection: 'row', gap: 8 },
+  applyCancel: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 16, marginTop: 4 },
+  applyCancelText: { fontSize: 13, color: '#87848D', textDecorationLine: 'underline' },
   withdrawRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
   withdrawKey: { fontSize: 13, color: '#87848D' },
   withdrawVal: { fontSize: 14, fontWeight: '600', color: '#211E27', flexShrink: 1, textAlign: 'right', marginLeft: 12 },

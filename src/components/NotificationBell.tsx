@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#E53935',
+    backgroundColor: '#5B21FF', // 강조색 하나 규칙: 안 읽음 배지도 보라
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 3,

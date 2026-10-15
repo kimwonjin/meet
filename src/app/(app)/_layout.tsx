@@ -10,7 +10,8 @@ import { requestJoin } from '@/lib/join';
 import { useToast } from '@/contexts/ToastContext';
 
 // 탭바 활성 색은 앱 강조색 하나로 통일
-const TAB_OPTIONS = { headerShown: false, tabBarActiveTintColor: '#5B21FF' };
+// 탭바 활성 색과 안 읽음 배지 색은 앱 강조색 하나로 통일
+const TAB_OPTIONS = { headerShown: false, tabBarActiveTintColor: '#5B21FF', tabBarBadgeStyle: { backgroundColor: '#5B21FF', color: '#fff' } };
 
 export default function AppLayout() {
   const { user } = useAuth();
