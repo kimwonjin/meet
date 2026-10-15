@@ -1,3 +1,4 @@
+import { isAccountActive } from './chat';
 import { supabase } from './supabase';
 import { createNotification } from './notifications';
 
@@ -22,6 +23,8 @@ export async function requestJoin(
   connectorId: string,
   inviteCode?: string | null
 ): Promise<'sent' | 'pending' | 'approved' | 'error' | 'unavailable'> {
+  // 다른 기기에서 탈퇴·정지된 계정이면 신청하지 않는다
+  if (!(await isAccountActive(me.id))) return 'error';
   const state = await getJoinState(me.id, connectorId);
   if (state !== 'none') return state;
   // 초대장을 연 뒤 가입하는 사이에 파트너가 탈퇴·정지했거나 활동을 쉬고 있으면 신청하지 않는다
@@ -41,6 +44,8 @@ export async function requestJoin(
   if (error && inviteCode && (error.code === '42703' || error.code === 'PGRST204')) {
     ({ error } = await supabase.from('hopeful_requests').insert([row]));
   }
+  // 두 화면에서 동시에 눌러 이미 신청이 들어간 경우 (DB에 중복 방지가 있으면 23505)
+  if (error?.code === '23505') return 'pending';
   if (error) return 'error';
   await createNotification({
     userId: connectorId,

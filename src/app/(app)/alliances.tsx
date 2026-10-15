@@ -66,10 +66,11 @@ export default function AlliancesScreen() {
       const otherConnectorIds = (allConnectors || []).map((c: any) => c.id).filter((id: string) => id !== user.id);
       const { data: otherConnUsers } = await supabase
         .from('users')
-        .select('id, name, withdrawn_at')
+        .select('id, name, withdrawn_at, suspended_at')
         .in('id', otherConnectorIds.length ? otherConnectorIds : ['00000000-0000-0000-0000-000000000000']);
       const others = (allConnectors || [])
-        .filter((c: any) => c.id !== user.id && !(otherConnUsers || []).find((u: any) => u.id === c.id)?.withdrawn_at)
+        // 탈퇴·정지된 파트너는 동맹 후보에서 뺀다
+        .filter((c: any) => { const u = (otherConnUsers || []).find((x: any) => x.id === c.id); return c.id !== user.id && !u?.withdrawn_at && !u?.suspended_at; })
         .map((c: any) => ({ ...c, name: (otherConnUsers || []).find((u: any) => u.id === c.id)?.name }));
       setOtherConnectors(others);
       setMyRegion((allConnectors || []).find((c: any) => c.id === user.id)?.main_region ?? null);

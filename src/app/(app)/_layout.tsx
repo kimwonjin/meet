@@ -22,7 +22,9 @@ export default function AppLayout() {
   // - 새로 가입했으면 초대한 파트너에게 가입 신청을 자동으로 보내고 파트너 정보로 보낸다
   // - 기존 회원이 로그인했으면 초대 화면으로 돌려보내 직접 신청하게 한다 (이미 가입한 파트너면 그렇게 안내)
   useEffect(() => {
-    if (user?.role !== 'hopeful') return;
+    if (!user) return;
+    // 회원이 아닌 계정으로 로그인했으면 저장된 초대는 버린다 (같은 기기의 다른 회원에게 넘어가지 않게)
+    if (user.role !== 'hopeful') { takePendingInvite(); return; }
     const signedUp = consumeJustSignedUp();
     takePendingInvite().then(async (inv) => {
       if (!inv) return;

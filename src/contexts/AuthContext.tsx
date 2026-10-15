@@ -51,7 +51,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active' && userRef.current) refreshUser(userRef.current.id);
     });
-    return () => sub.remove();
+    // 화면을 켜 둔 채로 다른 기기에서 탈퇴·정지돼도 1분 안에 로그아웃되게 한 번씩 확인한다
+    const timer = setInterval(() => { if (userRef.current) refreshUser(userRef.current.id); }, 60000);
+    return () => { sub.remove(); clearInterval(timer); };
   }, []);
 
   async function checkLogin() {
@@ -83,13 +85,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await logout({ forget: true });
       return;
     }
+    // 바뀐 게 없으면 그대로 둔다 (1분마다 확인할 때 화면이 다시 그려지지 않게)
+    if (JSON.stringify(data) === JSON.stringify(userRef.current)) return;
     setUser(data);
     await AsyncStorage.setItem('user', JSON.stringify(data));
   }
 
   async function login(phone: string) {
     const { data, error } = await loginWithPhone(phone);
-    if (error) return { error };
+    if (error) {
+      // 없는 번호(탈퇴 등)는 최근 로그인 목록에서도 지운다
+      if ((error as { code?: string }).code === 'PGRST116') {
+        const nextRecent = recentLogins.filter((r) => r.phone !== phone);
+        setRecentLogins(nextRecent);
+        await AsyncStorage.setItem(RECENT_LOGINS_KEY, JSON.stringify(nextRecent));
+      }
+      return { error };
+    }
 
     await AsyncStorage.setItem('user', JSON.stringify(data));
     setUser(data);

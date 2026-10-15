@@ -596,13 +596,18 @@ export default function ProfileScreen() {
     try {
       const result = await withdrawAccount(user.id);
       if (result.ok) {
+        // 파트너 신청·활동과 초대 링크도 닫는다 (탈퇴한 사람이 승인되거나 초대장이 열리지 않게). 실패해도 탈퇴는 끝난 것
+        await Promise.all([
+          supabase.from('connectors').update({ status: 'rejected' }).eq('id', user.id).in('status', ['pending', 'approved']),
+          supabase.from('invite_links').update({ is_active: false }).eq('connector_id', user.id),
+        ]).catch(() => {});
         await logout({ forget: true });
         router.replace('/');
         toast.show('탈퇴가 완료되었어요. 그동안 이용해주셔서 감사합니다', 'success');
         return;
       }
       if (result.reason === 'in_progress') {
-        toast.show('진행 중인 매칭이 있어요. 매칭이 마무리된 뒤 탈퇴할 수 있어요', 'error');
+        toast.show(user?.role === 'connector' ? '진행 중인 매칭이 있어요. 매칭 화면에서 마무리하거나 취소한 뒤 탈퇴할 수 있어요' : '진행 중인 소개가 있어요. 홈에서 답하거나, 담당 파트너에게 채팅으로 취소를 요청한 뒤 탈퇴할 수 있어요', 'error');
       } else if (result.reason === 'refund_needed') {
         toast.show(`환불받을 금액 ${(result.amount ?? 0).toLocaleString()}원이 남아 있어요. 먼저 환불을 요청해주세요`, 'error');
         setShowCreditsModal(true);

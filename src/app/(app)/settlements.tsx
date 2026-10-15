@@ -347,6 +347,13 @@ export default function SettlementsScreen() {
   async function handleApproveConnector(connectorId: string) {
     setProcessingId(connectorId);
     try {
+      // 신청 뒤 탈퇴한 사람은 승인하지 않는다 (화면이 오래 켜져 있던 경우)
+      const { data: applicant } = await supabase.from('users').select('withdrawn_at').eq('id', connectorId).maybeSingle();
+      if (!applicant || applicant.withdrawn_at) {
+        toast.show('탈퇴한 신청자예요', 'info');
+        await fetchPendingConnectors();
+        return;
+      }
       const { error: e1 } = await supabase.from('connectors').update({ status: 'approved' }).eq('id', connectorId);
       if (e1) throw e1;
       // 회원으로 소개가 진행 중이면 화면을 바로 바꾸지 않는다 (진행 중인 소개에 답할 수 없게 되므로)

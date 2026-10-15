@@ -454,12 +454,20 @@ export default function ConnectorsScreen() {
   async function handleReject(requestId: string, hopefulId: string) {
     setProcessingId(requestId);
     try {
-      const { error } = await supabase
+      // 대기 중인 신청만 거절한다 (다른 기기에서 이미 승인했거나 회원이 탈퇴한 경우 덮어쓰지 않게)
+      const { data: updated, error } = await supabase
         .from('hopeful_requests')
         .update({ status: 'rejected' })
-        .eq('id', requestId);
+        .eq('id', requestId)
+        .eq('status', 'pending')
+        .select('id');
 
       if (error) throw error;
+      if (!updated?.length) {
+        toast.show('이미 처리됐거나 탈퇴한 회원이에요', 'info');
+        fetchConnectors();
+        return;
+      }
 
       await createNotification({
         userId: hopefulId,

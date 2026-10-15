@@ -60,7 +60,15 @@ export async function fetchMessages(threadId: string) {
   return data || [];
 }
 
+// 보내는 사람이 다른 기기에서 탈퇴했거나 정지된 경우 보내지 않는다 (화면이 아직 로그인 상태로 남아 있어도)
+export async function isAccountActive(userId: string) {
+  const { data, error } = await supabase.from('users').select('withdrawn_at, suspended_at').eq('id', userId).maybeSingle();
+  if (error) return true; // 네트워크 오류는 막지 않는다
+  return !!data && !data.withdrawn_at && !data.suspended_at;
+}
+
 export async function sendMessage(threadId: string, senderId: string, content: string) {
+  if (!(await isAccountActive(senderId))) return { error: { code: 'INACTIVE', message: 'inactive account' } as any };
   const { count: existingCount } = await supabase
     .from('chat_messages')
     .select('*', { count: 'exact', head: true })
