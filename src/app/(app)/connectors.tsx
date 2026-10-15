@@ -200,7 +200,7 @@ export default function ConnectorsScreen() {
         const connectorIds = (conData || []).map((c: any) => c.id);
         const { data: connUsers } = await supabase
           .from('users')
-          .select('id, name, withdrawn_at, suspended_at, photo_urls')
+          .select('id, name, role, withdrawn_at, suspended_at, photo_urls')
           .in('id', connectorIds);
 
         // 파트너 지표: 내 성별·나이 기준 '나와 비슷한 나이 이성 회원' 수 등
@@ -234,7 +234,9 @@ export default function ConnectorsScreen() {
           // 탈퇴한 파트너는 목록에서 뺀다
           .filter((conn) => {
             const u = (connUsers || []).find((x: any) => x.id === conn.id);
-            return !u?.withdrawn_at && !u?.suspended_at;
+            if (u?.withdrawn_at || u?.suspended_at) return false;
+            // 회원 화면으로 바꿔 쉬고 있는 파트너는 새로 가입받지 않는다 (이미 회원인 사람에게는 계속 보인다)
+            return u?.role === 'connector' || conn.is_approved || conn.is_pending;
           });
 
         setConnectors(filtered);
@@ -396,6 +398,12 @@ export default function ConnectorsScreen() {
         return;
       }
       if (result === 'error') throw new Error('request failed');
+      if (result === 'unavailable') {
+        toast.show('이 파트너는 지금 활동하지 않아요', 'info');
+        setSelectedConnector(null);
+        fetchConnectors();
+        return;
+      }
       toast.show('가입을 요청했어요. 파트너가 승인하면 알려드릴게요', 'success');
       setSelectedConnector(null);
     } catch (error) {
@@ -410,12 +418,20 @@ export default function ConnectorsScreen() {
     setProcessingId(requestId);
     try {
       // 요청 승인
-      const { error: updateError } = await supabase
+      // 아직 대기 중인 신청만 승인한다 (그 사이 회원이 탈퇴했거나 다른 기기에서 이미 처리한 경우)
+      const { data: updated, error: updateError } = await supabase
         .from('hopeful_requests')
         .update({ status: 'approved' })
-        .eq('id', requestId);
+        .eq('id', requestId)
+        .eq('status', 'pending')
+        .select('id');
 
       if (updateError) throw updateError;
+      if (!updated?.length) {
+        toast.show('이미 처리됐거나 탈퇴한 회원이에요', 'info');
+        fetchConnectors();
+        return;
+      }
 
       await createNotification({
         userId: hopefulId,

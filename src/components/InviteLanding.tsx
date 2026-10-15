@@ -68,9 +68,10 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
           .eq('id', p)
           .eq('status', 'approved')
           .maybeSingle(),
-        supabase.from('users').select('id, name, photo_urls, withdrawn_at, suspended_at').eq('id', p).maybeSingle(),
+        supabase.from('users').select('id, name, role, photo_urls, withdrawn_at, suspended_at').eq('id', p).maybeSingle(),
       ]);
-      if (!conn || !u || u.withdrawn_at || u.suspended_at) return setPartner(null);
+      // 탈퇴·정지했거나 회원 화면으로 바꿔 쉬고 있는 파트너의 초대장은 열지 않는다
+      if (!conn || !u || u.withdrawn_at || u.suspended_at || u.role !== 'connector') return setPartner(null);
       setPartner({ ...conn, name: u.name, photo_urls: u.photo_urls ?? [] });
       // 링크 열람 기록 (코드 링크만, 봇·같은 방문 중복·파트너 본인은 빼고 센다)
       if (code && userIdRef.current !== p) trackInvite(code, 'CLICK');
@@ -114,6 +115,10 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
     setApplying(false);
     if (r === 'error') {
       toast.show('가입 신청을 보내지 못했어요. 잠시 후 다시 시도해주세요', 'error');
+      return;
+    }
+    if (r === 'unavailable') {
+      toast.show('이 파트너는 지금 활동하지 않아요', 'info');
       return;
     }
     if (r === 'sent') toast.show('가입 신청을 보냈어요. 파트너가 승인하면 알려드릴게요', 'success');

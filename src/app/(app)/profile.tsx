@@ -762,6 +762,17 @@ export default function ProfileScreen() {
     if (!user || switching) return;
     setSwitching(true);
     try {
+      // 파트너로 진행 중인 매칭이 있으면 바꾸지 않는다 (회원 화면에서는 동의·만남 완료·노쇼 확인을 할 수 없다)
+      const cols = 'id, status, settlement_completed';
+      const [{ data: c1 }, { data: c2 }] = await Promise.all([
+        supabase.from('match_requests').select(cols).eq('connector_1_id', user.id),
+        supabase.from('match_requests').select(cols).eq('connector_2_id', user.id),
+      ]);
+      if ([...(c1 || []), ...(c2 || [])].some((m: any) => m.status !== 'rejected' && !m.settlement_completed)) {
+        toast.show('진행 중인 매칭이 끝나면 회원 화면으로 바꿀 수 있어요', 'info');
+        setShowSwitchSheet(false);
+        return;
+      }
       const { error } = await supabase.from('users').update({ role: 'hopeful' }).eq('id', user.id);
       if (error) throw error;
       await updateUser({ role: 'hopeful' });

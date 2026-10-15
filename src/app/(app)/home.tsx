@@ -312,7 +312,8 @@ export default function HomeScreen() {
 
         const { data: credits } = await getMyConnectorCredits(user!.id);
         setRemainingSessions((credits || []).reduce((sum: number, c: any) => sum + c.available, 0));
-        setInUseSessions((reqData || []).filter((r: any) => !r.settlement_completed).length);
+        // 회원에게 전달된 소개만 센다 (동맹 파트너 동의 전인 소개는 회원 화면에 아직 보이지 않음)
+        setInUseSessions(consentedReqData.filter((r: any) => r.status !== 'rejected' && !r.settlement_completed).length);
         setFreeSessions((credits || []).reduce((sum: number, c: any) => sum + Math.min(c.freeAvailable || 0, c.available), 0));
 
         // 소개해 준 파트너 이름 (카드에 '○○ 추천')

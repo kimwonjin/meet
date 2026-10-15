@@ -82,26 +82,32 @@ export async function getBlockState(me: string, other: string) {
   };
 }
 
-// 운영자가 회원을 이용 정지하면 만나기 전 소개를 모두 끝낸다 (정지된 회원은 로그인해 답할 수 없으므로)
-// 상대 회원(제안이 전달된 경우만)과 담당 파트너에게 알린다. 정지 사실은 밝히지 않는다
+// 운영자가 회원이나 파트너를 이용 정지하면 만나기 전 소개를 모두 끝낸다
+// (정지된 사람은 로그인해 답하거나 만남 완료를 누를 수 없어 소개가 멈춰 버리므로)
+// 남은 사람들에게 알린다: 회원은 제안이 전달된 경우만. 정지 사실은 밝히지 않는다
 export async function closeOpenMatchesOf(userId: string) {
   const cols = 'id, hopeful_1_id, hopeful_2_id, connector_1_id, connector_2_id, connector_1_consented, connector_2_consented, status, settlement_completed, meeting_status';
-  const [{ data: m1 }, { data: m2 }] = await Promise.all([
-    supabase.from('match_requests').select(cols).eq('hopeful_1_id', userId),
-    supabase.from('match_requests').select(cols).eq('hopeful_2_id', userId),
-  ]);
-  const open = [...(m1 || []), ...(m2 || [])].filter((m: any) => m.status !== 'rejected' && !m.settlement_completed && m.meeting_status !== 'completed');
+  const results = await Promise.all(
+    ['hopeful_1_id', 'hopeful_2_id', 'connector_1_id', 'connector_2_id'].map((col) => supabase.from('match_requests').select(cols).eq(col, userId))
+  );
+  const seen = new Set<string>();
+  const open = results.flatMap((r) => r.data || []).filter((m: any) => {
+    if (seen.has(m.id)) return false;
+    seen.add(m.id);
+    return m.status !== 'rejected' && !m.settlement_completed && m.meeting_status !== 'completed';
+  });
   let closedCount = 0;
   for (const m of open as any[]) {
     const { data: closed } = await supabase.from('match_requests').update({ status: 'rejected', closed_reason: 'cancelled' }).eq('id', m.id).neq('status', 'rejected').select('id');
     if (!closed?.length) continue;
     closedCount++;
-    const other = m.hopeful_1_id === userId ? m.hopeful_2_id : m.hopeful_1_id;
+    const asMember = m.hopeful_1_id === userId || m.hopeful_2_id === userId;
     const delivered = m.connector_1_id === m.connector_2_id || (m.connector_1_consented && m.connector_2_consented);
-    const connectors = [...new Set<string>([m.connector_1_id, m.connector_2_id].filter(Boolean))];
+    const members = [m.hopeful_1_id, m.hopeful_2_id].filter((id: string) => id && id !== userId);
+    const connectors = [...new Set<string>([m.connector_1_id, m.connector_2_id].filter((id: string) => id && id !== userId))];
     await Promise.all([
-      ...connectors.map((id) => createNotification({ userId: id, type: 'match_closed', title: '매칭이 종료되었어요', body: '회원 사정으로 이번 매칭이 진행되지 않게 되었어요', route: '/matching' })),
-      ...(delivered && other ? [createNotification({ userId: other, type: 'match_closed', title: '이번 소개는 진행되지 않게 되었어요', body: '상대 사정으로 종료되었어요. 이용권은 차감되지 않았어요', route: '/home' })] : []),
+      ...connectors.map((id) => createNotification({ userId: id, type: 'match_closed', title: '매칭이 종료되었어요', body: asMember ? '회원 사정으로 이번 매칭이 진행되지 않게 되었어요' : '상대 파트너 사정으로 이번 매칭이 진행되지 않게 되었어요', route: '/matching' })),
+      ...(delivered ? members.map((id: string) => createNotification({ userId: id, type: 'match_closed', title: '이번 소개는 진행되지 않게 되었어요', body: asMember ? '상대 사정으로 종료되었어요. 이용권은 차감되지 않았어요' : '파트너 사정으로 종료되었어요. 이용권은 차감되지 않았어요', route: '/home' })) : []),
     ]);
   }
   return closedCount;

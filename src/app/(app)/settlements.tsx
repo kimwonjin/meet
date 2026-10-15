@@ -106,9 +106,10 @@ export default function SettlementsScreen() {
       if (error) throw error;
 
       const ids = (data || []).map((c: any) => c.id);
-      const { data: users } = await supabase.from('users').select('id, name, phone').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      const { data: users } = await supabase.from('users').select('id, name, phone, withdrawn_at').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
 
-      const enriched = (data || []).map((c: any) => ({
+      // 신청 후 탈퇴한 사람은 심사 목록에서 뺀다 (승인하면 사라진 계정이 파트너가 된다)
+      const enriched = (data || []).filter((c: any) => !(users || []).find((u: any) => u.id === c.id)?.withdrawn_at).map((c: any) => ({
         ...c,
         name: (users || []).find((u: any) => u.id === c.id)?.name || '신청자',
         phone: (users || []).find((u: any) => u.id === c.id)?.phone || '-',

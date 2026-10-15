@@ -29,6 +29,12 @@ export default function AppLayout() {
       if (signedUp) {
         if (inv.code) await trackInvite(inv.code, 'SIGNUP', user.id);
         const r = await requestJoin(user, inv.id, inv.code);
+        if (r === 'unavailable') {
+          // 초대한 파트너가 지금은 활동하지 않아요: 다른 파트너를 둘러보게 한다
+          toast.show('초대한 파트너가 지금은 활동하지 않아요. 다른 파트너를 찾아보세요', 'info');
+          setTimeout(() => router.push('/connectors'), 300);
+          return;
+        }
         if (r === 'sent') toast.show('초대한 파트너에게 가입 신청을 보냈어요. 승인되면 알려드릴게요', 'success');
         setTimeout(() => router.push({ pathname: '/connectors', params: { open: inv.id } }), 300);
       } else {

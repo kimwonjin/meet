@@ -21,9 +21,15 @@ export async function requestJoin(
   me: { id: string; name: string },
   connectorId: string,
   inviteCode?: string | null
-): Promise<'sent' | 'pending' | 'approved' | 'error'> {
+): Promise<'sent' | 'pending' | 'approved' | 'error' | 'unavailable'> {
   const state = await getJoinState(me.id, connectorId);
   if (state !== 'none') return state;
+  // 초대장을 연 뒤 가입하는 사이에 파트너가 탈퇴·정지했거나 활동을 쉬고 있으면 신청하지 않는다
+  const [{ data: conn }, { data: pu }] = await Promise.all([
+    supabase.from('connectors').select('status').eq('id', connectorId).maybeSingle(),
+    supabase.from('users').select('role, withdrawn_at, suspended_at').eq('id', connectorId).maybeSingle(),
+  ]);
+  if (conn?.status !== 'approved' || !pu || pu.withdrawn_at || pu.suspended_at || pu.role !== 'connector') return 'unavailable';
   const row: Record<string, any> = {
     hopeful_id: me.id,
     connector_id: connectorId,

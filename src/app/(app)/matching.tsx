@@ -31,9 +31,9 @@ import { AFTER_CARE_DAYS, afterCareDeadline, afterCareOutcome, expireAfterCareIf
 
 // 매칭 후보로 고를 회원 (사진·나이·지역을 보고 고른다)
 type Member = MemberProfile & { id: string; name: string };
-const MEMBER_FIELDS = 'id, name, gender, age, birth_date, location, photo_urls, height, job, education, bio, religion, smoking, drinking, body_type, suspended_at';
-// 이용 정지된 회원은 매칭 후보에서 뺀다
-const active = (users: any[] | null) => ((users || []) as any[]).filter((u) => !u.suspended_at) as Member[];
+const MEMBER_FIELDS = 'id, name, gender, age, birth_date, location, photo_urls, height, job, education, bio, religion, smoking, drinking, body_type, suspended_at, role';
+// 이용 정지된 회원, 파트너로 바꿔 활동 중인 사람은 매칭 후보에서 뺀다 (파트너 화면에서는 제안을 볼 수 없다)
+const active = (users: any[] | null) => ((users || []) as any[]).filter((u) => !u.suspended_at && u.role !== 'connector' && u.role !== 'operator') as Member[];
 
 function memberSummary(m: Member) {
   return [m.gender === 'M' ? '남' : m.gender === 'F' ? '여' : null, m.age && `${m.age}세`, m.location].filter(Boolean).join(' · ');
