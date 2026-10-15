@@ -127,7 +127,7 @@ export default function MatchingScreen() {
     fetchMatches();
     fetchOwnMembers();
     fetchAllyConnectors();
-  }, 15000, !!user);
+  }, 60000, !!user);
   const pullRefresh = usePullRefresh(() => Promise.all([fetchMatches(), fetchOwnMembers(), fetchAllyConnectors()]));
 
   async function fetchMatches(retried = false) {

@@ -272,10 +272,12 @@ export default function SettlementsScreen() {
         .order('requested_at', { ascending: false });
       if (error) throw error;
       const ids = [...new Set((data || []).map((r: any) => r.hopeful_id))];
-      const { data: users } = await supabase.from('users').select('id, name').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      const { data: users } = await supabase.from('users').select('id, name, withdrawn_at').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
       // 대기 중인 요청은 지금 시점 환불 가능 금액을 함께 보여준다
       const enriched = await Promise.all((data || []).map(async (r: any) => ({
         ...r,
+        // 탈퇴한 회원은 다시 요청할 수 없으므로 반려하지 않고 지급만 한다
+        withdrawn: !!(users || []).find((u: any) => u.id === r.hopeful_id)?.withdrawn_at,
         hopeful_name: (users || []).find((u: any) => u.id === r.hopeful_id)?.name || '회원',
         current: r.status === 'pending' ? await getRefundable(r.hopeful_id) : null,
       })));
@@ -312,6 +314,7 @@ export default function SettlementsScreen() {
   }
 
   async function handleRejectRefund(item: any) {
+    if (item.withdrawn) return;
     setProcessingId(item.id);
     try {
       const { data: rejected, error } = await supabase
@@ -763,6 +766,9 @@ export default function SettlementsScreen() {
                     >
                       <Text style={styles.approveBtnText}>{processingId === item.id ? '처리 중...' : '환불 완료 처리'}</Text>
                     </TouchableOpacity>
+                    {item.withdrawn ? (
+                      <Text style={[styles.rowLabel, { flex: 1, alignSelf: 'center' }]}>탈퇴한 회원 · 반려 없이 지급해 주세요</Text>
+                    ) : (
                     <TouchableOpacity
                       style={[styles.rejectBtn, processingId === item.id && styles.buttonDisabled]}
                       onPress={async () => {
@@ -772,6 +778,7 @@ export default function SettlementsScreen() {
                     >
                       <Text style={styles.rejectBtnText}>반려</Text>
                     </TouchableOpacity>
+                    )}
                   </View>
                 )}
               </View>

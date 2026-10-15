@@ -108,7 +108,7 @@ export default function ConnectorsScreen() {
     fetchConnectors();
   }, []);
 
-  useFocusPolling(() => fetchConnectors(), 15000, !!user);
+  useFocusPolling(() => fetchConnectors(), 60000, !!user);
   // 파트너 지표는 무거운 계산이라 화면에 처음 들어올 때와 당겨서 새로고침할 때만 다시 불러온다
   const statsLoadedRef = useRef(false);
   const pullRefresh = usePullRefresh(() => { statsLoadedRef.current = false; return fetchConnectors(); });

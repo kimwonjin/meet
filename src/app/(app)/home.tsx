@@ -111,7 +111,7 @@ export default function HomeScreen() {
     if (matchSheet && !receivedMatches.some((m) => matchSheet.ids.includes(m.id))) setMatchSheet(null);
   }, [receivedMatches]);
 
-  useFocusPolling(() => fetchDashboard(), 15000, !!user);
+  useFocusPolling(() => fetchDashboard(), 60000, !!user);
   const pullRefresh = usePullRefresh(() => fetchDashboard());
 
   async function fetchDashboard(retried = false) {

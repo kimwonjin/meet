@@ -1,3 +1,4 @@
+import { isAppHidden } from '@/lib/visibility';
 import React, { createContext, useState, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -51,8 +52,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active' && userRef.current) refreshUser(userRef.current.id);
     });
-    // 화면을 켜 둔 채로 다른 기기에서 탈퇴·정지돼도 1분 안에 로그아웃되게 한 번씩 확인한다
-    const timer = setInterval(() => { if (userRef.current) refreshUser(userRef.current.id); }, 60000);
+    // 화면을 켜 둔 채로 다른 기기에서 탈퇴·정지돼도 5분 안에 로그아웃되게 한 번씩 확인한다
+    // (보내기·신청할 때는 그 자리에서 다시 확인하므로 주기는 길게)
+    const timer = setInterval(() => { if (userRef.current && !isAppHidden()) refreshUser(userRef.current.id); }, 300000);
     return () => { sub.remove(); clearInterval(timer); };
   }, []);
 

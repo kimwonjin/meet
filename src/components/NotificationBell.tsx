@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import BottomSheet from './BottomSheet';
 import { useRouter } from 'expo-router';
+import { useFocusPolling } from '@/hooks/use-focus-polling';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { fetchNotifications, markAllRead, markOneRead, getUnreadNotificationCount, openNotification, timeAgo } from '@/lib/notifications';
@@ -15,14 +16,8 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    const poll = () => getUnreadNotificationCount(user.id).then((n) => { if (!cancelled) setUnreadCount(n); });
-    poll();
-    const interval = setInterval(poll, 20000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [user?.id]);
+  // 안 읽은 알림 수: 지금 보고 있는 화면의 종만 1분마다 확인한다 (탭마다 종이 있어 모두 돌면 요청이 몇 배가 됨)
+  useFocusPolling(() => { if (user) getUnreadNotificationCount(user.id).then(setUnreadCount); }, 60000, !!user);
 
   async function openCenter() {
     if (!user) return;

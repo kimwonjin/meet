@@ -21,6 +21,7 @@ import InviteSheet from '@/components/InviteSheet';
 import ConsentChecklist, { ConsentItem } from '@/components/ConsentChecklist';
 import { recordConsents, TermsDocKey } from '@/lib/terms';
 import { getPendingRefund, getRefundable, Refundable, requestRefund, withdrawAccount } from '@/lib/refunds';
+import { afterWithdraw, prepareWithdraw } from '@/lib/withdrawal';
 import { createNotification } from '@/lib/notifications';
 import { findBannedWord } from '@/lib/adPolicy';
 
@@ -594,8 +595,11 @@ export default function ProfileScreen() {
     if (!ok) return;
     setWithdrawing(true);
     try {
+      // 탈퇴하면 연결 정보가 지워지므로, 정리할 것(사진·동맹·알림 받은 사람)을 먼저 모아 둔다
+      const prep = await prepareWithdraw(user).catch(() => null);
       const result = await withdrawAccount(user.id);
       if (result.ok) {
+        if (prep) await afterWithdraw(prep).catch(() => {});
         // 파트너 신청·활동과 초대 링크도 닫는다 (탈퇴한 사람이 승인되거나 초대장이 열리지 않게). 실패해도 탈퇴는 끝난 것
         await Promise.all([
           supabase.from('connectors').update({ status: 'rejected' }).eq('id', user.id).in('status', ['pending', 'approved']),

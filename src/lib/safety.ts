@@ -112,3 +112,15 @@ export async function closeOpenMatchesOf(userId: string) {
   }
   return closedCount;
 }
+
+// 회원이 파트너와의 가입을 해지한다 (차단과 함께). 그 파트너를 통한 진행 중인 소개가 있으면 해지하지 않는다
+export async function leavePartner(hopefulId: string, connectorId: string) {
+  const cols = 'id, status, settlement_completed, connector_1_id, connector_2_id';
+  const [{ data: m1 }, { data: m2 }] = await Promise.all([
+    supabase.from('match_requests').select(cols).eq('hopeful_1_id', hopefulId).eq('connector_1_id', connectorId),
+    supabase.from('match_requests').select(cols).eq('hopeful_2_id', hopefulId).eq('connector_2_id', connectorId),
+  ]);
+  if ([...(m1 || []), ...(m2 || [])].some((m: any) => m.status !== 'rejected' && !m.settlement_completed)) return false;
+  const { error } = await supabase.from('hopeful_requests').delete().eq('hopeful_id', hopefulId).eq('connector_id', connectorId).in('status', ['approved', 'pending']);
+  return !error;
+}

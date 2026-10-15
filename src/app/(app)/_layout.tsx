@@ -1,3 +1,4 @@
+import { isAppHidden } from '@/lib/visibility';
 import { useEffect, useState } from 'react';
 import { Redirect, Tabs, usePathname, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,7 +61,8 @@ export default function AppLayout() {
     let cancelled = false;
     const poll = () => getUnreadCount(user.id).then((n) => { if (!cancelled) setUnreadCount(n); });
     poll();
-    const interval = setInterval(poll, 20000);
+    // 안 읽은 채팅 수: 1분마다, 앱이 숨어 있으면 건너뜀
+    const interval = setInterval(() => { if (!isAppHidden()) poll(); }, 60000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [user?.id]);
 

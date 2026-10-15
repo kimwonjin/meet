@@ -1,3 +1,4 @@
+import { isAppHidden } from '@/lib/visibility';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { APP_MAX_WIDTH } from '@/lib/layout';
 import SkeletonScreen from '@/components/Skeleton';
@@ -77,7 +78,9 @@ export default function ChatScreen() {
       )
       .subscribe();
 
+    // 열어 둔 대화방은 실시간이 끊겨도 5초마다 새 메시지를 확인한다 (앱이 숨어 있으면 건너뜀)
     const interval = setInterval(async () => {
+      if (isAppHidden()) return;
       const msgs = await fetchMessages(threadId);
       if (activeThreadRef.current !== threadId) return;
       setMessages((prev) => {
@@ -86,7 +89,7 @@ export default function ChatScreen() {
         if (msgs.slice(prev.length).some((m: any) => m.sender_id !== user.id)) markThreadRead(threadId, user.id);
         return msgs;
       });
-    }, 4000);
+    }, 5000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -96,7 +99,7 @@ export default function ChatScreen() {
 
   // 대화 목록: 화면을 보고 있는 동안 주기적으로 미리보기와 안 읽은 수를 갱신한다
   // (모든 메시지를 실시간으로 받으면 다른 사람 대화까지 받아 매번 다시 불러오게 되므로 쓰지 않는다)
-  useFocusPolling(() => load(), 10000, !!user);
+  useFocusPolling(() => load(), 30000, !!user);
   const pullRefresh = usePullRefresh(() => load());
 
   async function load() {

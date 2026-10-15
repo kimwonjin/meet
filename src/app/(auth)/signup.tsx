@@ -5,6 +5,7 @@ import { consumeJustSignedUp, markJustSignedUp } from '@/lib/invite';
 import { calculateAge, signUpHopeful } from '@/lib/auth';
 import ConsentChecklist, { ConsentItem } from '@/components/ConsentChecklist';
 import { recordConsents } from '@/lib/terms';
+import { linkPreviousAccount } from '@/lib/withdrawal';
 
 const SIGNUP_CONSENTS: ConsentItem[] = [
   { key: 'age19', label: '만 19세 이상입니다' },
@@ -90,6 +91,8 @@ export default function SignupScreen() {
       }
 
       if (data?.id) await recordConsents(data.id, SIGNUP_CONSENTS.map((c) => c.key));
+      // 예전에 같은 번호로 탈퇴한 계정이 있으면 그때의 차단을 이어 받는다
+      if (data?.id) await linkPreviousAccount(data.id, phone, name);
 
       // 로그인 직후 초대 처리가 이 표시를 읽으므로 먼저 켜 두고, 로그인에 실패하면 끈다
       markJustSignedUp();

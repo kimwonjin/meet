@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import BottomSheet from './BottomSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { blockUser, REPORT_REASONS, reportUser, ReportContext } from '@/lib/safety';
+import { blockUser, leavePartner, REPORT_REASONS, reportUser, ReportContext } from '@/lib/safety';
+import { supabase } from '@/lib/supabase';
 
 interface Props {
   targetId: string;
@@ -24,6 +25,14 @@ export default function SafetyActions({ targetId, targetName, context, variant =
   const [reason, setReason] = useState<string | null>(null);
   const [detail, setDetail] = useState('');
   const [busy, setBusy] = useState(false);
+  // 회원이 자기 담당 파트너를 차단하는 경우: 가입도 함께 해지할지 묻는다 (기본: 해지)
+  const [isMyPartner, setIsMyPartner] = useState(false);
+  const [alsoLeave, setAlsoLeave] = useState(true);
+  useEffect(() => {
+    if (mode !== 'block' || !user || user.role !== 'hopeful') return;
+    supabase.from('hopeful_requests').select('id').eq('hopeful_id', user.id).eq('connector_id', targetId).in('status', ['approved', 'pending'])
+      .then(({ data }) => { setIsMyPartner(!!data?.length); setAlsoLeave(true); });
+  }, [mode, targetId, user?.id]);
 
   if (!user || user.id === targetId) return null;
 
@@ -58,7 +67,12 @@ export default function SafetyActions({ targetId, targetName, context, variant =
       toast.show('차단하지 못했어요. 잠시 후 다시 시도해주세요', 'error');
       return;
     }
-    toast.show(`${targetName}님을 차단했어요`, 'success');
+    if (isMyPartner && alsoLeave) {
+      const left = await leavePartner(user.id, targetId);
+      toast.show(left ? `${targetName}님을 차단하고 가입을 해지했어요. 남은 이용권은 마이 › 이용권에서 환불받을 수 있어요` : `${targetName}님을 차단했어요. 진행 중인 소개가 있어 가입 해지는 소개가 끝난 뒤에 할 수 있어요`, 'success');
+    } else {
+      toast.show(`${targetName}님을 차단했어요`, 'success');
+    }
     setMode(null);
     onBlocked?.();
   }
@@ -121,6 +135,12 @@ export default function SafetyActions({ targetId, targetName, context, variant =
       <BottomSheet visible={mode === 'block'} onClose={close} title={`${targetName}님 차단`}>
         <Text style={styles.desc}>차단하면 {targetName}님과 {blockEffect}</Text>
         <Text style={styles.sub}>상대에게는 차단 사실을 알리지 않아요. 마이 › 차단 목록에서 언제든 풀 수 있어요.</Text>
+        {isMyPartner && (
+          <TouchableOpacity style={styles.leaveRow} onPress={() => setAlsoLeave(!alsoLeave)} accessibilityRole="checkbox" accessibilityState={{ checked: alsoLeave }} accessibilityLabel="이 파트너와의 가입도 해지">
+            <View style={[styles.leaveCheck, alsoLeave && styles.leaveCheckOn]}>{alsoLeave && <Text style={styles.leaveMark}>✓</Text>}</View>
+            <Text style={styles.leaveText}>이 파트너와의 가입도 해지할게요{'\n'}<Text style={styles.leaveSub}>더 이상 이 파트너의 소개를 받지 않아요</Text></Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={[styles.primary, busy && styles.disabled]} onPress={submitBlock} disabled={busy}>
           {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>차단하기</Text>}
         </TouchableOpacity>
@@ -140,6 +160,12 @@ const styles = StyleSheet.create({
   menuRowText: { fontSize: 15, color: '#322F38' },
   desc: { fontSize: 14, color: '#322F38', lineHeight: 21, marginBottom: 12 },
   sub: { fontSize: 13, color: '#87848D', lineHeight: 19, marginBottom: 16 },
+  leaveRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#F8F6FB', borderRadius: 10, padding: 12, marginBottom: 16 },
+  leaveCheck: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#CBC8D1', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  leaveCheckOn: { backgroundColor: '#5B21FF', borderColor: '#5B21FF' },
+  leaveMark: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  leaveText: { flex: 1, fontSize: 14, color: '#322F38', lineHeight: 20 },
+  leaveSub: { fontSize: 12, color: '#87848D' },
   reasons: { gap: 8, marginBottom: 12 },
   reason: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14 },
   reasonOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
