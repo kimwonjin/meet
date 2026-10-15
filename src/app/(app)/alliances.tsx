@@ -374,7 +374,7 @@ export default function AlliancesScreen() {
                         if (!fit) return null;
                         return (
                           <View style={styles.fitRow}>
-                            <Text style={[styles.fitBadge, fit.label === '잘 맞아요' ? styles.fitGood : fit.label === '덜 맞아요' ? styles.fitLow : styles.fitMid]}>궁합 {fit.label}</Text>
+                            <Text style={[styles.fitBadge, fit.label === '잘 맞아요' ? styles.fitGood : fit.label === '덜 맞아요' ? styles.fitLow : styles.fitMid]}>궁합 {Math.round(fit.score * 100)}점</Text>
                             {!!fit.reasons.length && <Text style={styles.fitWhy} numberOfLines={1}>{fit.reasons.join(' · ')}</Text>}
                           </View>
                         );
