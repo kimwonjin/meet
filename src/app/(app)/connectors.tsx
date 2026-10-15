@@ -398,8 +398,8 @@ export default function ConnectorsScreen() {
         return;
       }
       if (result === 'error') throw new Error('request failed');
-      if (result === 'unavailable') {
-        toast.show('이 파트너는 지금 활동하지 않아요', 'info');
+      if (result === 'unavailable' || result === 'blocked') {
+        toast.show(result === 'blocked' ? '지금은 이 파트너에게 신청할 수 없어요' : '이 파트너는 지금 활동하지 않아요', 'info');
         setSelectedConnector(null);
         fetchConnectors();
         return;
@@ -1029,7 +1029,13 @@ export default function ConnectorsScreen() {
               </>
             )}
             {selectedConnector && (
-              <SafetyActions targetId={selectedConnector.id} targetName={selectedConnector.business_name || selectedConnector.name || '파트너'} context="partner" />
+              <SafetyActions
+                targetId={selectedConnector.id}
+                targetName={selectedConnector.business_name || selectedConnector.name || '파트너'}
+                context="partner"
+                // 차단(·가입 해지) 뒤에는 시트를 닫고 목록을 바로 새로 불러온다 ('내 파트너' 표시가 남지 않게)
+                onBlocked={() => { setSelectedConnector(null); fetchConnectors(); }}
+              />
             )}
             </View>
       </BottomSheet>

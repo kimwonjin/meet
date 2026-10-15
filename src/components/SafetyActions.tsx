@@ -69,7 +69,7 @@ export default function SafetyActions({ targetId, targetName, context, variant =
     }
     if (isMyPartner && alsoLeave) {
       const left = await leavePartner(user.id, targetId);
-      toast.show(left ? `${targetName}님을 차단하고 가입을 해지했어요. 남은 이용권은 마이 › 이용권에서 환불받을 수 있어요` : `${targetName}님을 차단했어요. 진행 중인 소개가 있어 가입 해지는 소개가 끝난 뒤에 할 수 있어요`, 'success');
+      toast.show(left ? `${targetName}님을 차단하고 가입을 해지했어요. 남은 이용권은 마이 › 이용권/결제에서 환불받을 수 있어요` : `${targetName}님을 차단했어요. 진행 중인 소개가 있어 가입 해지는 소개가 끝난 뒤에 할 수 있어요`, 'success');
     } else {
       toast.show(`${targetName}님을 차단했어요`, 'success');
     }
@@ -138,7 +138,7 @@ export default function SafetyActions({ targetId, targetName, context, variant =
         {isMyPartner && (
           <TouchableOpacity style={styles.leaveRow} onPress={() => setAlsoLeave(!alsoLeave)} accessibilityRole="checkbox" accessibilityState={{ checked: alsoLeave }} accessibilityLabel="이 파트너와의 가입도 해지">
             <View style={[styles.leaveCheck, alsoLeave && styles.leaveCheckOn]}>{alsoLeave && <Text style={styles.leaveMark}>✓</Text>}</View>
-            <Text style={styles.leaveText}>이 파트너와의 가입도 해지할게요{'\n'}<Text style={styles.leaveSub}>더 이상 이 파트너의 소개를 받지 않아요</Text></Text>
+            <Text style={styles.leaveText}>이 파트너와의 가입도 해지할게요{'\n'}<Text style={styles.leaveSub}>새 소개를 받지 않아요. 진행 중인 소개가 있으면 끝난 뒤에 해지할 수 있어요</Text></Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity style={[styles.primary, busy && styles.disabled]} onPress={submitBlock} disabled={busy}>

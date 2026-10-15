@@ -1,6 +1,7 @@
 import { isAppHidden } from '@/lib/visibility';
 import { useEffect, useState } from 'react';
 import { Redirect, Tabs, usePathname, useRouter } from 'expo-router';
+import { onAppVisible } from '@/lib/visibility';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUnreadCount } from '@/lib/chat';
@@ -17,7 +18,8 @@ export default function AppLayout() {
   const router = useRouter();
   const toast = useToast();
   // 동맹 관리는 마이 메뉴 안의 화면이라, 그 화면에 있을 때 마이 탭을 켜 둔다
-  const inAlliances = usePathname() === '/alliances';
+  const pathname = usePathname();
+  const inAlliances = pathname === '/alliances';
 
   // 초대 링크로 들어와 가입·로그인한 회원:
   // - 새로 가입했으면 초대한 파트너에게 가입 신청을 자동으로 보내고 파트너 정보로 보낸다
@@ -32,7 +34,7 @@ export default function AppLayout() {
       if (signedUp) {
         if (inv.code) await trackInvite(inv.code, 'SIGNUP', user.id);
         const r = await requestJoin(user, inv.id, inv.code);
-        if (r === 'unavailable') {
+        if (r === 'unavailable' || r === 'blocked') {
           // 초대한 파트너가 지금은 활동하지 않아요: 다른 파트너를 둘러보게 한다
           toast.show('초대한 파트너가 지금은 활동하지 않아요. 다른 파트너를 찾아보세요', 'info');
           setTimeout(() => router.push('/connectors'), 300);
@@ -63,8 +65,15 @@ export default function AppLayout() {
     poll();
     // 안 읽은 채팅 수: 1분마다, 앱이 숨어 있으면 건너뜀
     const interval = setInterval(() => { if (!isAppHidden()) poll(); }, 60000);
-    return () => { cancelled = true; clearInterval(interval); };
+    const off = onAppVisible(poll);
+    return () => { cancelled = true; clearInterval(interval); off(); };
   }, [user?.id]);
+
+  // 화면을 옮길 때마다 안 읽은 채팅 수를 다시 센다 (대화를 읽고 나온 뒤 배지가 남지 않게)
+  useEffect(() => {
+    if (!user) return;
+    getUnreadCount(user.id).then(setUnreadCount);
+  }, [pathname, user?.id]);
 
   // 로그인 없이 /matching 같은 주소로 바로 들어오면 로그인 화면으로 보낸다
   if (!user) {

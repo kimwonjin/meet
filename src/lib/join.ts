@@ -22,7 +22,7 @@ export async function requestJoin(
   me: { id: string; name: string },
   connectorId: string,
   inviteCode?: string | null
-): Promise<'sent' | 'pending' | 'approved' | 'error' | 'unavailable'> {
+): Promise<'sent' | 'pending' | 'approved' | 'error' | 'unavailable' | 'blocked'> {
   // 다른 기기에서 탈퇴·정지된 계정이면 신청하지 않는다
   if (!(await isAccountActive(me.id))) return 'error';
   const state = await getJoinState(me.id, connectorId);
@@ -33,6 +33,12 @@ export async function requestJoin(
     supabase.from('users').select('role, withdrawn_at, suspended_at').eq('id', connectorId).maybeSingle(),
   ]);
   if (conn?.status !== 'approved' || !pu || pu.withdrawn_at || pu.suspended_at || pu.role !== 'connector') return 'unavailable';
+  // 어느 한쪽이라도 차단했으면 신청하지 않는다 (차단한 파트너에게 다시 신청하거나, 나를 차단한 파트너에게 알림이 가지 않게)
+  const [{ data: b1 }, { data: b2 }] = await Promise.all([
+    supabase.from('user_blocks').select('blocker_id').eq('blocker_id', me.id).eq('blocked_id', connectorId),
+    supabase.from('user_blocks').select('blocker_id').eq('blocker_id', connectorId).eq('blocked_id', me.id),
+  ]);
+  if (b1?.length || b2?.length) return 'blocked';
   const row: Record<string, any> = {
     hopeful_id: me.id,
     connector_id: connectorId,

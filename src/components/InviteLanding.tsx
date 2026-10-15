@@ -117,8 +117,9 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
       toast.show('가입 신청을 보내지 못했어요. 잠시 후 다시 시도해주세요', 'error');
       return;
     }
-    if (r === 'unavailable') {
-      toast.show('이 파트너는 지금 활동하지 않아요', 'info');
+    if (r === 'unavailable' || r === 'blocked') {
+      // 차단 여부는 밝히지 않는다
+      toast.show(r === 'blocked' ? '지금은 이 파트너에게 신청할 수 없어요' : '이 파트너는 지금 활동하지 않아요', 'info');
       return;
     }
     if (r === 'sent') toast.show('가입 신청을 보냈어요. 파트너가 승인하면 알려드릴게요', 'success');

@@ -56,7 +56,7 @@ export async function afterWithdraw(p: WithdrawPrep) {
   for (const url of p.photos) tasks.push(deletePhoto(url).catch(() => {}));
   // 2) 동맹 파트너에게 동맹 종료 알림
   for (const id of p.allies) {
-    tasks.push(createNotification({ userId: id, type: 'alliance_ended', title: '동맹이 종료되었어요', body: '동맹 파트너가 탈퇴해 동맹이 끝났어요. 진행 중이던 소개는 그대로 마무리돼요', route: '/alliances' }).catch(() => {}));
+    tasks.push(createNotification({ userId: id, type: 'alliance_ended', title: '동맹이 종료되었어요', body: '동맹 파트너가 탈퇴해 동맹이 끝났어요. 매칭 화면에서 진행 상황을 확인해 주세요', route: '/alliances' }).catch(() => {}));
   }
   // 3) 다른 사람이 받은 알림 속 내 이름을 '탈퇴회원'으로 (이름 뒤에 '님'이 붙은 경우만 바꿔 같은 글자의 다른 말은 건드리지 않는다)
   if (p.name && p.related.length) {
@@ -68,12 +68,14 @@ export async function afterWithdraw(p: WithdrawPrep) {
         .in('user_id', p.related)
         .or(`title.ilike.%${key}%,body.ilike.%${key}%`)
         .limit(300);
-      await Promise.all(((rows || []) as any[]).map((n) =>
-        supabase.from('notifications').update({
-          title: (n.title || '').split(key).join('탈퇴회원님'),
-          body: n.body ? n.body.split(key).join('탈퇴회원님') : n.body,
-        }).eq('id', n.id)
-      ));
+      // '민지'가 탈퇴해도 '김민지님'은 바꾸지 않도록, 이름 앞이 한글이 아닌 경우만 바꾼다
+      const esc = p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = `(^|[^가-힣])${esc}님`;
+      const has = (t: string | null) => !!t && new RegExp(pattern).test(t);
+      const anon = (t: string | null) => (t ? t.replace(new RegExp(pattern, 'g'), '$1탈퇴회원님') : t);
+      await Promise.all(((rows || []) as any[])
+        .filter((n) => has(n.title) || has(n.body))
+        .map((n) => supabase.from('notifications').update({ title: anon(n.title), body: anon(n.body) }).eq('id', n.id)));
     })().catch(() => {}));
   }
   // 4) 번호 흔적 남기기 (같은 번호로 다시 가입하면 예전 차단을 이어 붙이려고). 표가 없으면(DB 준비 전) 조용히 넘어간다

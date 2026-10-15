@@ -25,6 +25,8 @@ export default function NotificationBell() {
     setLoading(true);
     const data = await fetchNotifications(user.id);
     setNotifications(data);
+    // 조회 사이에 온 알림도 바로 반영한다 ('모두 읽음' 버튼·종 배지)
+    setUnreadCount((data || []).filter((n: any) => !n.read_at).length);
     setLoading(false);
   }
 
@@ -48,7 +50,7 @@ export default function NotificationBell() {
 
   return (
     <>
-      <TouchableOpacity style={styles.bellBtn} onPress={openCenter}>
+      <TouchableOpacity style={styles.bellBtn} onPress={openCenter} accessibilityLabel={unreadCount > 0 ? `알림 ${unreadCount}개` : "알림"}>
         <Text style={styles.bellIcon}>🔔</Text>
         {unreadCount > 0 && (
           <View style={styles.badge}>

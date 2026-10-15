@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import BusinessSettingsSheet from '@/components/BusinessSettingsSheet';
 import WatermarkLookupSheet from '@/components/WatermarkLookupSheet';
 import BusinessInfo from '@/components/BusinessInfo';
@@ -66,6 +66,8 @@ export default function ProfileScreen() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   // 처음 프로필을 채울 때는 한 화면에 한 질문씩 (null이면 지금처럼 한 화면에서 수정)
   const [wizardStep, setWizardStep] = useState<number | null>(null);
+  // 단계별 입력 중에 닫아도 다시 열면 이어서 하도록 (저장하면 지운다)
+  const wizardDraftRef = useRef<{ step: number; data: any } | null>(null);
   // 파트너 신청서 단계 (0 소개 → 1 모임 이름 → 2 약관)
   const [applyStep, setApplyStep] = useState(0);
   const applying = showConnectorModal && (connectorApplicationStatus === null || connectorApplicationStatus === 'rejected');
@@ -414,10 +416,23 @@ export default function ProfileScreen() {
     setProfileLoaded(true);
     // 아직 아무것도 채우지 않았으면 한 질문씩 안내한다 (이미 채운 사람은 한 화면에서 고친다)
     const firstFill = !data.location && !data.job && !data.bio && !(data.photo_urls ?? []).some(Boolean);
-    setWizardStep(firstFill ? 0 : null);
+    const draft = wizardDraftRef.current;
+    if (firstFill && draft) {
+      setProfileData(draft.data);
+      setWizardStep(draft.step);
+    } else {
+      setWizardStep(firstFill ? 0 : null);
+    }
   }
 
-  async function handleProfileSave() {
+  async function handleProfileSave(): Promise<boolean> {
+    // 키는 숫자만, 120~220cm (오타로 17cm처럼 저장되지 않게)
+    const h = profileData.height.trim();
+    if (h && (!/^\d+$/.test(h) || Number(h) < 120 || Number(h) > 220)) {
+      toast.show('키는 120~220 사이 숫자로 입력해 주세요', 'error');
+      if (wizardStep !== null) setWizardStep(2);
+      return false;
+    }
     setLoading(true);
     try {
       const { error } = await supabase
@@ -438,10 +453,13 @@ export default function ProfileScreen() {
       if (error) throw error;
 
       toast.show('프로필이 저장되었습니다', 'success');
+      wizardDraftRef.current = null;
       setShowProfileModal(false);
+      return true;
     } catch (error) {
       console.error('Profile save error:', error);
       toast.show('프로필 저장 실패', 'error');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -1080,7 +1098,11 @@ export default function ProfileScreen() {
       <BottomSheet
         // 불러오는 동안에도 이 시트가 먼저 떠서 로딩을 보여준다 (불러온 뒤 처음이면 단계별, 아니면 수정 화면)
         visible={showProfileModal && (wizardStep !== null || !profileLoaded)}
-        onClose={() => { setShowProfileModal(false); setWizardStep(null); }}
+        onClose={() => {
+          if (wizardStep !== null) wizardDraftRef.current = { step: wizardStep, data: profileData };
+          setShowProfileModal(false);
+          setWizardStep(null);
+        }}
         title={wizardStep !== null ? `프로필 채우기 ${wizardStep + 1}/${PROFILE_STEPS}` : '내 프로필'}
         footer={wizardStep !== null ? (
           <View style={styles.wizardFooter}>
@@ -1092,7 +1114,7 @@ export default function ProfileScreen() {
             <TouchableOpacity
               style={[styles.wizardNext, (loading || !profileLoaded) && styles.storeSaveBtnDisabled]}
               disabled={loading || !profileLoaded}
-              onPress={() => (wizardStep < PROFILE_STEPS - 1 ? setWizardStep(wizardStep + 1) : handleProfileSave().then(() => setWizardStep(null)))}
+              onPress={() => (wizardStep < PROFILE_STEPS - 1 ? setWizardStep(wizardStep + 1) : handleProfileSave().then((ok) => { if (ok) setWizardStep(null); }))}
               accessibilityLabel={wizardStep < PROFILE_STEPS - 1 ? '다음' : '저장하기'}
             >
               <Text style={styles.wizardNextText}>{loading ? '저장 중...' : wizardStep < PROFILE_STEPS - 1 ? '다음' : '저장하기'}</Text>
@@ -1105,7 +1127,9 @@ export default function ProfileScreen() {
           // 하나만 고르는 질문은 고르면 바로 다음으로 넘어간다
           const pickAndNext = (patch: Partial<typeof profileData>) => {
             setProfileData({ ...profileData, ...patch });
-            setTimeout(() => setWizardStep((s) => (s !== null && s < PROFILE_STEPS - 1 ? s + 1 : s)), 250);
+            // 두 번 눌러도 한 칸만 넘어가도록 '지금 단계에서 다음 단계로'만 바꾼다
+            const from = wizardStep;
+            setTimeout(() => setWizardStep((s) => (s === from && s < PROFILE_STEPS - 1 ? s + 1 : s)), 250);
           };
           const chips = (options: string[], value: string, onPick: (v: string) => void) => (
             <View style={styles.buttonGroup}>
@@ -1123,7 +1147,7 @@ export default function ProfileScreen() {
             { title: '키와 체형을 알려 주세요', body: (
               <>
                 <Text style={styles.formLabel}>키 (cm)</Text>
-                <TextInput style={[styles.formInput, { marginBottom: 16 }]} placeholder="170" placeholderTextColor="#DCD9E2" keyboardType="number-pad" value={profileData.height} onChangeText={(t) => set({ height: t })} />
+                <TextInput style={[styles.formInput, { marginBottom: 16 }]} placeholder="170" placeholderTextColor="#DCD9E2" keyboardType="number-pad" value={profileData.height} onChangeText={(t) => set({ height: t.replace(/\D/g, '').slice(0, 3) })} />
                 <Text style={styles.formLabel}>체형</Text>
                 {chips(bodyTypes, profileData.body_type, (v) => set({ body_type: v }))}
               </>
@@ -1201,7 +1225,7 @@ export default function ProfileScreen() {
             placeholderTextColor="#DCD9E2"
             keyboardType="number-pad"
             value={profileData.height}
-            onChangeText={(text) => setProfileData({...profileData, height: text})}
+            onChangeText={(text) => setProfileData({...profileData, height: text.replace(/\D/g, '').slice(0, 3)})}
           />
         </View>
 
@@ -1328,7 +1352,8 @@ export default function ProfileScreen() {
 
       <BottomSheet
         visible={showConnectorModal}
-        onClose={() => { setShowConnectorModal(false); setApplyStep(0); }}
+        // 닫아도 입력한 단계·모임 이름은 남겨 두고, 다시 열면 이어서 한다
+        onClose={() => setShowConnectorModal(false)}
         title={connectorApplicationStatus === 'pending' ? '신청이 접수됐어요' : connectorApplicationStatus === 'approved' ? '매칭 파트너' : `파트너 신청 ${applyStep + 1}/3`}
         footer={applying ? (
           // 신청서는 한 화면에 한 질문씩, 다음 버튼은 아래에 고정
