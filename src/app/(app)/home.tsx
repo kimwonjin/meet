@@ -760,7 +760,7 @@ export default function HomeScreen() {
           const GOAL = 5;
           const steps = [
             { label: `회원 ${GOAL}명 초대하기`, sub: `지금 ${approvedMemberCount}명`, done: approvedMemberCount >= GOAL, go: () => setShowInvite(true) },
-            { label: '동맹 파트너 맺기', sub: allyState.pending ? '동맹 신청이 진행 중이에요. 수락되면 완료' : '다른 파트너 회원과도 소개할 수 있어요', done: allyState.active, go: () => router.push({ pathname: '/alliances', params: { from: 'home' } }) },
+            { label: '동맹 파트너 맺기', sub: allyState.pending ? '동맹 신청이 진행 중이에요. 수락되면 완료' : '다른 파트너 회원과도 소개할 수 있어요', done: allyState.active, go: () => router.push({ pathname: '/matching', params: { view: 'ally' } }) },
             { label: '첫 매칭 제안하기', sub: '어울릴 두 사람을 골라 제안해요', done: startState.proposed, go: () => router.push({ pathname: '/matching', params: { view: 'active' } }) },
             { label: '첫 만남 성사', sub: '만남 뒤 두 회원이 애프터를 고르면 완료', done: false, go: () => router.push({ pathname: '/matching', params: { view: 'history' } }) },
           ];
@@ -835,14 +835,14 @@ export default function HomeScreen() {
             <Text style={styles.aAct}>보기 ›</Text>
           </TouchableOpacity>
         )}
-        {/* 동맹: 소개할 수 있는 회원을 늘리는 곳 (마이 › 동맹 관리로 이어짐) */}
+        {/* 동맹: 소개할 수 있는 회원을 늘리는 곳 (매칭 › 동맹으로 이어짐) */}
         {allySummary && (
           <>
             <View style={styles.band} />
             <Text style={styles.aH3}>동맹</Text>
             <TouchableOpacity
               style={styles.allyRow}
-              onPress={() => router.push({ pathname: '/alliances', params: { from: 'home' } })}
+              onPress={() => router.push({ pathname: '/matching', params: { view: 'ally' } })}
               accessibilityLabel="동맹 관리 열기"
             >
               <View style={{ flex: 1 }}>

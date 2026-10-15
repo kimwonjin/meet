@@ -18,9 +18,7 @@ export default function AppLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
   const router = useRouter();
   const toast = useToast();
-  // 동맹 관리는 마이 메뉴 안의 화면이라, 그 화면에 있을 때 마이 탭을 켜 둔다
   const pathname = usePathname();
-  const inAlliances = pathname === '/alliances';
 
   // 초대 링크로 들어와 가입·로그인한 회원:
   // - 새로 가입했으면 초대한 파트너에게 가입 신청을 자동으로 보내고 파트너 정보로 보낸다
@@ -151,8 +149,7 @@ export default function AppLayout() {
           name="profile"
           options={{
             tabBarLabel: '마이',
-            tabBarIcon: ({ color }) => <Ionicons name="person-circle" size={24} color={inAlliances ? '#5B21FF' : color} />,
-            ...(inAlliances ? { tabBarLabelStyle: { color: '#5B21FF' } } : {}),
+            tabBarIcon: ({ color }) => <Ionicons name="person-circle" size={24} color={color} />,
           }}
         />
         <Tabs.Screen name="alliances" options={{ href: null }} />

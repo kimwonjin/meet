@@ -503,7 +503,7 @@ export default function ConnectorsScreen() {
     const emptyText = {
       approved: '승인한 회원이 없습니다',
       pending: '대기 중인 요청이 없습니다',
-      ally: '동맹 파트너의 회원이 없습니다.\n마이 › 동맹 관리에서 다른 파트너와 동맹을 맺어보세요.',
+      ally: '동맹 파트너의 회원이 없습니다.\n매칭 › 동맹에서 다른 파트너와 동맹을 맺어보세요.',
     }[tabStatus];
 
     return (

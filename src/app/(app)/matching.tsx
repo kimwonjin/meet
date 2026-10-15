@@ -26,6 +26,7 @@ import { formatMeetingDate } from '@/lib/format';
 import { earliestCommonDate, sendContactsViaChat } from '@/lib/schedule';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar } from '@/components/ProfilePhoto';
+import AlliancesPanel from '@/components/AlliancesPanel';
 import { AFTER_CARE_DAYS, afterCareDeadline, afterCareOutcome, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline, proposalDeadline } from '@/lib/afterCare';
 
 
@@ -52,8 +53,10 @@ export default function MatchingScreen() {
   const [remindedKeys, setRemindedKeys] = useState<string[]>([]);
   // 동맹 파트너 회원까지 후보로 보여줄지
   const [includeAllies, setIncludeAllies] = useState(true);
-  // 매칭(제안·진행 중) / 매칭내역(마무리된 매칭)
-  const [view, setView] = useState<'active' | 'history'>('active');
+  // 새 매칭(제안) / 매칭내역(진행 중·마무리) / 동맹(다른 파트너와 동맹 맺기)
+  const [view, setView] = useState<'active' | 'history' | 'ally'>('active');
+  // 받은 동맹 요청 수 ('동맹' 칸 숫자)
+  const [allyIncoming, setAllyIncoming] = useState(0);
   // 회원 후보 필터 (회원 탭과 같은 필터)
   const memberFilter = useMemberFilter();
   // 회원별 최근 매칭 제안 날짜 · 진행 중 여부 (오래 쉰 회원을 먼저 찾기 위해)
@@ -98,8 +101,8 @@ export default function MatchingScreen() {
   }, [params.pick, params.pickFrom, user?.id]);
 
   useEffect(() => {
-    if (params.view === 'active') {
-      setView('active');
+    if (params.view === 'active' || params.view === 'ally') {
+      setView(params.view);
       router.setParams({ view: undefined });
     } else if (params.segment === 'ally' || params.view === 'history' || params.focus) {
       // 매칭 관련 알림(동의 요청, 승인, 일정 등)은 매칭내역에서 확인한다
@@ -236,12 +239,14 @@ export default function MatchingScreen() {
 
   async function fetchAllyConnectors() {
     if (!user) return;
-    const { data: allianceRows } = await supabase
+    const { data: rows } = await supabase
       .from('connector_alliances')
       .select('*')
       .or(`connector_1_id.eq.${user.id},connector_2_id.eq.${user.id}`)
-      .eq('status', 'ACTIVE');
-    const allyIds = (allianceRows || []).map((a: any) =>
+      .in('status', ['ACTIVE', 'PENDING']);
+    setAllyIncoming((rows || []).filter((a: any) => a.status === 'PENDING' && a.requested_by !== user.id).length);
+    const allianceRows = (rows || []).filter((a: any) => a.status === 'ACTIVE');
+    const allyIds = allianceRows.map((a: any) =>
       a.connector_1_id === user.id ? a.connector_2_id : a.connector_1_id
     );
     if (allyIds.length === 0) {
@@ -1355,19 +1360,35 @@ export default function MatchingScreen() {
       </View>
 
       <View style={styles.viewRow}>
-        {([['active', '새 매칭'], ['history', `매칭내역${activeMatches.length ? ` (진행 ${activeMatches.length})` : ''}`]] as const).map(([key, label]) => (
+        {([
+          ['active', '새 매칭', 0, '매칭 제안 화면'],
+          ['history', '매칭내역', activeMatches.length, '매칭내역 화면'],
+          ['ally', '동맹', allyIncoming, '동맹 화면'],
+        ] as const).map(([key, label, count, a11y]) => (
           <TouchableOpacity
             key={key}
             style={[styles.viewBtn, view === key && styles.viewBtnActive]}
-            onPress={() => { setView(key); setStageFilter(null); }}
+            onPress={() => { setView(key); setStageFilter(null); if (key !== 'ally') fetchAllyConnectors(); }}
             accessibilityRole="tab"
             accessibilityState={{ selected: view === key }}
-            accessibilityLabel={key === 'active' ? '매칭 제안 화면' : '매칭내역 화면'}
+            accessibilityLabel={`${a11y}${count ? ` (${key === 'ally' ? '받은 요청' : '진행'} ${count})` : ''}`}
           >
-            <Text style={[styles.viewBtnText, view === key && styles.viewBtnTextActive]}>{label}</Text>
+            <View style={styles.viewBtnInner}>
+              <Text style={[styles.viewBtnText, view === key && styles.viewBtnTextActive]} numberOfLines={1}>{label}</Text>
+              {count > 0 && (
+                <View style={[styles.viewCount, key === 'ally' && styles.viewCountNew]}>
+                  <Text style={[styles.viewCountText, key === 'ally' && styles.viewCountTextNew]}>{count}</Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         ))}
       </View>
+
+      {view === 'ally' ? (
+        <AlliancesPanel onIncoming={setAllyIncoming} />
+      ) : (
+      <>
 
       <FlatList
           ref={listRef}
@@ -1403,6 +1424,8 @@ export default function MatchingScreen() {
           contentContainerStyle={styles.list}
         />
       {view === 'active' && proposeBtn}
+      </>
+      )}
 
       <DatePickerSheet
         visible={scheduleMatchId !== null}
@@ -1544,6 +1567,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 8,
   },
+  viewBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  // 진행 중 수는 차분하게, 받은 동맹 요청은 강조색으로
+  viewCount: { minWidth: 18, paddingHorizontal: 5, height: 18, borderRadius: 9, backgroundColor: '#E6E3EB', alignItems: 'center', justifyContent: 'center' },
+  viewCountNew: { backgroundColor: '#5B21FF' },
+  viewCountText: { fontSize: 11, fontWeight: '700', color: '#6E6B75' },
+  viewCountTextNew: { color: '#fff' },
   viewBtnActive: {
     backgroundColor: '#fff',
   },
