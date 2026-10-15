@@ -47,6 +47,8 @@ export default function AlliancesScreen() {
   const [fGender, setFGender] = useState<'all' | 'M' | 'F'>('all');
   const [fAges, setFAges] = useState<number[]>([]); // 20, 30, 40(=40대 이상)
   const [fRegions, setFRegions] = useState<string[]>([]);
+  const [fFit, setFFit] = useState<0 | 60 | 80>(0); // 궁합 점수 이상
+  const [fitInfoOpen, setFitInfoOpen] = useState(false);
 
   useEffect(() => {
     fetchAlliances();
@@ -105,7 +107,7 @@ export default function AlliancesScreen() {
   };
   const q = query.trim().toLowerCase();
   const toggleIn = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
-  const filterCount = (fGender !== 'all' ? 1 : 0) + fAges.length + fRegions.length;
+  const filterCount = (fGender !== 'all' ? 1 : 0) + fAges.length + fRegions.length + (fFit ? 1 : 0);
   // 찾는 조건(성별·연령대)에 맞는 회원 수. 연령대는 회원이 적은 파트너는 공개하지 않아 null
   const matchCount = (c: any): number | null => {
     const d = directory?.[c.id];
@@ -129,6 +131,7 @@ export default function AlliancesScreen() {
   const shownConnectors = otherConnectors
     .filter((c) => !q || [c.name, c.business_name, formatRegions(c.main_region), partnerIntro(c)].some((v) => (v || '').toLowerCase().includes(q)))
     .filter(inRegions)
+    .filter((c) => !fFit || Math.round((fitOf(c)?.score ?? 0) * 100) >= fFit)
     .filter((c) => !composing || (matchCount(c) ?? 0) > 0)
     // 조건을 고르면 맞는 회원이 많은 순, 아니면 받은 요청 → 동맹 중 → 보낸 요청 → 나머지 (같은 묶음 안에서는 궁합이 좋은 순)
     .sort((a, b) => (composing ? (matchCount(b) ?? 0) - (matchCount(a) ?? 0) : 0) || rank(a) - rank(b) || (fitOf(b)?.score ?? -1) - (fitOf(a)?.score ?? -1));
@@ -324,8 +327,23 @@ export default function AlliancesScreen() {
           )}
           <Text style={styles.fLabel}>지역 (활동 지역·회원 지역)</Text>
           <View style={styles.fRow}>{REGIONS.map((r) => chip(r, fRegions.includes(r), () => setFRegions(toggleIn(fRegions, r))))}</View>
+          {directory && (
+            <>
+              <View style={styles.fLabelRow}>
+                <Text style={[styles.fLabel, { marginTop: 0, marginBottom: 0 }]}>궁합 점수</Text>
+                <TouchableOpacity onPress={() => setFitInfoOpen(true)} hitSlop={10} accessibilityLabel="궁합 점수 설명">
+                  <Text style={styles.fitInfo}>ⓘ</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.fRow}>
+                {chip('전체', fFit === 0, () => setFFit(0))}
+                {chip('60점 이상', fFit === 60, () => setFFit(60))}
+                {chip('80점 이상', fFit === 80, () => setFFit(80))}
+              </View>
+            </>
+          )}
           {filterCount > 0 && (
-            <TouchableOpacity onPress={() => { setFGender('all'); setFAges([]); setFRegions([]); }} style={{ alignSelf: 'flex-start', paddingVertical: 4 }}>
+            <TouchableOpacity onPress={() => { setFGender('all'); setFAges([]); setFRegions([]); setFFit(0); }} style={{ alignSelf: 'flex-start', paddingVertical: 4 }}>
               <Text style={styles.fReset}>필터 초기화</Text>
             </TouchableOpacity>
           )}
@@ -375,6 +393,9 @@ export default function AlliancesScreen() {
                         return (
                           <View style={styles.fitRow}>
                             <Text style={[styles.fitBadge, fit.label === '잘 맞아요' ? styles.fitGood : fit.label === '덜 맞아요' ? styles.fitLow : styles.fitMid]}>궁합 {Math.round(fit.score * 100)}점</Text>
+                            <TouchableOpacity onPress={() => setFitInfoOpen(true)} hitSlop={10} accessibilityLabel="궁합 점수 설명">
+                              <Text style={styles.fitInfo}>ⓘ</Text>
+                            </TouchableOpacity>
                             {!!fit.reasons.length && <Text style={styles.fitWhy} numberOfLines={1}>{fit.reasons.join(' · ')}</Text>}
                           </View>
                         );
@@ -447,6 +468,33 @@ export default function AlliancesScreen() {
           }}
         />
       )}
+
+      {/* 궁합 점수 설명 */}
+      <BottomSheet visible={fitInfoOpen} onClose={() => setFitInfoOpen(false)} title="궁합 점수란?">
+        <View style={{ gap: 12, paddingBottom: 8 }}>
+          <Text style={styles.fitInfoLead}>내 회원과 상대 파트너의 회원이 서로 소개하기에 얼마나 잘 맞는지 100점 만점으로 보여줘요</Text>
+          {[
+            ['또래 이성 회원', '30점', '내 회원과 같은 나이대의 상대 이성 회원이 많을수록'],
+            ['지역', '30점', '회원들이 사는 지역이 겹칠수록'],
+            ['나이대', '20점', '내 남성 ↔ 상대 여성, 내 여성 ↔ 상대 남성의 나이대가 가까울수록'],
+            ['남녀 수', '20점', '내 남성 수와 상대 여성 수, 내 여성 수와 상대 남성 수가 비슷할수록'],
+          ].map(([k, pt, d]) => (
+            <View key={k} style={styles.fitInfoRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fitInfoKey}>{k}</Text>
+                <Text style={styles.fitInfoDesc}>{d}</Text>
+              </View>
+              <Text style={styles.fitInfoPt}>{pt}</Text>
+            </View>
+          ))}
+          <View style={styles.fitInfoScale}>
+            <Text style={styles.fitInfoDesc}><Text style={[styles.fitBadge, styles.fitGood]}>60점 이상</Text>  잘 맞아요</Text>
+            <Text style={styles.fitInfoDesc}><Text style={[styles.fitBadge, styles.fitMid]}>35~59점</Text>  괜찮아요</Text>
+            <Text style={styles.fitInfoDesc}><Text style={[styles.fitBadge, styles.fitLow]}>34점 이하</Text>  덜 맞아요</Text>
+          </View>
+          <Text style={styles.fitInfoNote}>회원이 적어 공개되지 않은 정보는 빼고, 알 수 있는 정보만으로 계산해요</Text>
+        </View>
+      </BottomSheet>
 
       {/* 회원 풀 통계 바텀시트 */}
       <BottomSheet visible={!!selectedAlly} onClose={() => setSelectedAlly(null)}>
@@ -540,6 +588,15 @@ const styles = StyleSheet.create({
   fReset: { fontSize: 12, color: '#98959E', textDecorationLine: 'underline' },
   fFoot: { fontSize: 12, color: '#8F8C95', textAlign: 'center', marginTop: 12 },
   fMatch: { color: '#5B21FF', fontWeight: '600' },
+  fitInfo: { fontSize: 13, color: '#98959E', fontWeight: '700' },
+  fLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  fitInfoLead: { fontSize: 14, color: '#322F38', lineHeight: 20 },
+  fitInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F1EFF4' },
+  fitInfoKey: { fontSize: 14, fontWeight: '700', color: '#322F38' },
+  fitInfoDesc: { fontSize: 12, color: '#87848D', marginTop: 2, lineHeight: 18 },
+  fitInfoPt: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
+  fitInfoScale: { gap: 6, backgroundColor: '#F8F7FA', borderRadius: 10, padding: 12 },
+  fitInfoNote: { fontSize: 12, color: '#98959E', lineHeight: 18 },
   fitRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   fitBadge: { fontSize: 11, fontWeight: '700', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, overflow: 'hidden' },
   fitGood: { color: '#5B21FF', backgroundColor: '#F1ECFF' },
