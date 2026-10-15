@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatRegions, partnerIntro } from '@/lib/format';
+import { allyFit } from '@/lib/allyFit';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { createNotification } from '@/lib/notifications';
 import PartnerComposition from '@/components/PartnerComposition';
@@ -40,6 +41,8 @@ export default function AlliancesScreen() {
   const [query, setQuery] = useState('');
   // 회원 구성으로 찾기: 파트너별 회원 수·성별·연령대·지역 (null = SQL 실행 전이라 지역만)
   const [directory, setDirectory] = useState<Record<string, any> | null>(null);
+  // 내 활동 지역 (회원 수가 적어 회원 지역이 공개되지 않을 때 궁합 계산에 쓴다)
+  const [myRegion, setMyRegion] = useState<string | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [fGender, setFGender] = useState<'all' | 'M' | 'F'>('all');
   const [fAges, setFAges] = useState<number[]>([]); // 20, 30, 40(=40대 이상)
@@ -69,6 +72,7 @@ export default function AlliancesScreen() {
         .filter((c: any) => c.id !== user.id && !(otherConnUsers || []).find((u: any) => u.id === c.id)?.withdrawn_at)
         .map((c: any) => ({ ...c, name: (otherConnUsers || []).find((u: any) => u.id === c.id)?.name }));
       setOtherConnectors(others);
+      setMyRegion((allConnectors || []).find((c: any) => c.id === user.id)?.main_region ?? null);
       supabase.rpc('fn_partner_directory').then(({ data, error }) => {
         setDirectory(error || !Array.isArray(data) ? null : Object.fromEntries(data.map((d: any) => [d.id, d])));
       });
@@ -119,12 +123,14 @@ export default function AlliancesScreen() {
     return fRegions.some((r) => own.includes(r) || memberRegions.some((m) => m.includes(r)));
   };
   const composing = fGender !== 'all' || fAges.length > 0;
+  // 동맹 궁합 (지역·나이대·남녀 균형). 회원 정보가 없으면 null
+  const fitOf = (c: any) => (directory && user ? allyFit(directory[user.id], directory[c.id], myRegion, c.main_region) : null);
   const shownConnectors = otherConnectors
     .filter((c) => !q || [c.name, c.business_name, formatRegions(c.main_region), partnerIntro(c)].some((v) => (v || '').toLowerCase().includes(q)))
     .filter(inRegions)
     .filter((c) => !composing || (matchCount(c) ?? 0) > 0)
-    // 조건을 고르면 맞는 회원이 많은 순, 아니면 받은 요청 → 동맹 중 → 보낸 요청 → 나머지
-    .sort((a, b) => (composing ? (matchCount(b) ?? 0) - (matchCount(a) ?? 0) : 0) || rank(a) - rank(b));
+    // 조건을 고르면 맞는 회원이 많은 순, 아니면 받은 요청 → 동맹 중 → 보낸 요청 → 나머지 (같은 묶음 안에서는 궁합이 좋은 순)
+    .sort((a, b) => (composing ? (matchCount(b) ?? 0) - (matchCount(a) ?? 0) : 0) || rank(a) - rank(b) || (fitOf(b)?.score ?? -1) - (fitOf(a)?.score ?? -1));
   const hiddenSmall = composing && fAges.length ? otherConnectors.filter((c) => directory?.[c.id] && !directory[c.id].ages).length : 0;
   const REGIONS = ['서울', '경기', '인천', '강원', '충청', '전라', '경상', '제주'];
   const chip = (label: string, on: boolean, onPress: () => void) => (
@@ -362,6 +368,16 @@ export default function AlliancesScreen() {
                           {composing && matchCount(item) !== null ? <Text style={styles.fMatch}>  조건에 맞는 회원 {matchCount(item)}명</Text> : null}
                         </Text>
                       )}
+                      {(() => {
+                        const fit = fitOf(item);
+                        if (!fit) return null;
+                        return (
+                          <View style={styles.fitRow}>
+                            <Text style={[styles.fitBadge, fit.label === '잘 맞아요' ? styles.fitGood : fit.label === '덜 맞아요' ? styles.fitLow : styles.fitMid]}>궁합 {fit.label}</Text>
+                            {!!fit.reasons.length && <Text style={styles.fitWhy} numberOfLines={1}>{fit.reasons.join(' · ')}</Text>}
+                          </View>
+                        );
+                      })()}
                       <Text style={styles.desc}>{isActive ? '동맹 중 · ' : ''}프로필 보기 ›</Text>
                     </View>
                   </View>
@@ -523,6 +539,12 @@ const styles = StyleSheet.create({
   fReset: { fontSize: 12, color: '#98959E', textDecorationLine: 'underline' },
   fFoot: { fontSize: 12, color: '#8F8C95', textAlign: 'center', marginTop: 12 },
   fMatch: { color: '#5B21FF', fontWeight: '600' },
+  fitRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  fitBadge: { fontSize: 11, fontWeight: '700', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, overflow: 'hidden' },
+  fitGood: { color: '#5B21FF', backgroundColor: '#F1ECFF' },
+  fitMid: { color: '#54515A', backgroundColor: '#F1EFF4' },
+  fitLow: { color: '#98959E', backgroundColor: '#F7F6F9' },
+  fitWhy: { flex: 1, fontSize: 11, color: '#87848D' },
   search: { borderWidth: 1, borderColor: '#E6E3EC', borderRadius: 12, paddingHorizontal: 14, minHeight: 46, fontSize: 16, color: '#18151E', backgroundColor: '#fff' },
   list: {
     paddingHorizontal: 20,
