@@ -25,6 +25,13 @@ export async function setPaused(user: { id: string; name: string }, on: boolean)
   if (error) return { ok: false as const };
   const { data: reqs } = await supabase.from('hopeful_requests').select('connector_id').eq('hopeful_id', user.id).eq('status', 'approved');
   const partners = [...new Set(((reqs || []) as any[]).map((r) => r.connector_id as string))];
+  // 짧은 시간에 여러 번 바꾸면 알림이 쌓이지 않게, 아직 안 읽은 이전 쉬기·재개 알림은 지우고 지금 상태 하나만 남긴다
+  if (partners.length) {
+    const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    await supabase.from('notifications').delete()
+      .in('user_id', partners).in('type', ['member_paused', 'member_resumed'])
+      .is('read_at', null).gte('created_at', since).like('title', `${user.name}님이 %`);
+  }
   await Promise.all(partners.map((id) => createNotification({
     userId: id,
     type: on ? 'member_paused' : 'member_resumed',

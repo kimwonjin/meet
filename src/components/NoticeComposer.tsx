@@ -40,6 +40,7 @@ export default function NoticeComposer({ visible, onClose }: { visible: boolean;
   async function send() {
     if (!user || sending) return;
     if (!title.trim()) { toast.show('제목을 입력해 주세요', 'error'); return; }
+    if (!count) { toast.show('받을 사람이 없어요', 'info'); return; }
     const label = TARGETS.find((t) => t[0] === target)![1];
     // 여러 사람에게 한꺼번에 가고 되돌릴 수 없으므로 한 번 더 확인한다
     const ok = await confirm({ title: `${label} ${count ?? 0}명에게 보낼까요?`, message: `"${title.trim()}"\n보낸 공지는 취소할 수 없어요`, confirmText: '보내기' });
@@ -74,8 +75,8 @@ export default function NoticeComposer({ visible, onClose }: { visible: boolean;
       onClose={onClose}
       title="공지 보내기"
       footer={
-        <TouchableOpacity style={[s.btn, (sending || !title.trim()) && { opacity: 0.6 }]} onPress={send} disabled={sending || !title.trim()} accessibilityLabel="공지 보내기 확정">
-          {sending ? <ActivityIndicator color="#fff" /> : <Text style={s.btnT}>{count === null ? '보내기' : `${count}명에게 보내기`}</Text>}
+        <TouchableOpacity style={[s.btn, (sending || !title.trim() || count === 0) && { opacity: 0.6 }]} onPress={send} disabled={sending || !title.trim() || !count} accessibilityLabel="공지 보내기 확정">
+          {sending ? <ActivityIndicator color="#fff" /> : <Text style={s.btnT}>{count === null ? '보내기' : count === 0 ? '받을 사람이 없어요' : `${count}명에게 보내기`}</Text>}
         </TouchableOpacity>
       }
     >
