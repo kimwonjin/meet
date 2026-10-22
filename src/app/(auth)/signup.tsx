@@ -89,11 +89,12 @@ export default function SignupScreen() {
       const { data, error } = await signUpHopeful(phone, name, birthDate, gender);
 
       if (error) {
-        console.error('Signup error:', error);
         const errorMsg = (error as Error).message || '알 수 없는 오류';
         if (errorMsg.includes('duplicate')) {
+          // 이미 가입된 번호(두 번 누르기·두 기기 동시 가입 포함)는 예상된 경우라 오류로 남기지 않는다
           toast.show('이미 가입된 전화번호입니다.', 'error');
         } else {
+          console.error('Signup error:', error);
           toast.show('가입에 실패했습니다. 잠시 후 다시 시도해주세요', 'error');
         }
         return;
