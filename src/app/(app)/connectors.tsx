@@ -22,6 +22,7 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
 import PartnerMemberNote from '@/components/PartnerMemberNote';
+import ProfileFillRequest from '@/components/ProfileFillRequest';
 import { fetchVerifiedIds } from '@/lib/memberNotes';
 import { fetchPausedIds } from '@/lib/pause';
 
@@ -665,6 +666,9 @@ export default function ConnectorsScreen() {
                     >
                       <Text style={styles.proposeBtnText}>이 회원으로 매칭 제안하기</Text>
                     </TouchableOpacity>
+                  )}
+                  {tabStatus === 'approved' && user && !pausedIds.has(selectedConnector.id) && (
+                    <ProfileFillRequest member={selectedConnector as any} partnerName={user.name} />
                   )}
                   {tabStatus === 'approved' && user && (
                     <PartnerMemberNote

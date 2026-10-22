@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import NotificationBell from '@/components/NotificationBell';
 import { usePullRefresh } from '@/hooks/use-pull-refresh';
+import NoticeComposer from '@/components/NoticeComposer';
 
 type Period = 'today' | 'week' | 'month';
 const PERIODS: [Period, string, string][] = [['today', '오늘', '어제'], ['week', '7일', '그 전 7일'], ['month', '30일', '그 전 30일']];
@@ -47,6 +48,7 @@ export default function DashboardScreen() {
   const [todo, setTodo] = useState<{ approvals: number; withdrawals: number; refunds: number; reports: number } | null>(null);
   const [idle, setIdle] = useState<Idle[] | null>(null);
   const [showAllIdle, setShowAllIdle] = useState(false);
+  const [noticeOpen, setNoticeOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (user?.role !== 'operator') return;
@@ -163,6 +165,11 @@ export default function DashboardScreen() {
         </View>
       </View>
 
+      <TouchableOpacity style={s.noticeBtn} onPress={() => setNoticeOpen(true)} accessibilityLabel="공지 보내기">
+        <Text style={s.noticeBtnT}>📢 전체 공지 보내기</Text>
+        <Text style={s.noticeBtnSub}>회원·파트너에게 알림으로 ›</Text>
+      </TouchableOpacity>
+
       {/* 지금 처리할 일 */}
       <Text style={s.h2}>지금 처리할 일 {todo ? <Text style={todoTotal ? s.h2Count : s.h2Zero}>{todoTotal ? `${todoTotal}건` : '없어요'}</Text> : null}</Text>
       <View style={s.card}>
@@ -222,6 +229,7 @@ export default function DashboardScreen() {
           </>
         )}
       </View>
+      <NoticeComposer visible={noticeOpen} onClose={() => setNoticeOpen(false)} />
     </ScrollView>
   );
 }
@@ -234,6 +242,9 @@ const s = StyleSheet.create({
   totalBox: { flex: 1, backgroundColor: '#5B21FF', borderRadius: 16, padding: 16 },
   totalLabel: { fontSize: 12, color: 'rgba(255,255,255,0.85)' },
   totalValue: { fontSize: 24, fontWeight: '800', color: '#fff', marginTop: 4 },
+  noticeBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginTop: 12, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: '#E4D9FF', backgroundColor: '#F5F1FF' },
+  noticeBtnT: { fontSize: 14, fontWeight: '700', color: '#322F38' },
+  noticeBtnSub: { fontSize: 12, color: '#5B21FF', fontWeight: '600' },
   h2: { fontSize: 15, fontWeight: '700', color: '#322F38', marginHorizontal: 20, marginTop: 24, marginBottom: 8 },
   h2Count: { color: '#5B21FF' },
   h2Zero: { color: '#98959E', fontWeight: '400', fontSize: 13 },

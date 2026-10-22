@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createNotification } from '@/lib/notifications';
 import { closeOpenMatchesOf } from '@/lib/safety';
 import { useConfirm } from '@/contexts/ConfirmContext';
+import ExportSheet from '@/components/ExportSheet';
 import NotificationBell from '@/components/NotificationBell';
 import { getRefundable } from '@/lib/refunds';
 
@@ -34,6 +35,7 @@ export default function SettlementsScreen() {
   const [suspendTarget, setSuspendTarget] = useState<{ id: string; name: string; reason: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [segment, setSegment] = useState<Segment>('settlements');
+  const [exportOpen, setExportOpen] = useState(false);
   // 현황 탭의 '지금 처리할 일'에서 들어오면 그 칸을 연다
   const { segment: segParam } = useLocalSearchParams<{ segment?: string }>();
   useEffect(() => {
@@ -520,6 +522,10 @@ export default function SettlementsScreen() {
             contentContainerStyle={styles.list}
             ListHeaderComponent={
               <View>
+              <TouchableOpacity style={styles.exportBtn} onPress={() => setExportOpen(true)} accessibilityLabel="엑셀로 내려받기">
+                <Text style={styles.exportBtnT}>📥 엑셀로 내려받기</Text>
+                <Text style={styles.exportBtnS}>월별 정산·출금 내역 ›</Text>
+              </TouchableOpacity>
               <View style={styles.summaryRow}>
                 <View style={styles.summaryBox}>
                   <Text style={styles.summaryLabel}>파트너 정산 합계</Text>
@@ -897,6 +903,7 @@ export default function SettlementsScreen() {
           {processingId ? <ActivityIndicator color="#fff" /> : <Text style={styles.suspendConfirmText}>이용 정지</Text>}
         </TouchableOpacity>
       </BottomSheet>
+      <ExportSheet visible={exportOpen} onClose={() => setExportOpen(false)} />
     </View>
   );
 }
@@ -946,6 +953,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#322F38',
   },
+  exportBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: '#F8F7FA', marginBottom: 12 },
+  exportBtnT: { fontSize: 14, fontWeight: '700', color: '#322F38' },
+  exportBtnS: { fontSize: 12, color: '#5B21FF', fontWeight: '600' },
   segmentRow: {
     flexDirection: 'row',
     marginHorizontal: 20,
