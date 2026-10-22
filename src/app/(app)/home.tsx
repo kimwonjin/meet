@@ -19,6 +19,7 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
 import { PushPrompt } from '@/components/PushSettings';
+import { PauseBanner } from '@/components/PauseSettings';
 import { createNotification } from '@/lib/notifications';
 import { getOrCreateThread, sendMessage } from '@/lib/chat';
 import { getMyConnectorCredits } from '@/lib/payments';
@@ -1235,6 +1236,8 @@ export default function HomeScreen() {
         <Text style={styles.aHi}>{user?.name}님, {isNew && profileGaps.length > 0 ? '반가워요 👋' : '안녕하세요'}</Text>
         <NotificationBell />
       </View>
+
+      <PauseBanner />
 
       {/* 지금 할 일: 보라 카드 (강조는 여기 하나) */}
       <View style={styles.aHero}>

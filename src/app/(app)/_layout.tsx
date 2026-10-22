@@ -108,6 +108,14 @@ export default function AppLayout() {
             tabBarIcon: ({ color }) => <Ionicons name="cash" size={24} color={color} />,
           }}
         />
+        {/* 서비스 전체 현황 (가입·매칭·매출, 처리할 일, 쉬고 있는 파트너) */}
+        <Tabs.Screen
+          name="dashboard"
+          options={{
+            tabBarLabel: '현황',
+            tabBarIcon: ({ color }) => <Ionicons name="stats-chart" size={22} color={color} />,
+          }}
+        />
         {/* 회원·파트너의 운영자 문의를 받는 곳 */}
         <Tabs.Screen
           name="chat"
@@ -173,6 +181,7 @@ export default function AppLayout() {
         />
         <Tabs.Screen name="alliances" options={{ href: null }} />
         <Tabs.Screen name="settlements" options={{ href: null }} />
+        <Tabs.Screen name="dashboard" options={{ href: null }} />
       </Tabs>
     );
   }
@@ -211,6 +220,7 @@ export default function AppLayout() {
       <Tabs.Screen name="alliances" options={{ href: null }} />
       <Tabs.Screen name="matching" options={{ href: null }} />
       <Tabs.Screen name="settlements" options={{ href: null }} />
+      <Tabs.Screen name="dashboard" options={{ href: null }} />
     </Tabs>
   );
 }

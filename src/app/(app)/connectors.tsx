@@ -23,6 +23,7 @@ import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
 import PartnerMemberNote from '@/components/PartnerMemberNote';
 import { fetchVerifiedIds } from '@/lib/memberNotes';
+import { fetchPausedIds } from '@/lib/pause';
 
 interface Connector {
   id: string;
@@ -104,6 +105,8 @@ export default function ConnectorsScreen() {
   const [allyMembers, setAllyMembers] = useState<any[]>([]);
   // 파트너가 직접 만나 확인한 회원 (목록의 '✓ 확인' 표시)
   const [verifiedIds, setVerifiedIds] = useState<Set<string>>(new Set());
+  // 소개를 잠시 쉬고 있는 회원
+  const [pausedIds, setPausedIds] = useState<Set<string>>(new Set());
   const [myCredit, setMyCredit] = useState(0);
   const [selectedPackage, setSelectedPackage] = useState(PACKAGE_OPTIONS[0]);
   const [purchasing, setPurchasing] = useState(false);
@@ -123,6 +126,7 @@ export default function ConnectorsScreen() {
   useEffect(() => {
     if (!memberIdsKey) return;
     fetchVerifiedIds(memberIdsKey.split(',')).then(setVerifiedIds).catch(() => {});
+    fetchPausedIds(memberIdsKey.split(',')).then(setPausedIds).catch(() => {});
   }, [memberIdsKey]);
 
   // 초대 링크로 들어온 회원: 초대한 파트너 정보를 바로 열어 준다
@@ -577,6 +581,7 @@ export default function ConnectorsScreen() {
                         {item.business_name}
                         {!!(item as any).suspended_at && <Text style={styles.suspendedTag}>  이용 정지</Text>}
                         {tabStatus !== 'pending' && verifiedIds.has(item.id) && <Text style={styles.verifiedTag}>  ✓ 확인</Text>}
+                        {tabStatus !== 'pending' && pausedIds.has(item.id) && <Text style={styles.pausedTag}>  쉬는 중</Text>}
                       </Text>
                       <Text style={styles.desc}>
                         {tabStatus === 'ally'
@@ -645,7 +650,10 @@ export default function ConnectorsScreen() {
           <BottomSheet visible onClose={() => setSelectedConnector(null)} title="회원 프로필">
                 <View>
                   {selectedConnector && <MemberProfileView member={selectedConnector} showBirthDate verified={tabStatus === 'pending' ? undefined : verifiedIds.has(selectedConnector.id)} />}
-                  {(tabStatus === 'approved' || (tabStatus === 'ally' && !!selectedConnector?.ally_connector_id)) && (
+                  {(tabStatus === 'approved' || tabStatus === 'ally') && pausedIds.has(selectedConnector.id) && (
+                    <Text style={styles.pausedNote}>⏸ 회원이 소개를 잠시 쉬고 있어요. 다시 시작하면 매칭을 제안할 수 있어요</Text>
+                  )}
+                  {(tabStatus === 'approved' || (tabStatus === 'ally' && !!selectedConnector?.ally_connector_id)) && !pausedIds.has(selectedConnector.id) && (
                     <TouchableOpacity
                       style={styles.proposeBtn}
                       onPress={() => {
@@ -1086,6 +1094,8 @@ const styles = StyleSheet.create({
   freeBtnText: { fontSize: 15, fontWeight: '700', color: '#5B21FF' },
   freeBtnSub: { fontSize: 12, color: '#87848D', marginTop: 8, textAlign: 'center' },
   freeGiven: { fontSize: 13, color: '#87848D', textAlign: 'center', marginTop: 16 },
+  pausedTag: { fontSize: 12, fontWeight: '600', color: '#98959E' },
+  pausedNote: { fontSize: 13, color: '#65626B', backgroundColor: '#F8F7FA', borderRadius: 10, padding: 12, marginTop: 16, lineHeight: 19 },
   verifiedTag: { fontSize: 12, fontWeight: '700', color: '#5B21FF' },
   suspendedTag: { fontSize: 12, color: '#E53935', fontWeight: '600' },
   container: {

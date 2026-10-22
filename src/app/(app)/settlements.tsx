@@ -3,7 +3,7 @@ import BottomSheet from '@/components/BottomSheet';
 import SkeletonScreen from '@/components/Skeleton';
 import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, TextInput } from 'react-native';
-import { Redirect, useFocusEffect } from 'expo-router';
+import { Redirect, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { partnerIntro } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
@@ -34,6 +34,11 @@ export default function SettlementsScreen() {
   const [suspendTarget, setSuspendTarget] = useState<{ id: string; name: string; reason: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [segment, setSegment] = useState<Segment>('settlements');
+  // 현황 탭의 '지금 처리할 일'에서 들어오면 그 칸을 연다
+  const { segment: segParam } = useLocalSearchParams<{ segment?: string }>();
+  useEffect(() => {
+    if (segParam && ['settlements', 'approvals', 'withdrawals', 'refunds', 'reports'].includes(segParam)) setSegment(segParam as Segment);
+  }, [segParam]);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   useEffect(() => {

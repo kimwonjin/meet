@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ProtectedPhoto from './ProtectedPhoto';
 import { shownPhotos } from '@/lib/photos';
 import { fetchVerifiedIds } from '@/lib/memberNotes';
+import { fetchPrefs, Prefs, prefsSummary } from '@/lib/preferences';
 
 export type MemberProfile = {
   id?: string;
@@ -42,6 +43,16 @@ export default function MemberProfileView({ member, showBirthDate = false, verif
     return () => { alive = false; };
   }, [member.id, verified]);
   const isVerified = verified ?? fetchedVerified;
+  // 원하는 상대: 파트너가 볼 때만 (회원끼리는 보이지 않음)
+  const [prefs, setPrefs] = useState<Prefs | null>(null);
+  useEffect(() => {
+    setPrefs(null);
+    if (!showBirthDate || !member.id) return;
+    let alive = true;
+    fetchPrefs([member.id]).then((m) => { if (alive) setPrefs(m.get(member.id!) || null); }).catch(() => {});
+    return () => { alive = false; };
+  }, [member.id, showBirthDate]);
+  const prefsText = prefsSummary(prefs);
   const [mainIdx, setMainIdx] = useState(0);
   useEffect(() => setMainIdx(0), [member.photo_urls]);
   const main = photos[mainIdx];
@@ -117,6 +128,15 @@ export default function MemberProfileView({ member, showBirthDate = false, verif
           <Text style={styles.sectionTitle}>자기소개</Text>
           <View style={styles.bioBox}>
             <Text style={styles.bioText}>{member.bio}</Text>
+          </View>
+        </>
+      )}
+
+      {!!prefsText && (
+        <>
+          <Text style={styles.sectionTitle}>원하는 상대</Text>
+          <View style={styles.bioBox}>
+            <Text style={styles.bioText}>{prefsText}</Text>
           </View>
         </>
       )}

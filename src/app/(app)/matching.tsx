@@ -27,6 +27,8 @@ import { earliestCommonDate, sendContactsViaChat } from '@/lib/schedule';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar } from '@/components/ProfilePhoto';
 import AlliancesPanel from '@/components/AlliancesPanel';
+import { fetchPausedIds } from '@/lib/pause';
+import { fetchPrefs, mutualFit, Prefs } from '@/lib/preferences';
 import { AFTER_CARE_DAYS, afterCareDeadline, afterCareOutcome, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline, proposalDeadline } from '@/lib/afterCare';
 
 
@@ -67,6 +69,10 @@ export default function MatchingScreen() {
   const [credits, setCredits] = useState<Record<string, number> | null>(null);
   // 서로 차단한 두 회원 ('작은id|큰id')
   const [blockedPairs, setBlockedPairs] = useState<Set<string>>(new Set());
+  // 소개를 잠시 쉬고 있는 회원 (후보에서 '쉬는 중'으로 막는다)
+  const [pausedIds, setPausedIds] = useState<Set<string>>(new Set());
+  // 회원별 원하는 상대 (한 명을 고르면 나머지 후보가 서로 조건에 맞는지 보여준다)
+  const [prefsMap, setPrefsMap] = useState<Map<string, Prefs>>(new Map());
   const router = useRouter();
   // 알림에서 들어오면 해당 칸(예: 동맹매칭)을 바로 연다
   // 동맹 매칭 알림으로 들어오면 동맹 회원까지 펼쳐서 보여준다
@@ -118,6 +124,12 @@ export default function MatchingScreen() {
   const [allyConnectors, setAllyConnectors] = useState<{ id: string; name: string }[]>([]);
   // 동맹 파트너별 회원 (동맹 회원 포함을 켰을 때 후보)
   const [allyMembers, setAllyMembers] = useState<{ connector: { id: string; name: string }; members: Member[] }[]>([]);
+  const candidateKey = [...ownMembers.map((m) => m.id), ...allyMembers.flatMap((g) => g.members.map((m) => m.id))].sort().join(',');
+  useEffect(() => {
+    if (!candidateKey) return;
+    fetchPausedIds(candidateKey.split(',')).then(setPausedIds).catch(() => {});
+    fetchPrefs(candidateKey.split(',')).then(setPrefsMap).catch(() => {});
+  }, [candidateKey]);
   // 프로필을 크게 보고 있는 후보 회원
   const [previewMember, setPreviewMember] = useState<{ member: Member; connectorId: string } | null>(null);
   // 매칭내역에서 두 회원 프로필 보기 (동의 전 확인용)
@@ -333,6 +345,7 @@ export default function MatchingScreen() {
   // 지금 고를 수 없는 이유 (없으면 null). 같은 성별·동맹끼리는 한 명을 고른 뒤에만 따진다
   function blockReason(id: string, connectorId: string): BlockLabel | null {
     if (selectedForMatch.some((x) => x.id === id)) return null;
+    if (pausedIds.has(id)) return '쉬는 중';
     if (lastMatch[id]?.active) return '만남중';
     const first = selectedForMatch.length === 1 ? selectedForMatch[0] : null;
     if (first) {
@@ -353,6 +366,16 @@ export default function MatchingScreen() {
     if (!first || first.id === id) return null;
     const h = pairHistory[[first.id, id].sort().join('|')];
     return h === 'met' ? '이미 만남' : h === 'rejected' ? '지난번 거절' : null;
+  }
+
+  // 먼저 고른 회원과 서로 원하는 조건이 맞는지 (둘 다 조건이 없으면 null)
+  function prefFit(id: string) {
+    const first = selectedForMatch.length === 1 ? selectedForMatch[0] : null;
+    if (!first || first.id === id) return null;
+    const all = [...ownMembers, ...allyMembers.flatMap((g) => g.members)];
+    const a = all.find((m) => m.id === first.id), b = all.find((m) => m.id === id);
+    if (!a || !b || a.gender === b.gender) return null;
+    return mutualFit(a as any, prefsMap.get(a.id), b as any, prefsMap.get(b.id));
   }
 
   function restLabel(id: string) {
@@ -406,6 +429,13 @@ export default function MatchingScreen() {
     setProposing(true);
     try {
       const [a, b] = selectedForMatch;
+      // 화면을 연 사이에 회원이 '잠시 쉬기'를 켰을 수 있다
+      const pausedNow = await fetchPausedIds([a.id, b.id]);
+      if (pausedNow.size) {
+        setPausedIds((prev) => new Set([...prev, ...pausedNow]));
+        toast.show(BLOCK_MESSAGE['쉬는 중'], 'info');
+        return;
+      }
       // 이용권(진행 중 매칭에 묶인 것 제외)·동맹·중복 확인과 저장을 서버에서 한 번에 처리한다
       const { data: result, error } = await supabase.rpc('fn_propose_match', {
         p_proposer_id: user.id,
@@ -863,7 +893,8 @@ export default function MatchingScreen() {
     // 오래 쉰 회원 먼저 (기본): 이력 없음 → 오래전 매칭 → 최근 매칭, 진행 중인 회원은 맨 뒤
     {
       // 지금 고를 수 없는 회원(만남중·이용권 없음·같은 성별 등)은 맨 뒤로
-      const key = (id: string) => { const lm = lastMatch[id]; return (blockReason(id, connectorId) ? 6e15 : 0) + (!lm ? 0 : lm.active ? 3e15 : new Date(lm.at).getTime()); };
+      // 한 명을 골랐으면 서로 조건이 맞는 회원을 먼저
+      const key = (id: string) => { const lm = lastMatch[id]; const f = prefFit(id); return (blockReason(id, connectorId) ? 6e15 : 0) + (f && !f.ok ? 1.5e15 : 0) + (!lm ? 0 : lm.active ? 3e15 : new Date(lm.at).getTime()); };
       members.sort((x, y) => key(x.id) - key(y.id));
     }
     if (members.length === 0) return <Text style={styles.emptyCreateText}>조건에 맞는 회원이 없습니다</Text>;
@@ -874,6 +905,7 @@ export default function MatchingScreen() {
           const block = blockReason(m.id, connectorId);
           const busy = !!block;
           const hint = busy ? null : pairHint(m.id);
+          const fit = busy ? null : prefFit(m.id);
           const summary = memberSummary(m);
           return (
             <View key={m.id} style={[styles.memberRow, isSelected && styles.memberRowSelected, busy && styles.memberRowBusy]}>
@@ -888,6 +920,11 @@ export default function MatchingScreen() {
                     <Text style={[styles.memberRowRest, !lastMatch[m.id] && styles.memberRowRestNew]}>
                       {hint && <Text style={styles.pairHint}>{hint} · </Text>}
                       {restLabel(m.id)}
+                    </Text>
+                  )}
+                  {fit && (
+                    <Text style={[styles.fitLine, fit.ok && styles.fitLineOk]} accessibilityLabel={fit.ok ? '서로 원하는 조건이 맞아요' : `원하는 조건과 다른 점 ${fit.miss.join(', ')}`}>
+                      {fit.ok ? '✓ 서로 원하는 조건이 맞아요' : `원하는 조건과 달라요 · ${fit.miss.join('·')}`}
                     </Text>
                   )}
                 </View>
@@ -1476,8 +1513,9 @@ function meetingAutoDoneAt(meetingAt: string) {
   return d;
 }
 
-type BlockLabel = '만남중' | '이용권 없음' | '같은 성별' | '내 회원과만 가능' | '매칭 불가';
+type BlockLabel = '쉬는 중' | '만남중' | '이용권 없음' | '같은 성별' | '내 회원과만 가능' | '매칭 불가';
 const BLOCK_MESSAGE: Record<BlockLabel, string> = {
+  '쉬는 중': '회원이 소개를 잠시 쉬고 있어요. 다시 시작하면 고를 수 있어요',
   만남중: '만남이 진행 중인 회원이에요. 만남이 끝나면 고를 수 있어요',
   '이용권 없음': '남은 이용권이 없는 회원이에요. 이용권을 산 뒤에 고를 수 있어요',
   '같은 성별': '먼저 고른 회원과 같은 성별이에요',
@@ -1487,6 +1525,8 @@ const BLOCK_MESSAGE: Record<BlockLabel, string> = {
 };
 
 const styles = StyleSheet.create({
+  fitLine: { fontSize: 12, color: '#98959E', marginTop: 3 },
+  fitLineOk: { color: '#5B21FF', fontWeight: '600' },
   pairHint: { color: '#322F38', fontWeight: '700' },
   memberRowBusy: { opacity: 0.5 },
   outcomeText: { fontSize: 13, color: '#322F38', fontWeight: '600', marginTop: 6 },

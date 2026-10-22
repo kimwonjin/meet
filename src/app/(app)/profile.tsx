@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PushMenuRow } from '@/components/PushSettings';
+import { PauseMenuRow } from '@/components/PauseSettings';
+import { PrefsMenuRow } from '@/components/PrefsSettings';
 import PartnerReportSheet from '@/components/PartnerReport';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BusinessSettingsSheet from '@/components/BusinessSettingsSheet';
@@ -952,6 +954,8 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          <PrefsMenuRow styles={styles} />
+          <PauseMenuRow styles={styles} />
           <PushMenuRow styles={styles} />
 
           <TouchableOpacity style={styles.logoutMenuItem} onPress={handleLogout}>
