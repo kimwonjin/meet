@@ -45,7 +45,7 @@ export default function PartnerRecruitScreen() {
       return;
     }
     await savePendingPartnerApply();
-    router.replace(to);
+    router.replace(to === '/signup' ? { pathname: '/signup', params: { as: 'partner' } } : to);
   }
 
   const cta = (

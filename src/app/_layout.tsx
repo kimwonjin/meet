@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { DefaultTheme, ThemeProvider } from 'expo-router';
+import { registerServiceWorker } from '@/lib/push';
 import type { ErrorBoundaryProps } from 'expo-router';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -42,6 +44,8 @@ function RootLayout() {
 
 export default function App() {
   useWebAutoUpdate();
+  // 휴대폰 알림·홈 화면 설치용 (웹에서만)
+  useEffect(() => { registerServiceWorker(); }, []);
   useWebImageGuard();
   useIosNoInputZoom();
 

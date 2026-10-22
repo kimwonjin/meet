@@ -50,6 +50,13 @@ function parsePending(raw: string | null): PendingInvite | null {
   return /^[0-9a-f-]{36}$/i.test(raw) ? { id: raw, at: Date.now() } : null;
 }
 
+// 저장된 초대가 있는지만 본다 (지우지 않음). 가입 화면에서 회원 초대로 온 사람인지 구분할 때
+export async function peekPendingInvite(): Promise<PendingInvite | null> {
+  let raw: string | null = null;
+  try { raw = await AsyncStorage.getItem(PENDING_KEY); } catch {}
+  return parsePending(raw) ?? parsePending(readCookie());
+}
+
 export async function takePendingInvite(): Promise<PendingInvite | null> {
   let raw: string | null = null;
   try {
@@ -149,6 +156,17 @@ export function fillTemplate(body: string, link: string) {
 const PARTNER_APPLY_KEY = 'pendingPartnerApply';
 export async function savePendingPartnerApply() {
   try { await AsyncStorage.setItem(PARTNER_APPLY_KEY, String(Date.now())); } catch {}
+}
+export async function clearPendingPartnerApply() {
+  try { await AsyncStorage.removeItem(PARTNER_APPLY_KEY); } catch {}
+}
+export async function peekPendingPartnerApply(): Promise<boolean> {
+  try {
+    const v = await AsyncStorage.getItem(PARTNER_APPLY_KEY);
+    return !!v && Date.now() - Number(v) < INVITE_TTL_MS;
+  } catch {
+    return false;
+  }
 }
 export async function takePendingPartnerApply(): Promise<boolean> {
   try {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { PushMenuRow } from '@/components/PushSettings';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BusinessSettingsSheet from '@/components/BusinessSettingsSheet';
 import WatermarkLookupSheet from '@/components/WatermarkLookupSheet';
@@ -947,6 +948,8 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          <PushMenuRow styles={styles} />
+
           <TouchableOpacity style={styles.logoutMenuItem} onPress={handleLogout}>
             <Text style={styles.logoutIcon}>🚪</Text>
             <Text style={styles.logoutText}>로그아웃</Text>
@@ -1038,6 +1041,8 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          <PushMenuRow styles={styles} />
+
           <TouchableOpacity style={styles.logoutMenuItem} onPress={handleLogout}>
             <Text style={styles.logoutIcon}>🚪</Text>
             <Text style={styles.logoutText}>로그아웃</Text>
@@ -1064,6 +1069,7 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
         )}
+        {user?.role === 'operator' && <PushMenuRow styles={styles} />}
         {user?.role === 'operator' && (
           <TouchableOpacity style={styles.logoutMenuItem} onPress={handleLogout}>
             <Text style={styles.logoutIcon}>🚪</Text>

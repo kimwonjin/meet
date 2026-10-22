@@ -99,6 +99,12 @@ export default function LoginScreen() {
             <Text style={styles.footerLink}>가입하기</Text>
           </TouchableOpacity>
         </View>
+
+        {/* 매니저(파트너)는 회원과 가는 길이 달라서 첫 화면에서 바로 찾을 수 있게 한다 */}
+        <TouchableOpacity style={styles.partnerEntry} onPress={() => router.push('/partner')} disabled={loading} accessibilityLabel="파트너로 시작하기">
+          <Text style={styles.partnerEntryT}>소개해 주는 매니저이신가요?</Text>
+          <Text style={styles.partnerEntryLink}>파트너로 시작하기 ›</Text>
+        </TouchableOpacity>
       </View>
 
       {TEST_MODE && recentLogins.length > 0 && (
@@ -153,6 +159,9 @@ const styles = StyleSheet.create({
   form: {
     gap: 16,
   },
+  partnerEntry: { marginTop: 4, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, backgroundColor: '#F8F7FA', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  partnerEntryT: { fontSize: 13, color: '#65626B' },
+  partnerEntryLink: { fontSize: 13, fontWeight: '700', color: '#5B21FF' },
   label: {
     fontSize: 12,
     fontWeight: '700',

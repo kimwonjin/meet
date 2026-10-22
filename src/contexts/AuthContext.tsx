@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loginWithPhone } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import { detachPush, syncPush } from '@/lib/push';
 
 export interface User {
   id: string;
@@ -44,6 +45,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     checkLogin();
   }, []);
+
+  // 로그인하면 이 기기에서 켜 둔 휴대폰 알림을 지금 계정으로 연결한다 (켜 둔 적이 없으면 아무것도 안 함)
+  useEffect(() => {
+    if (!user?.id) return;
+    const t = setTimeout(() => syncPush(user.id), 1500);
+    return () => clearTimeout(t);
+  }, [user?.id]);
 
   // 앱(탭)으로 돌아올 때마다 서버의 최신 계정 상태를 반영한다 (역할 변경, 다른 기기에서 탈퇴 등)
   const userRef = useRef<User | null>(null);
@@ -118,6 +126,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // forget: 탈퇴한 계정은 최근 로그인 목록에서도 지운다
   async function logout(options?: { forget?: boolean }) {
     const current = userRef.current;
+    // 이 기기로 이전 계정의 휴대폰 알림이 오지 않게 연결을 끊는다 (오래 걸리면 기다리지 않음)
+    await Promise.race([detachPush(), new Promise((r) => setTimeout(r, 2000))]);
     await AsyncStorage.removeItem('user');
     setUser(null);
     if (options?.forget && current) {

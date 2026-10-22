@@ -1,6 +1,7 @@
 import { isAppHidden } from '@/lib/visibility';
 import { useEffect, useState } from 'react';
-import { Redirect, Tabs, usePathname, useRouter } from 'expo-router';
+import { Redirect, Tabs, useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
+import { markOneRead } from '@/lib/notifications';
 import { onAppVisible } from '@/lib/visibility';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -73,6 +74,24 @@ export default function AppLayout() {
     if (!user) return;
     getUnreadCount(user.id).then(setUnreadCount);
   }, [pathname, user?.id]);
+
+  // 휴대폰 알림을 눌러 들어오면 (주소의 push=알림번호) 그 알림을 읽음으로 바꾼다 (주소의 표시는 화면에 영향 없음)
+  const { push } = useGlobalSearchParams<{ push?: string }>();
+  useEffect(() => {
+    if (!push || !user) return;
+    markOneRead(String(push)).catch(() => {}); // 여러 번 불려도 결과는 같다
+  }, [push, user?.id]);
+  // 앱이 열려 있을 때 알림을 누르면, 새로고침 없이 그 화면으로 이동한다 (서비스 워커가 주소를 보내 준다)
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    const onMessage = (e: MessageEvent) => {
+      if (e.data?.type !== 'open' || typeof e.data.url !== 'string') return;
+      const u = new URL(e.data.url, window.location.origin);
+      router.push((u.pathname + u.search) as any);
+    };
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+  }, []);
 
   // 로그인 없이 /matching 같은 주소로 바로 들어오면 로그인 화면으로 보낸다
   if (!user) {

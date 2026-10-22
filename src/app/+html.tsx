@@ -11,6 +11,13 @@ export default function Root({ children }: PropsWithChildren) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
         <meta name="theme-color" content="#5B21FF" />
+        {/* 홈 화면에 추가(앱처럼 설치)와 휴대폰 알림에 필요 */}
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="두두인연" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <ScrollViewStyleReset />
       </head>
       <body>{children}</body>
