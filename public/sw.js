@@ -32,7 +32,8 @@ self.addEventListener('notificationclick', (event) => {
       const win = wins.find((c) => c.url.startsWith(self.location.origin));
       if (win) {
         // 열려 있는 앱이 있으면 새로 고치지 않고 그 화면으로 이동시킨다
-        await win.focus();
+        // 앞으로 가져오기에 실패해도(브라우저 제한) 화면 이동은 한다
+        await win.focus().catch(() => {});
         win.postMessage({ type: 'open', url });
         return;
       }

@@ -87,8 +87,8 @@ export async function pushNotification(id, origin, fetchImpl = fetch) {
   return sendToUser(n.user_id, { title: n.title, body: n.body || '', url: targetUrl(n), tag: n.id }, origin, fetchImpl);
 }
 
-// 채팅 메시지: 받는 사람이 대화방을 열어 두고 있으면 몇 초 안에 읽음 처리되므로, 잠시 기다렸다가 아직 안 읽었을 때만 보낸다
-export async function pushChat(id, origin, fetchImpl = fetch, waitMs = 5000) {
+// 채팅 메시지: 받는 사람이 대화방을 열어 두고 있으면 몇 초 안에 읽음 처리되므로(실시간 연결이 끊겨도 5초마다 확인), 7초 기다렸다가 아직 안 읽었을 때만 보낸다
+export async function pushChat(id, origin, fetchImpl = fetch, waitMs = 7000) {
   const claim = await rest(
     `chat_messages?id=eq.${encodeURIComponent(id)}&pushed_at=is.null&created_at=gt.${encodeURIComponent(sinceIso())}&select=id,thread_id,sender_id,content,created_at`,
     { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ pushed_at: new Date().toISOString() }) },
