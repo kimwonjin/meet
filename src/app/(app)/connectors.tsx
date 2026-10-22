@@ -21,6 +21,8 @@ import { purchasePackage, getCredit, getFreeCredit, freeWithinAvailable, fetchFr
 import { useConfirm } from '@/contexts/ConfirmContext';
 import NotificationBell from '@/components/NotificationBell';
 import { createNotification } from '@/lib/notifications';
+import PartnerMemberNote from '@/components/PartnerMemberNote';
+import { fetchVerifiedIds } from '@/lib/memberNotes';
 
 interface Connector {
   id: string;
@@ -100,6 +102,8 @@ export default function ConnectorsScreen() {
   const [tabStatus, setTabStatus] = useState<'pending' | 'approved' | 'ally'>('approved');
   // 동맹 연결자들이 승인한 회원 (동맹 매칭 전에 어떤 회원인지 확인용)
   const [allyMembers, setAllyMembers] = useState<any[]>([]);
+  // 파트너가 직접 만나 확인한 회원 (목록의 '✓ 확인' 표시)
+  const [verifiedIds, setVerifiedIds] = useState<Set<string>>(new Set());
   const [myCredit, setMyCredit] = useState(0);
   const [selectedPackage, setSelectedPackage] = useState(PACKAGE_OPTIONS[0]);
   const [purchasing, setPurchasing] = useState(false);
@@ -114,6 +118,12 @@ export default function ConnectorsScreen() {
   const pullRefresh = usePullRefresh(() => { statsLoadedRef.current = false; return fetchConnectors(); });
   // 시트가 어떤 경로로 닫혀도 '이용권 구매' 모드는 풀린다
   useEffect(() => { if (!selectedConnector) setBuyFirst(false); }, [selectedConnector]);
+  // 내 회원·동맹 회원 목록이 바뀌면 '직접 만나 확인' 표시를 다시 불러온다 (SQL 전이면 빈 목록)
+  const memberIdsKey = user?.role === 'connector' ? [...allRequests.map((r: any) => r.id), ...allyMembers.map((m: any) => m.id)].sort().join(',') : '';
+  useEffect(() => {
+    if (!memberIdsKey) return;
+    fetchVerifiedIds(memberIdsKey.split(',')).then(setVerifiedIds).catch(() => {});
+  }, [memberIdsKey]);
 
   // 초대 링크로 들어온 회원: 초대한 파트너 정보를 바로 열어 준다
   const params = useLocalSearchParams<{ open?: string; tab?: string; buy?: string }>();
@@ -566,6 +576,7 @@ export default function ConnectorsScreen() {
                       <Text style={styles.name}>
                         {item.business_name}
                         {!!(item as any).suspended_at && <Text style={styles.suspendedTag}>  이용 정지</Text>}
+                        {tabStatus !== 'pending' && verifiedIds.has(item.id) && <Text style={styles.verifiedTag}>  ✓ 확인</Text>}
                       </Text>
                       <Text style={styles.desc}>
                         {tabStatus === 'ally'
@@ -633,7 +644,7 @@ export default function ConnectorsScreen() {
         {selectedConnector && user?.role === 'connector' && (
           <BottomSheet visible onClose={() => setSelectedConnector(null)} title="회원 프로필">
                 <View>
-                  {selectedConnector && <MemberProfileView member={selectedConnector} showBirthDate />}
+                  {selectedConnector && <MemberProfileView member={selectedConnector} showBirthDate verified={tabStatus === 'pending' ? undefined : verifiedIds.has(selectedConnector.id)} />}
                   {(tabStatus === 'approved' || (tabStatus === 'ally' && !!selectedConnector?.ally_connector_id)) && (
                     <TouchableOpacity
                       style={styles.proposeBtn}
@@ -646,6 +657,13 @@ export default function ConnectorsScreen() {
                     >
                       <Text style={styles.proposeBtnText}>이 회원으로 매칭 제안하기</Text>
                     </TouchableOpacity>
+                  )}
+                  {tabStatus === 'approved' && user && (
+                    <PartnerMemberNote
+                      connectorId={user.id}
+                      memberId={selectedConnector.id}
+                      onCheckedChange={(on) => setVerifiedIds((prev) => { const n = new Set(prev); if (on) n.add(selectedConnector.id); else n.delete(selectedConnector.id); return n; })}
+                    />
                   )}
                   {tabStatus === 'ally' && !!selectedConnector?.ally_connector_id && (
                     <TouchableOpacity
@@ -1068,6 +1086,7 @@ const styles = StyleSheet.create({
   freeBtnText: { fontSize: 15, fontWeight: '700', color: '#5B21FF' },
   freeBtnSub: { fontSize: 12, color: '#87848D', marginTop: 8, textAlign: 'center' },
   freeGiven: { fontSize: 13, color: '#87848D', textAlign: 'center', marginTop: 16 },
+  verifiedTag: { fontSize: 12, fontWeight: '700', color: '#5B21FF' },
   suspendedTag: { fontSize: 12, color: '#E53935', fontWeight: '600' },
   container: {
     flex: 1,

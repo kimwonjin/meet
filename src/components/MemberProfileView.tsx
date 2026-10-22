@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ProtectedPhoto from './ProtectedPhoto';
 import { shownPhotos } from '@/lib/photos';
+import { fetchVerifiedIds } from '@/lib/memberNotes';
 
 export type MemberProfile = {
+  id?: string;
   name?: string;
   gender?: string;
   age?: number;
@@ -24,12 +26,22 @@ interface Props {
   member: MemberProfile;
   // 파트너가 볼 때만 생년월일까지 보여준다 (회원끼리는 나이만)
   showBirthDate?: boolean;
+  // 파트너가 직접 만나 확인한 회원인지. 넘기지 않으면 직접 확인해 온다
+  verified?: boolean;
 }
 
 // 회원 프로필 상세 (회원 탭·매칭 탭·회원 홈에서 같은 모양)
 // 사진은 크게 한 장 + 작은 사진들(누르면 큰 사진이 바뀜). 좌우로 넘기는 방식은 쓰지 않는다.
-export default function MemberProfileView({ member, showBirthDate = false }: Props) {
+export default function MemberProfileView({ member, showBirthDate = false, verified }: Props) {
   const photos = shownPhotos(member.photo_urls);
+  const [fetchedVerified, setFetchedVerified] = useState(false);
+  useEffect(() => {
+    if (verified !== undefined || !member.id) return;
+    let alive = true;
+    fetchVerifiedIds([member.id]).then((s) => { if (alive) setFetchedVerified(s.has(member.id!)); }).catch(() => {});
+    return () => { alive = false; };
+  }, [member.id, verified]);
+  const isVerified = verified ?? fetchedVerified;
   const [mainIdx, setMainIdx] = useState(0);
   useEffect(() => setMainIdx(0), [member.photo_urls]);
   const main = photos[mainIdx];
@@ -66,6 +78,12 @@ export default function MemberProfileView({ member, showBirthDate = false }: Pro
         <View style={styles.heroText}>
           <Text style={styles.name} numberOfLines={1}>{member.name}</Text>
           {!!summary && <Text style={styles.summary}>{summary}</Text>}
+          {isVerified && (
+            <View style={styles.verified} accessibilityLabel="파트너가 직접 만나 신분을 확인한 회원">
+              <Text style={styles.verifiedText}>✓ 파트너 확인</Text>
+              <Text style={styles.verifiedSub}>직접 만나 신분을 확인했어요</Text>
+            </View>
+          )}
           {!!member.job && <Text style={styles.jobLine} numberOfLines={2}>{member.job}</Text>}
           {photos.length > 1 && (
             <View style={styles.thumbs}>
@@ -135,6 +153,9 @@ const styles = StyleSheet.create({
   noPhotoText: { fontSize: 11, color: '#9A8CC9', marginTop: 4 },
   heroText: { flex: 1, justifyContent: 'center' },
   name: { fontSize: 20, fontWeight: '700', color: '#211E27' },
+  verified: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  verifiedText: { fontSize: 12, fontWeight: '700', color: '#5B21FF', backgroundColor: '#EDE4FF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' },
+  verifiedSub: { fontSize: 11, color: '#87848D' },
   summary: { fontSize: 14, color: '#5B21FF', fontWeight: '600', marginTop: 4 },
   jobLine: { fontSize: 13, color: '#65626B', marginTop: 6 },
   thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PushMenuRow } from '@/components/PushSettings';
+import PartnerReportSheet from '@/components/PartnerReport';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BusinessSettingsSheet from '@/components/BusinessSettingsSheet';
 import WatermarkLookupSheet from '@/components/WatermarkLookupSheet';
@@ -656,6 +657,9 @@ export default function ProfileScreen() {
     }
   }
 
+  // 파트너 월간 리포트 시트
+  const [showReport, setShowReport] = useState(false);
+
   async function handleLogout() {
     try {
       await logout();
@@ -980,6 +984,15 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.menuItem} onPress={() => setShowReport(true)} accessibilityLabel="월간 리포트">
+            <Text style={styles.menuIcon}>📊</Text>
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>월간 리포트</Text>
+              <Text style={styles.menuSub}>이번 달 소개·만남·정산을 한눈에</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
@@ -1106,6 +1119,8 @@ export default function ProfileScreen() {
       <TermsSheet docKey={viewingTerms} onClose={() => setViewingTerms(null)} />
       {user?.role === 'operator' && <BusinessSettingsSheet visible={showBusiness} onClose={() => setShowBusiness(false)} />}
       {user?.role === 'operator' && <WatermarkLookupSheet visible={showWatermark} onClose={() => setShowWatermark(false)} />}
+
+      {user?.role === 'connector' && <PartnerReportSheet visible={showReport} onClose={() => setShowReport(false)} />}
 
       <BottomSheet visible={showRefundSheet} onClose={() => { setShowRefundSheet(false); setShowCreditsModal(true); }} title="환불 요청">
         <View style={styles.gradeBox}>
