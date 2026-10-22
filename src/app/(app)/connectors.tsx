@@ -232,6 +232,13 @@ export default function ConnectorsScreen() {
           .eq('hopeful_id', user!.id)
           .in('status', ['approved', 'pending']);
 
+        // 내가 차단했거나 나를 차단한 파트너 (가입 관계가 남아 있지 않으면 목록에서 뺀다)
+        const [{ data: iBlocked }, { data: blockedMe }] = await Promise.all([
+          supabase.from('user_blocks').select('blocked_id').eq('blocker_id', user!.id),
+          supabase.from('user_blocks').select('blocker_id').eq('blocked_id', user!.id),
+        ]);
+        const blockedIds = new Set<string>([...((iBlocked || []) as any[]).map((b) => b.blocked_id), ...((blockedMe || []) as any[]).map((b) => b.blocker_id)]);
+
         const approvedConnectorIds = (myRequests || []).filter((r: any) => r.status === 'approved').map((r: any) => r.connector_id);
         const pendingConnectorIds = (myRequests || []).filter((r: any) => r.status === 'pending').map((r: any) => r.connector_id);
 
@@ -250,6 +257,7 @@ export default function ConnectorsScreen() {
           .filter((conn) => {
             const u = (connUsers || []).find((x: any) => x.id === conn.id);
             if (u?.withdrawn_at || u?.suspended_at) return false;
+            if (blockedIds.has(conn.id) && !conn.is_approved && !conn.is_pending) return false;
             // 회원 화면으로 바꿔 쉬고 있는 파트너는 새로 가입받지 않는다 (이미 회원인 사람에게는 계속 보인다)
             return u?.role === 'connector' || conn.is_approved || conn.is_pending;
           });
