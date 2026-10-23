@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import NotificationBell from '@/components/NotificationBell';
 import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import NoticeComposer from '@/components/NoticeComposer';
+import { FeedbackInbox } from '@/components/FeedbackSettings';
 
 type Period = 'today' | 'week' | 'month';
 const PERIODS: [Period, string, string][] = [['today', '오늘', '어제'], ['week', '7일', '그 전 7일'], ['month', '30일', '그 전 30일']];
@@ -180,6 +181,8 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      <FeedbackInbox />
 
       {/* 기간별 숫자 */}
       <View style={s.periodRow}>

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import BusinessInfo from '@/components/BusinessInfo';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import MemberIntro from '@/components/MemberIntro';
 import { useRouter } from 'expo-router';
 import { useAuth, type RecentLogin } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -64,10 +65,19 @@ export default function LoginScreen() {
     }
   }
 
+  // 처음 온 사람: 로그인 아래의 서비스 소개로 바로 내려가는 안내 (이 기기에서 로그인한 적이 없을 때)
+  const scrollRef = useRef<ScrollView>(null);
+  const introY = useRef(0);
+
   return (
-    <View style={styles.container}>
+    <ScrollView ref={scrollRef} style={styles.page} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>두두인연</Text>
       <Text style={styles.subtitle}>사람이 아닌, 지지 인연.</Text>
+      {recentLogins.length === 0 && (
+        <TouchableOpacity onPress={() => scrollRef.current?.scrollTo({ y: introY.current - 20, animated: true })} accessibilityLabel="어떻게 소개받는지 보기" style={styles.introLink}>
+          <Text style={styles.introLinkT}>처음이세요? 어떻게 소개받는지 보기 ↓</Text>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.form}>
         <Text style={styles.label}>전화번호</Text>
@@ -130,21 +140,30 @@ export default function LoginScreen() {
           ))}
         </View>
       )}
+      {/* 처음 온 사람을 위한 서비스 소개 */}
+      <View onLayout={(e) => { introY.current = e.nativeEvent.layout.y; }}>
+        <MemberIntro />
+      </View>
+
       {/* 로그인 전에도 보이도록 화면 맨 아래 (결제 심사 등) */}
-      <View style={{ marginTop: 'auto' }}>
+      <View style={{ marginTop: 'auto', paddingTop: 24 }}>
         <BusinessInfo />
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  page: { flex: 1, backgroundColor: '#fff' },
   container: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 20,
     paddingTop: 80,
+    paddingBottom: 24,
     backgroundColor: '#fff',
   },
+  introLink: { alignSelf: 'flex-start', marginTop: -28, marginBottom: 28, paddingVertical: 4 },
+  introLinkT: { fontSize: 13, color: '#5B21FF', fontWeight: '600' },
   title: {
     fontSize: 28,
     fontWeight: '700',

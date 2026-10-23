@@ -2,6 +2,7 @@ import { isAppHidden } from '@/lib/visibility';
 import { useEffect, useState } from 'react';
 import { Redirect, Tabs, useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 import { markOneRead } from '@/lib/notifications';
+import { setLastScreen } from '@/lib/feedback';
 import { onAppVisible } from '@/lib/visibility';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -74,6 +75,9 @@ export default function AppLayout() {
     if (!user) return;
     getUnreadCount(user.id).then(setUnreadCount);
   }, [pathname, user?.id]);
+
+  // '의견 보내기'에 함께 보낼 '보던 화면' (마이 탭을 열기 직전 화면)
+  useEffect(() => { setLastScreen(pathname); }, [pathname]);
 
   // 휴대폰 알림을 눌러 들어오면 (주소의 push=알림번호) 그 알림을 읽음으로 바꾼다 (주소의 표시는 화면에 영향 없음)
   const { push } = useGlobalSearchParams<{ push?: string }>();

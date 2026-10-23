@@ -15,7 +15,8 @@ const MAX_WIDTH = 1080;
 
 // 앨범에서 사진 1장을 골라 줄인 뒤 Storage에 올리고 공개 주소를 돌려준다.
 // 사용자가 취소하면 null, 실패하면 Error를 던진다.
-export async function pickAndUploadPhoto(userId: string): Promise<string | null> {
+// opts.crop=false: 화면 캡처처럼 자르지 않고 올린다 / opts.folder: 저장 위치 앞부분 (예: 'feedback')
+export async function pickAndUploadPhoto(userId: string, opts: { crop?: boolean; folder?: string } = {}): Promise<string | null> {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {
     throw new Error('사진 접근 권한이 필요합니다. 설정에서 사진 접근을 허용해주세요.');
@@ -23,8 +24,8 @@ export async function pickAndUploadPhoto(userId: string): Promise<string | null>
 
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
-    allowsEditing: true,
-    aspect: [3, 4],
+    allowsEditing: opts.crop !== false,
+    ...(opts.crop !== false ? { aspect: [3, 4] as [number, number] } : {}),
     quality: 1,
   });
   if (result.canceled || !result.assets?.[0]) return null;
@@ -37,7 +38,7 @@ export async function pickAndUploadPhoto(userId: string): Promise<string | null>
   );
 
   const body = await (await fetch(resized.uri)).arrayBuffer();
-  const path = `${userId}/${Date.now()}.jpg`;
+  const path = `${opts.folder ? `${opts.folder}/` : ''}${userId}/${Date.now()}.jpg`;
   const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, body, {
     contentType: 'image/jpeg',
     upsert: false,
