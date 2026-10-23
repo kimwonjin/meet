@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
-import QRCode from 'qrcode';
 import { useToast } from '@/contexts/ToastContext';
 
 // 초대 링크 QR. 화면에 그리고, 웹에서는 PNG로 저장할 수 있다 (서버에 저장하지 않음).
+// QR 라이브러리는 이 화면을 열 때만 불러온다 (첫 화면 속도)
+const loadQr = () => import('qrcode').then((m: any) => m.default || m);
 export default function InviteQr({ url, fileName }: { url: string; fileName: string }) {
   const toast = useToast();
   const [svg, setSvg] = useState<string | null>(null);
@@ -12,7 +13,8 @@ export default function InviteQr({ url, fileName }: { url: string; fileName: str
 
   useEffect(() => {
     let alive = true;
-    QRCode.toString(url, { type: 'svg', margin: 1, color: { dark: '#1D1A26', light: '#FFFFFF' } })
+    loadQr()
+      .then((QRCode) => QRCode.toString(url, { type: 'svg', margin: 1, color: { dark: '#1D1A26', light: '#FFFFFF' } }))
       .then((s: string) => alive && setSvg('data:image/svg+xml;utf8,' + encodeURIComponent(s)))
       .catch(() => alive && setSvg(''));
     return () => {
@@ -24,6 +26,7 @@ export default function InviteQr({ url, fileName }: { url: string; fileName: str
     if (saving) return;
     setSaving(true);
     try {
+      const QRCode = await loadQr();
       const dataUrl: string = await QRCode.toDataURL(url, { width: 1024, margin: 2, color: { dark: '#1D1A26', light: '#FFFFFF' } });
       const a = document.createElement('a');
       a.href = dataUrl;

@@ -46,6 +46,14 @@ export default function App() {
   useWebAutoUpdate();
   // 휴대폰 알림·홈 화면 설치용 (웹에서만)
   useEffect(() => { registerServiceWorker(); }, []);
+  // 앱이 떴으면 HTML에 들어 있던 로딩 화면(+html.tsx #boot)을 걷는다
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const boot = document.getElementById('boot');
+    if (!boot) return;
+    boot.style.opacity = '0';
+    setTimeout(() => boot.remove(), 250);
+  }, []);
   useWebImageGuard();
   useIosNoInputZoom();
 

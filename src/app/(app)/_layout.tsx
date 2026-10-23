@@ -4,7 +4,7 @@ import { Redirect, Tabs, useGlobalSearchParams, usePathname, useRouter } from 'e
 import { markOneRead } from '@/lib/notifications';
 import { setLastScreen } from '@/lib/feedback';
 import { onAppVisible } from '@/lib/visibility';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUnreadCount } from '@/lib/chat';
 import { consumeJustSignedUp, takePendingInvite, takePendingPartnerApply, trackInvite } from '@/lib/invite';
