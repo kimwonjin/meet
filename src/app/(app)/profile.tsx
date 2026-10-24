@@ -974,7 +974,8 @@ export default function ProfileScreen() {
         <View style={styles.section}>
         {user?.role === 'hopeful' && (
           <>
-
+          {/* 메뉴는 하는 일에 따라 묶는다: 내 정보 · 소개 설정 · 설정 */}
+          <Text style={styles.menuGroup}>내 정보</Text>
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowProfileModal(true)}>
             <Text style={styles.menuIcon}>📋</Text>
             <View style={styles.menuContent}>
@@ -993,6 +994,13 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          <Text style={styles.menuGroup}>소개 설정</Text>
+          <PrefsMenuRow styles={styles} />
+          <AvoidMenuRow styles={styles} />
+          <PauseMenuRow styles={styles} />
+          <Text style={styles.menuGroup}>설정</Text>
+          <PushMenuRow styles={styles} />
+          <FeedbackMenuRow styles={styles} />
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowConnectorModal(true)}>
             <Text style={styles.menuIcon}>💼</Text>
             <View style={styles.menuContent}>
@@ -1002,12 +1010,6 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
-          <PrefsMenuRow styles={styles} />
-          <AvoidMenuRow styles={styles} />
-          <PauseMenuRow styles={styles} />
-          <PushMenuRow styles={styles} />
-          <FeedbackMenuRow styles={styles} />
-
           <TouchableOpacity style={styles.logoutMenuItem} onPress={handleLogout}>
             <Text style={styles.logoutIcon}>🚪</Text>
             <Text style={styles.logoutText}>로그아웃</Text>
@@ -1016,6 +1018,8 @@ export default function ProfileScreen() {
         )}
         {user?.role === 'connector' && (
           <>
+          {/* 메뉴는 하는 일에 따라 묶는다: 회원 모으기 · 수익·정산 · 활동·평판 · 설정 */}
+          <Text style={styles.menuGroup}>회원 모으기</Text>
           {/* 새 기능: 회원을 늘리는 가장 빠른 방법이라 맨 위에 강조해서 둔다 */}
           <TouchableOpacity style={[styles.menuItem, styles.inviteItem]} onPress={() => setShowInvite(true)}>
             <Text style={styles.menuIcon}>📣</Text>
@@ -1029,6 +1033,16 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.menuItem} onPress={() => setShowStoreModal(true)}>
+            <Text style={styles.menuIcon}>🏪</Text>
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>커리어 프로필</Text>
+              <Text style={styles.menuSub}>회원 정보, 가격, 소개 지역</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.menuGroup}>수익·정산</Text>
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowSettlementsModal(true)}>
             <Text style={styles.menuIcon}>💰</Text>
             <View style={styles.menuContent}>
@@ -1047,6 +1061,16 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.menuItem} onPress={() => setShowBankModal(true)}>
+            <Text style={styles.menuIcon}>🏦</Text>
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>계좌 정보</Text>
+              <Text style={styles.menuSub}>출금 계좌 관리</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.menuGroup}>활동·평판</Text>
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
@@ -1063,15 +1087,6 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={() => router.push({ pathname: '/matching', params: { view: 'ally' } })}>
-            <Text style={styles.menuIcon}>🤝</Text>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>동맹 관리</Text>
-              <Text style={styles.menuSub}>매칭 › 동맹으로 이동해요</Text>
-            </View>
-            <Text style={styles.arrow}>›</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowCreditScoreModal(true)}>
             <Text style={styles.menuIcon}>⭐</Text>
             <View style={styles.menuContent}>
@@ -1081,24 +1096,18 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={() => setShowStoreModal(true)}>
-            <Text style={styles.menuIcon}>🏪</Text>
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push({ pathname: '/matching', params: { view: 'ally' } })}>
+            <Text style={styles.menuIcon}>🤝</Text>
             <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>커리어 프로필</Text>
-              <Text style={styles.menuSub}>회원 정보, 가격, 소개 지역</Text>
+              <Text style={styles.menuTitle}>동맹 관리</Text>
+              <Text style={styles.menuSub}>매칭 › 동맹으로 이동해요</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={() => setShowBankModal(true)}>
-            <Text style={styles.menuIcon}>🏦</Text>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>계좌 정보</Text>
-              <Text style={styles.menuSub}>출금 계좌 관리</Text>
-            </View>
-            <Text style={styles.arrow}>›</Text>
-          </TouchableOpacity>
-
+          <Text style={styles.menuGroup}>설정</Text>
+          <PushMenuRow styles={styles} />
+          <FeedbackMenuRow styles={styles} />
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowSwitchSheet(true)}>
             <Text style={styles.menuIcon}>🔄</Text>
             <View style={styles.menuContent}>
@@ -1107,9 +1116,6 @@ export default function ProfileScreen() {
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
-
-          <PushMenuRow styles={styles} />
-          <FeedbackMenuRow styles={styles} />
 
           <TouchableOpacity style={styles.logoutMenuItem} onPress={handleLogout}>
             <Text style={styles.logoutIcon}>🚪</Text>
@@ -2322,6 +2328,7 @@ const styles = StyleSheet.create({
   inviteItem: { backgroundColor: '#F1ECFF' },
   newBadge: { backgroundColor: '#5B21FF', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  menuGroup: { fontSize: 13, fontWeight: '700', color: '#87848D', marginTop: 12, marginBottom: 8, marginLeft: 4 },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
