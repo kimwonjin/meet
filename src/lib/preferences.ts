@@ -2,9 +2,11 @@
 // 고르지 않은 항목은 '상관없어요'. 상대 정보가 비어 있으면 맞는지 따지지 않는다
 // SQL(add_pause_and_preferences.sql) 실행 전에는 available=false → 화면에서 숨긴다
 import { supabase } from './supabase';
+import { DISTRICTS } from './regions';
 
 export type AgeKey = '20s' | '30e' | '30l' | '40s' | '50p';
-export type Prefs = { ages: AgeKey[]; regions: string[]; heightMin: number | null; nonSmoker: boolean };
+// districts: 서울·경기를 고른 경우 그 안의 구·시 (비어 있으면 그 시·도 전체)
+export type Prefs = { ages: AgeKey[]; regions: string[]; districts: string[]; heightMin: number | null; nonSmoker: boolean };
 
 export const AGE_OPTIONS: [AgeKey, string, number, number][] = [
   ['20s', '20대', 20, 29],
@@ -16,7 +18,7 @@ export const AGE_OPTIONS: [AgeKey, string, number, number][] = [
 export const PREF_REGIONS = ['서울', '경기', '인천', '강원', '충청', '전라', '경상', '제주'];
 export const HEIGHT_OPTIONS = [155, 160, 165, 170, 175, 180];
 
-export const EMPTY_PREFS: Prefs = { ages: [], regions: [], heightMin: null, nonSmoker: false };
+export const EMPTY_PREFS: Prefs = { ages: [], regions: [], districts: [], heightMin: null, nonSmoker: false };
 
 export function normalizePrefs(raw: any): Prefs {
   if (!raw || typeof raw !== 'object') return { ...EMPTY_PREFS };
@@ -24,6 +26,7 @@ export function normalizePrefs(raw: any): Prefs {
   return {
     ages: Array.isArray(raw.ages) ? raw.ages.filter((a: any) => ageKeys.includes(a)) : [],
     regions: Array.isArray(raw.regions) ? raw.regions.filter((r: any) => typeof r === 'string') : [],
+    districts: Array.isArray(raw.districts) ? raw.districts.filter((r: any) => typeof r === 'string') : [],
     heightMin: typeof raw.heightMin === 'number' ? raw.heightMin : null,
     nonSmoker: !!raw.nonSmoker,
   };
@@ -36,14 +39,14 @@ export function prefsSummary(p?: Prefs | null) {
   if (!hasPrefs(p)) return '';
   const parts = [
     p!.ages.length ? AGE_OPTIONS.filter((a) => p!.ages.includes(a[0])).map((a) => a[1]).join('·') : '',
-    p!.regions.length ? p!.regions.join('·') : '',
+    p!.regions.length ? p!.regions.map((r) => { const ds = (p!.districts || []).filter((d) => (DISTRICTS[r] || []).includes(d)); return ds.length ? `${r}(${ds.join('·')})` : r; }).join('·') : '',
     p!.heightMin ? `${p!.heightMin}cm 이상` : '',
     p!.nonSmoker ? '비흡연' : '',
   ];
   return parts.filter(Boolean).join(' · ');
 }
 
-type Person = { age?: number | null; location?: string | null; height?: number | null; smoking?: string | null };
+type Person = { age?: number | null; location?: string | null; district?: string | null; height?: number | null; smoking?: string | null };
 
 // 원하는 조건(p) 중 상대(c)가 맞지 않는 항목. 상대 정보가 없으면 따지지 않는다
 export function unmetPrefs(p: Prefs | undefined | null, c: Person): string[] {
@@ -54,6 +57,11 @@ export function unmetPrefs(p: Prefs | undefined | null, c: Person): string[] {
     if (!ok) out.push('나이');
   }
   if (p.regions.length && c.location && !p.regions.some((r) => c.location!.includes(r))) out.push('지역');
+  // 같은 시·도 안에서 구·시까지 골랐다면 그것도 본다 (상대 구·시를 모르면 따지지 않음)
+  else if (c.location && c.district) {
+    const want = (p.districts || []).filter((d) => (DISTRICTS[c.location!] || []).includes(d));
+    if (want.length && !want.includes(c.district)) out.push('지역');
+  }
   if (p.heightMin && c.height && c.height < p.heightMin) out.push('키');
   if (p.nonSmoker && c.smoking && c.smoking !== '비흡연') out.push('흡연');
   return out;

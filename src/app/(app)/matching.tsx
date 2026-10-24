@@ -68,7 +68,7 @@ export default function MatchingScreen() {
   // 회원 후보 필터 (회원 탭과 같은 필터)
   const [detailsMap, setDetailsMap] = useState<Map<string, MemberDetail>>(new Map());
   const [districtMap, setDistrictMap] = useState<Map<string, string>>(new Map());
-  const memberFilter = useMemberFilter(detailsMap);
+  const memberFilter = useMemberFilter(detailsMap, districtMap);
   // 회원별 최근 매칭 제안 날짜 · 진행 중 여부 (오래 쉰 회원을 먼저 찾기 위해)
   const [lastMatch, setLastMatch] = useState<Record<string, { at: string; active: boolean }>>({});
   // 두 회원이 예전에 엮였던 기록 ('작은id|큰id' → 이미 만남 / 지난번 거절)
@@ -402,7 +402,7 @@ export default function MatchingScreen() {
     const all = [...ownMembers, ...allyMembers.flatMap((g) => g.members)];
     const a = all.find((m) => m.id === first.id), b = all.find((m) => m.id === id);
     if (!a || !b || a.gender === b.gender) return null;
-    return mutualFit(a as any, prefsMap.get(a.id), b as any, prefsMap.get(b.id));
+    return mutualFit({ ...(a as any), district: districtMap.get(a.id) }, prefsMap.get(a.id), { ...(b as any), district: districtMap.get(b.id) }, prefsMap.get(b.id));
   }
 
   function restLabel(id: string) {
@@ -989,7 +989,7 @@ export default function MatchingScreen() {
     const all = [...ownMembers, ...allyMembers.flatMap((g) => g.members)];
     const [a, b] = selectedForMatch.map((x) => all.find((m) => m.id === x.id)) as any[];
     if (!a || !b) return null;
-    const fit = a.gender !== b.gender ? mutualFit(a, prefsMap.get(a.id), b, prefsMap.get(b.id)) : null;
+    const fit = a.gender !== b.gender ? mutualFit({ ...a, district: districtMap.get(a.id) }, prefsMap.get(a.id), { ...b, district: districtMap.get(b.id) }, prefsMap.get(b.id)) : null;
     const rows: [string, (m: any) => string][] = [
       ['나이', (m) => (m.age ? `${m.age}세` : '')],
       ['지역', (m) => placeLabel(m.location, districtMap.get(m.id))],

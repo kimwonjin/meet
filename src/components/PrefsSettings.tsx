@@ -6,6 +6,7 @@ import { useFocusEffect } from 'expo-router';
 import BottomSheet from './BottomSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { DISTRICTS } from '@/lib/regions';
 import { AGE_OPTIONS, AgeKey, EMPTY_PREFS, getMyPrefs, HEIGHT_OPTIONS, PREF_REGIONS, Prefs, prefsSummary, saveMyPrefs } from '@/lib/preferences';
 
 export function PrefsMenuRow({ styles: m }: { styles: { menuItem: any; menuIcon: any; menuContent: any; menuTitle: any; menuSub: any; arrow: any } }) {
@@ -72,7 +73,18 @@ export function PrefsMenuRow({ styles: m }: { styles: { menuItem: any; menuIcon:
           <View style={s.row}>{AGE_OPTIONS.map(([k, label]) => chip(label, draft.ages.includes(k), () => setDraft({ ...draft, ages: toggle<AgeKey>(draft.ages, k) })))}</View>
 
           <Text style={s.label}>사는 곳 <Text style={s.multi}>여러 개 고를 수 있어요</Text></Text>
-          <View style={s.row}>{PREF_REGIONS.map((r) => chip(r, draft.regions.includes(r), () => setDraft({ ...draft, regions: toggle(draft.regions, r) })))}</View>
+          <View style={s.row}>{PREF_REGIONS.map((r) => chip(r, draft.regions.includes(r), () => {
+            const regions = toggle(draft.regions, r);
+            // 시·도를 빼면 그 안에서 고른 구·시도 뺀다
+            const districts = (draft.districts || []).filter((d) => regions.some((x) => (DISTRICTS[x] || []).includes(d)));
+            setDraft({ ...draft, regions, districts });
+          }))}</View>
+          {draft.regions.filter((r) => DISTRICTS[r]).map((r) => (
+            <View key={r}>
+              <Text style={s.subLabel}>{r} 안에서 <Text style={s.multi}>고르지 않으면 {r} 전체</Text></Text>
+              <View style={s.row}>{DISTRICTS[r].map((d) => chip(d, (draft.districts || []).includes(d), () => setDraft({ ...draft, districts: toggle(draft.districts || [], d) })))}</View>
+            </View>
+          ))}
 
           <Text style={s.label}>키</Text>
           <View style={s.row}>
@@ -96,6 +108,7 @@ export function PrefsMenuRow({ styles: m }: { styles: { menuItem: any; menuIcon:
 const s = StyleSheet.create({
   lead: { fontSize: 13, color: '#65626B', lineHeight: 19, marginBottom: 4 },
   label: { fontSize: 14, fontWeight: '700', color: '#322F38', marginTop: 12 },
+  subLabel: { fontSize: 13, fontWeight: '600', color: '#54515A', marginTop: 8 },
   multi: { fontSize: 11, fontWeight: '400', color: '#98959E' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   chip: { paddingHorizontal: 14, height: 36, borderRadius: 999, borderWidth: 1, borderColor: '#DCD9E2', justifyContent: 'center' },

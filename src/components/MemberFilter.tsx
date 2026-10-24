@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { EXTRA_CONDITIONS, JOB_CATEGORIES, MemberDetail } from '@/lib/memberDetails';
+import { DISTRICTS } from '@/lib/regions';
 
 export type FilterableMember = { id: string; name?: string; gender?: string; age?: number; location?: string };
 
@@ -13,16 +14,18 @@ function toggleIn<T>(list: T[], v: T) {
 // 회원 목록 필터 (이름·성별·연령대·지역). 매칭 탭과 회원 탭에서 같이 쓴다.
 // keepIds: 필터와 관계없이 항상 보여줄 회원 (예: 이미 고른 회원)
 // details: 파트너 화면에서 회원들의 직업 분류·조건 (있으면 그 필터도 보여준다)
-export function useMemberFilter(details?: Map<string, MemberDetail>) {
+export function useMemberFilter(details?: Map<string, MemberDetail>, districts?: Map<string, string>) {
   const [query, setQuery] = useState('');
   const [gender, setGender] = useState<'all' | 'M' | 'F'>('all');
   const [ages, setAges] = useState<number[]>([]); // 20, 30, 40(=40대 이상)
   const [regions, setRegions] = useState<string[]>([]);
   const [jobCats, setJobCats] = useState<string[]>([]);
+  // 서울·경기 안의 구·시 (고른 시·도 안에서만 적용)
+  const [dists, setDists] = useState<string[]>([]);
   const [conds, setConds] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
-  const active = !!query.trim() || gender !== 'all' || ages.length > 0 || regions.length > 0 || jobCats.length > 0 || conds.length > 0;
-  const chipCount = (gender !== 'all' ? 1 : 0) + ages.length + regions.length + jobCats.length + conds.length;
+  const active = !!query.trim() || gender !== 'all' || ages.length > 0 || regions.length > 0 || jobCats.length > 0 || conds.length > 0 || dists.length > 0;
+  const chipCount = (gender !== 'all' ? 1 : 0) + ages.length + regions.length + jobCats.length + conds.length + dists.length;
 
   // partnerName: 동맹 회원이면 소속 파트너 이름도 같이 찾는다
   function passes(m: FilterableMember, keepIds: string[] = [], partnerName?: string) {
@@ -35,6 +38,9 @@ export function useMemberFilter(details?: Map<string, MemberDetail>) {
       if (!ages.includes(Math.min(40, Math.floor(m.age / 10) * 10))) return false;
     }
     if (regions.length && !regions.includes(m.location || '')) return false;
+    // 그 시·도 안에서 구·시를 골랐으면 그 구·시만 (다른 시·도 회원은 그대로)
+    const want = dists.filter((d) => (DISTRICTS[m.location || ''] || []).includes(d));
+    if (want.length && !want.includes(districts?.get(m.id) || '')) return false;
     // 직업 분류는 고른 것 중 하나, 조건은 고른 것 중 하나라도 해당하면 통과
     const d = details?.get(m.id);
     if (jobCats.length && !(d?.jobCategory && jobCats.includes(d.jobCategory))) return false;
@@ -47,6 +53,7 @@ export function useMemberFilter(details?: Map<string, MemberDetail>) {
     setGender('all');
     setAges([]);
     setRegions([]);
+    setDists([]);
     setJobCats([]);
     setConds([]);
   }
@@ -103,9 +110,24 @@ export function useMemberFilter(details?: Map<string, MemberDetail>) {
             {regionOptions.length > 0 && <Text style={styles.label}>지역</Text>}
             {regionOptions.length > 0 && (
               <View style={styles.row}>
-                {regionOptions.map((r) => chip(r, regions.includes(r), () => setRegions(toggleIn(regions, r))))}
+                {regionOptions.map((r) => chip(r, regions.includes(r), () => {
+                  const next = toggleIn(regions, r);
+                  setRegions(next);
+                  setDists(dists.filter((d) => next.some((x) => (DISTRICTS[x] || []).includes(d))));
+                }))}
               </View>
             )}
+            {/* 서울·경기를 골랐으면 그 안의 구·시 (회원이 있는 곳만) */}
+            {regions.filter((r) => DISTRICTS[r]).map((r) => {
+              const here = DISTRICTS[r].filter((d) => dists.includes(d) || candidates.some((m) => m.location === r && districts?.get(m.id) === d));
+              if (!here.length) return null;
+              return (
+                <View key={r}>
+                  <Text style={styles.label}>{r} 안에서</Text>
+                  <View style={styles.row}>{here.map((d) => chip(d, dists.includes(d), () => setDists(toggleIn(dists, d))))}</View>
+                </View>
+              );
+            })}
             {/* 회원이 직접 고른 직업 분류·조건 (고른 회원이 있을 때만) */}
             {(() => {
               const ds = candidates.map((m) => details?.get(m.id)).filter(Boolean) as MemberDetail[];
