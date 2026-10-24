@@ -31,8 +31,11 @@ function countReasons(rows: any[]) {
   const c = new Map<string, number>();
   for (const r of rows) {
     if (r.status !== 'rejected' || !r.reject_reason) continue;
-    const k = String(r.reject_reason).startsWith('기타') ? '기타' : String(r.reject_reason);
-    c.set(k, (c.get(k) || 0) + 1);
+    // 여러 이유를 고르면 ', '로 이어 저장된다 → 이유마다 센다
+    for (const part of String(r.reject_reason).split(', ')) {
+      const k = part.startsWith('기타') ? '기타' : part.trim();
+      if (k) c.set(k, (c.get(k) || 0) + 1);
+    }
   }
   return [...c.entries()].sort((a, b) => b[1] - a[1]);
 }
@@ -55,6 +58,7 @@ export function computeMonth(data: Data, y: number, m: number) {
     rate: decided.length ? Math.round((reached.length / decided.length) * 100) : null,
     pending: proposed.length - decided.length,
     reasons: countReasons(proposed),
+    rejected: proposed.filter((r) => r.status === 'rejected' && r.reject_reason).length,
     impressions: met.flatMap((r) => (r.mine || []) as string[]),
   };
 }
@@ -155,7 +159,7 @@ export default function PartnerReportSheet({ visible, onClose }: { visible: bool
           </View>
           {cur.reasons.length > 0 && (
             <View style={s.box}>
-              <Text style={s.boxTitle}>거절 이유 · {cur.reasons.reduce((n, [, c]) => n + c, 0)}건</Text>
+              <Text style={s.boxTitle}>거절 이유 · 거절 {cur.rejected}건</Text>
               {cur.reasons.map(([k, c]) => (
                 <View key={k} style={s.reasonRow}>
                   <Text style={s.reasonT} numberOfLines={1}>{k}</Text>

@@ -47,10 +47,13 @@ import { fetchMyReviewedMatchIds, submitReview } from '@/lib/reviews';
 const RESELECT_KEY = 'reselectMarks';
 const SKIP_REVIEW_KEY = 'skippedReviews';
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+// 만남은 날짜만 정하고 정오로 저장한다 → 정오면 시간을 쓰지 않는다 (예전에 시간까지 정한 건은 그대로)
+const isDateOnly = (d: Date) => d.getHours() === 12 && d.getMinutes() === 0;
 const meetTime = (iso: string) => {
   const d = new Date(iso);
   const h = d.getHours();
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}시${d.getMinutes() ? ` ${d.getMinutes()}분` : ''}`;
+  const day = `${d.getMonth() + 1}월 ${d.getDate()}일(${WEEK[d.getDay()]})`;
+  return isDateOnly(d) ? day : `${day} ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}시${d.getMinutes() ? ` ${d.getMinutes()}분` : ''}`;
 };
 
 // 소개를 거절할 때 고를 수 있는 이유 (선택, 파트너에게만)
@@ -766,7 +769,7 @@ export default function HomeScreen() {
       const g = scheduleGroups.find((x) => x.key === k);
       if (g) g.items.push(m); else scheduleGroups.push({ key: k, label: dayLabel(m.meeting_scheduled_at), items: [m] });
     }
-    const hhmm = (iso: string) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    const hhmm = (iso: string) => { const d = new Date(iso); return isDateOnly(d) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
     const isAlly = (m: any) => m.connector_1_id !== m.connector_2_id;
 
     // 다가오는 만남: 날짜와 상관없이 가까운 3개
@@ -986,7 +989,7 @@ export default function HomeScreen() {
               <Text style={styles.schDay}>{g.label}</Text>
               {g.items.map((m) => (
                 <TouchableOpacity key={m.id} style={styles.schRow} onPress={() => { setScheduleOpen(false); focusMatch(m.id)(); }} accessibilityLabel={`${pair(m)} 만남 보기`}>
-                  <Text style={styles.schTime}>{hhmm(m.meeting_scheduled_at)}</Text>
+                  {!!hhmm(m.meeting_scheduled_at) && <Text style={styles.schTime}>{hhmm(m.meeting_scheduled_at)}</Text>}
                   <Text style={styles.schWho} numberOfLines={1}>{pair(m)}{isAlly(m) ? ' (동맹)' : ''}</Text>
                   <Text style={styles.schChev}>›</Text>
                 </TouchableOpacity>

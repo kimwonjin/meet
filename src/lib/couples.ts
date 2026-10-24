@@ -14,14 +14,22 @@ export async function fetchCoupleCount(connectorId: string): Promise<number | nu
 }
 
 export async function setCouple(match: { id: string; hopeful_1_id: string; hopeful_2_id: string }, on: boolean) {
-  const { error } = await supabase.from('match_requests').update({ couple_at: on ? new Date().toISOString() : null }).eq('id', match.id);
-  if (error) return false;
-  if (on) {
-    // 두 회원에게 축하 + 새 소개를 쉬는 방법 안내 (쉬기를 억지로 켜지는 않는다)
-    await Promise.all([match.hopeful_1_id, match.hopeful_2_id].map((uid) => createNotification({
-      userId: uid, type: 'couple_marked', title: '커플이 되신 걸 축하해요 💞',
-      body: '새 소개를 잠시 멈추고 싶으면 마이 › 소개 잠시 쉬기를 켜 주세요', route: '/profile',
-    }).catch(() => {})));
+  if (!on) {
+    const { error } = await supabase.from('match_requests').update({ couple_at: null }).eq('id', match.id);
+    return !error;
   }
+  // 비어 있을 때만 표시한다 (동맹 파트너 둘이 거의 동시에 눌러도 한 번만)
+  const { data, error } = await supabase.from('match_requests').update({ couple_at: new Date().toISOString() }).eq('id', match.id).is('couple_at', null).select('id');
+  if (error) return false;
+  if (!data?.length) return true;
+  // 두 회원에게 축하 + 새 소개를 쉬는 방법 안내 (쉬기를 억지로 켜지는 않는다)
+  // 표시를 취소했다가 다시 눌러도 축하 알림은 한 번만 간다
+  const { data: sent } = await supabase.from('notifications').select('user_id')
+    .in('user_id', [match.hopeful_1_id, match.hopeful_2_id]).eq('type', 'couple_marked');
+  const already = new Set(((sent || []) as any[]).map((n) => n.user_id as string));
+  await Promise.all([match.hopeful_1_id, match.hopeful_2_id].filter((uid) => !already.has(uid)).map((uid) => createNotification({
+    userId: uid, type: 'couple_marked', title: '커플이 되신 걸 축하해요 💞',
+    body: '새 소개를 잠시 멈추고 싶으면 마이 › 소개 잠시 쉬기를 켜 주세요', route: '/profile',
+  }).catch(() => {})));
   return true;
 }

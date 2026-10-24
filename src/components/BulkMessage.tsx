@@ -4,7 +4,6 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOp
 import BottomSheet from './BottomSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { findContact } from '@/lib/contactGuard';
 import { loadPhrases } from '@/lib/quickPhrases';
 import { BULK_MAX_PEOPLE, BULK_MAX_PER_DAY, bulkSentToday, NAME_TOKEN, sendBulk } from '@/lib/bulkMessage';
 
@@ -56,8 +55,7 @@ function BulkMessageSheet({ visible, onClose, members }: { visible: boolean; onC
 
   const left = BULK_MAX_PER_DAY - usedToday;
   const busy = progress !== null;
-  const hit = findContact(text);
-  const canSend = !busy && picked.size > 0 && !!text.trim() && left > 0 && !hit;
+  const canSend = !busy && picked.size > 0 && !!text.trim() && left > 0;
 
   async function send() {
     if (!user || !canSend) return;
@@ -114,7 +112,6 @@ function BulkMessageSheet({ visible, onClose, members }: { visible: boolean; onC
               <Text style={s.link}>문구 불러오기 {showPhrases ? '▴' : '▾'}</Text>
             </TouchableOpacity>
           </View>
-          {hit && <Text style={s.err}>연락처처럼 보이는 내용이 있어 보낼 수 없어요</Text>}
           {showPhrases && (
             <View style={s.phraseBox}>
               {!phrases ? <ActivityIndicator color="#5B21FF" /> : phrases.length === 0 ? <Text style={s.hint}>저장한 문구가 없어요</Text> : phrases.map((p) => (
@@ -163,7 +160,6 @@ const s = StyleSheet.create({
   textFoot: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
   hint: { fontSize: 12, color: '#98959E' },
   link: { fontSize: 13, color: '#5B21FF', fontWeight: '600' },
-  err: { fontSize: 12, color: '#E5484D', marginTop: 6 },
   phraseBox: { marginTop: 8, backgroundColor: '#FAF9FC', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 4 },
   phraseRow: { paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#F0EEF3' },
   phraseT: { fontSize: 13, color: '#322F38', lineHeight: 19 },
