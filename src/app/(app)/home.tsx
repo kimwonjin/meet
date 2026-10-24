@@ -19,8 +19,10 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
 import TermsUpdatePrompt from '@/components/TermsUpdatePrompt';
+import { daysSince, fetchWaitingMembers, PENDING_JOIN_DAYS, WAITING_DAYS, WaitingMember } from '@/lib/waiting';
 import { PushPrompt } from '@/components/PushSettings';
 import { PauseBanner } from '@/components/PauseSettings';
+import { getPauseState } from '@/lib/pause';
 import { createNotification } from '@/lib/notifications';
 import { getOrCreateThread, sendMessage } from '@/lib/chat';
 import { getMyConnectorCredits } from '@/lib/payments';
@@ -89,7 +91,7 @@ export default function HomeScreen() {
   const [freeSessions, setFreeSessions] = useState(0);
   const [partnerNames, setPartnerNames] = useState<Record<string, string>>({});
   // 내 파트너 가입 상태: 승인된 파트너 수 · 신청(대기 포함) 수
-  const [myPartners, setMyPartners] = useState<{ approved: number; requested: number; pendingId?: string }>({ approved: 0, requested: 0 });
+  const [myPartners, setMyPartners] = useState<{ approved: number; requested: number; pendingId?: string; pendingDays?: number; approvedId?: string; waitDays?: number; paused?: boolean }>({ approved: 0, requested: 0 });
   const [approvedMemberCount, setApprovedMemberCount] = useState(0);
   const [profileGaps, setProfileGaps] = useState<string[]>([]);
   const [showInvite, setShowInvite] = useState(false);
@@ -98,6 +100,8 @@ export default function HomeScreen() {
   const [payoutAvailable, setPayoutAvailable] = useState<number | null>(null);
   // 가입 신청한 사람 (최근 3명) · 최근 소식 (알림 3개) · 알림 센터 열기 신호
   const [pendingMembers, setPendingMembers] = useState<{ id: string; name: string }[]>([]);
+  // 30일 넘게 소개를 기다리는 내 회원 (이용권 있음)
+  const [waitingMembers, setWaitingMembers] = useState<WaitingMember[]>([]);
   // 새 파트너 시작 가이드: 매칭을 제안해 본 적 · 만남이 성사된 적이 있는지 (null = 아직 모름)
   const [startState, setStartState] = useState<{ proposed: boolean; settled: boolean } | null>(null);
   // 시작 가이드 '동맹 파트너 맺기': 맺은 동맹이 있는지, 보낸·받은 신청이 기다리는 중인지
@@ -157,6 +161,7 @@ export default function HomeScreen() {
         const pendIds = (pendRows || []).map((r: any) => r.hopeful_id);
         const { data: pendUsers } = pendIds.length ? await supabase.from('users').select('id, name').in('id', pendIds) : { data: [] as any[] };
         setPendingMembers(pendIds.map((id: string) => ({ id, name: (pendUsers || []).find((u: any) => u.id === id)?.name || '회원' })));
+        fetchWaitingMembers(user!.id).then(setWaitingMembers).catch(() => {});
         const { count: memberCount } = await supabase
           .from('hopeful_requests')
           .select('*', { count: 'exact', head: true })
@@ -349,12 +354,21 @@ export default function HomeScreen() {
           const { data: conns } = await supabase.from('connectors').select('id, business_name').in('id', connIds);
           setPartnerNames(Object.fromEntries((conns || []).map((c: any) => [c.id, c.business_name || '파트너'])));
         }
-        const { data: reqs } = await supabase.from('hopeful_requests').select('status, connector_id').eq('hopeful_id', user!.id);
+        const [{ data: reqs }, pause] = await Promise.all([
+          supabase.from('hopeful_requests').select('status, connector_id, created_at').eq('hopeful_id', user!.id),
+          getPauseState(user!.id),
+        ]);
         setMyPartners({
           approved: (reqs || []).filter((r: any) => r.status === 'approved').length,
           requested: (reqs || []).filter((r: any) => r.status === 'approved' || r.status === 'pending').length,
           // 승인을 기다리는 파트너 (홈에서 바로 채팅으로 물어볼 수 있게)
           pendingId: (reqs || []).find((r: any) => r.status === 'pending')?.connector_id,
+          // 가장 오래된 대기 신청이 며칠째인지 (7일이 넘으면 다른 파트너도 안내)
+          pendingDays: Math.max(0, ...(reqs || []).filter((r: any) => r.status === 'pending').map((r: any) => daysSince(r.created_at))),
+          approvedId: (reqs || []).find((r: any) => r.status === 'approved')?.connector_id,
+          paused: !!pause.pausedAt,
+          // 새 소개를 기다린 날: 마지막 소개(없으면 가장 최근 승인) 뒤로
+          waitDays: daysSince([...matches.map((m: any) => m.created_at), ...(reqs || []).filter((r: any) => r.status === 'approved').map((r: any) => r.created_at)].filter(Boolean).sort().pop()),
         });
       }
     } catch (error) {
@@ -702,6 +716,12 @@ export default function HomeScreen() {
         key: 'date', name: '만남 날짜 정하기', label: `만남 날짜 정하기 ${scheduleList.length}건`, action: '정하기', go: goStageList('date'), total: scheduleList.length,
         items: scheduleList.slice(0, 3).map((m) => ({ key: m.id, label: pair(m), action: '날짜 정하기', go: focusMatch(m.id) })),
       },
+      // 급하진 않지만 놓치기 쉬운 일: 오래 기다린 회원 (이 회원을 골라 둔 채 매칭 제안 화면으로)
+      waitingMembers.length > 0 && {
+        key: 'waiting', name: '소개를 기다리는 회원', label: `기다리는 회원 ${waitingMembers.length}명`, action: '소개하기',
+        go: () => router.push({ pathname: '/matching', params: { pick: waitingMembers[0].id } }), total: waitingMembers.length,
+        items: waitingMembers.slice(0, 3).map((w) => ({ key: w.id, label: `${w.name}님 · ${w.days}일째`, action: '소개하기', go: () => router.push({ pathname: '/matching', params: { pick: w.id } }) })),
+      },
     ].filter(Boolean) as Todo[];
 
     // 다가오는 만남: 날짜와 상관없이 가까운 3개
@@ -715,7 +735,8 @@ export default function HomeScreen() {
     const waitingMatches = matchingRequests.filter((m) => isWaitingOnOthers(m, me));
 
     // 시안 A: 보라 카드에 오늘 할 일 수와 가장 급한 일 하나, 나머지는 한 줄씩
-    const todoTotal = todos.reduce((n, t) => n + t.total, 0);
+    // 기다리는 회원은 '소개하기' 한 가지 일로 센다 (회원 수만큼 늘리지 않음)
+    const todoTotal = todos.reduce((n, t) => n + (t.key === 'waiting' ? 1 : t.total), 0);
     const first = todos[0];
     const firstSub = first
       ? first.key === 'signup'
@@ -945,6 +966,8 @@ export default function HomeScreen() {
       ? { title: '프로필을 채워 주세요', sub: '사진과 자기소개가 있으면\n파트너가 소개하기 훨씬 쉬워요.', btn: '프로필 채우기', go: () => router.push({ pathname: '/profile', params: { open: 'profile' } }) }
       : myPartners.requested === 0
         ? { title: '파트너를 찾아보세요', sub: '파트너에게 가입 신청하면\n맞는 분을 소개받을 수 있어요.', btn: '파트너 찾아보기', go: () => router.push('/connectors') }
+        : myPartners.approved === 0 && (myPartners.pendingDays || 0) >= PENDING_JOIN_DAYS
+          ? { title: '승인이 늦어지고 있어요', sub: `신청한 지 ${myPartners.pendingDays}일이 지났어요.\n다른 파트너에게도 함께 신청할 수 있어요.`, btn: '다른 파트너 둘러보기', go: () => router.push('/connectors') }
         : myPartners.approved === 0
           ? {
               title: '파트너 승인을 기다리고 있어요',
@@ -953,6 +976,8 @@ export default function HomeScreen() {
             }
           : remainingSessions === 0
             ? { title: '이용권을 준비해 주세요', sub: '이용권이 있어야 파트너가\n소개를 시작할 수 있어요.', btn: '이용권 구매하기', go: () => router.push('/connectors') }
+            : (myPartners.waitDays || 0) >= WAITING_DAYS && myPartners.approvedId && !myPartners.paused
+              ? { title: `소개를 기다린 지 ${myPartners.waitDays}일째예요`, sub: '원하는 상대 조건을 조금 넓히거나\n파트너에게 채팅으로 물어보세요.', btn: '파트너에게 채팅하기', go: () => router.push({ pathname: '/chat', params: { with: myPartners.approvedId } }) }
             : profileGaps.length > 0
               ? { title: '지금은 할 일이 없어요', sub: '파트너가 맞는 분을 찾고 있어요.\n프로필을 채우면 더 빨리 소개받을 수 있어요.', btn: '프로필 채우기', go: () => router.push({ pathname: '/profile', params: { open: 'profile' } }) }
               : { title: '지금은 할 일이 없어요', sub: '파트너가 맞는 분을 찾고 있어요.\n새 소개가 오면 알림으로 알려드릴게요.' }
