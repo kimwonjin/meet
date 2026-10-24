@@ -13,6 +13,7 @@ import { getJoinState, JoinState, requestJoin } from '@/lib/join';
 import { adsAllowed, useBusiness } from '@/lib/business';
 import { fetchConnectorReviews, formatStars, Review } from '@/lib/reviews';
 import { publicText } from '@/lib/contactGuard';
+import { fetchCoupleCount } from '@/lib/couples';
 
 // 공개 소개에 보여도 되는 항목만 읽는다 (회원 정보·연락처·계좌는 읽지 않는다)
 type Partner = {
@@ -51,6 +52,7 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
   const { ready: bizReady } = useBusiness();
   const [partner, setPartner] = useState<Partner | null | undefined>(undefined);
   const [overview, setOverview] = useState<Overview | null>(null);
+  const [coupleCount, setCoupleCount] = useState<number | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [going, setGoing] = useState(false);
   // 로그인한 회원: 이 파트너와의 가입 상태
@@ -88,6 +90,7 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
       if (!error && data) setOverview({ male: Number(data.male) || 0, female: Number(data.female) || 0, settled: Number(data.settled) || 0 });
     });
     fetchConnectorReviews(partner.id).then(setReviews).catch(() => setReviews([]));
+    fetchCoupleCount(partner.id).then(setCoupleCount).catch(() => {});
   }, [partner?.id, showProfile]);
 
   useEffect(() => {
@@ -209,6 +212,12 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
                       <Text style={styles.factLabel}>성사된 만남</Text>
                       <Text style={styles.factValue}>{overview.settled}건</Text>
                     </View>
+                    {!!coupleCount && (
+                      <View style={styles.fact}>
+                        <Text style={styles.factLabel}>커플 성사</Text>
+                        <Text style={styles.factValue}>💞 {coupleCount}쌍</Text>
+                      </View>
+                    )}
                   </View>
                 )}
                 {reviews.length > 0 && (

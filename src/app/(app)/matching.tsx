@@ -30,8 +30,9 @@ import { Avatar } from '@/components/ProfilePhoto';
 import AlliancesPanel from '@/components/AlliancesPanel';
 import { fetchPausedIds } from '@/lib/pause';
 import { fetchAvoidPairs } from '@/lib/avoid';
-import { fetchPrefs, mutualFit, Prefs } from '@/lib/preferences';
+import { fetchPrefs, mutualFit, Prefs, prefsSummary } from '@/lib/preferences';
 import { findContact } from '@/lib/contactGuard';
+import { setCouple } from '@/lib/couples';
 import { fetchMemberDetails, MemberDetail } from '@/lib/memberDetails';
 import { AFTER_CARE_DAYS, afterCareDeadline, afterCareOutcome, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline, proposalDeadline } from '@/lib/afterCare';
 
@@ -144,6 +145,8 @@ export default function MatchingScreen() {
   const [proposing, setProposing] = useState(false);
   // 매칭 제안과 함께 두 회원에게 보내는 파트너 한마디 (선택)
   const [proposeNote, setProposeNote] = useState('');
+  // 고른 두 회원을 위아래로 나란히 비교하는 시트
+  const [compareOpen, setCompareOpen] = useState(false);
 
   // 화면에 들어올 때 한 번 + 15초마다 (처음 열 때 두 번 불러오지 않도록 이것 하나로)
   useFocusPolling(() => {
@@ -152,6 +155,17 @@ export default function MatchingScreen() {
     fetchAllyConnectors();
   }, 60000, !!user);
   const pullRefresh = usePullRefresh(() => Promise.all([fetchMatches(), fetchOwnMembers(), fetchAllyConnectors()]));
+
+  // 커플 성사 표시·취소 (두 회원에게 축하 알림)
+  async function toggleCouple(item: any, on: boolean) {
+    if (processingId) return;
+    setProcessingId(item.id);
+    const ok = await setCouple(item, on);
+    setProcessingId(null);
+    if (!ok) { toast.show('저장하지 못했어요. 잠시 후 다시 시도해 주세요', 'error'); return; }
+    toast.show(on ? '💞 커플 성사로 표시했어요. 두 회원에게 축하 알림을 보냈어요' : '커플 성사 표시를 취소했어요', on ? 'success' : 'info');
+    await fetchMatches();
+  }
 
   async function fetchMatches(retried = false) {
     try {
@@ -966,10 +980,63 @@ export default function MatchingScreen() {
     );
   }
 
+  // 고른 두 회원 나란히 비교 (위아래 표: 항목 | 첫째 | 둘째). 원하는 조건과 다른 점은 위에 한 줄로
+  const compareSheet = (() => {
+    if (selectedForMatch.length !== 2) return null;
+    const all = [...ownMembers, ...allyMembers.flatMap((g) => g.members)];
+    const [a, b] = selectedForMatch.map((x) => all.find((m) => m.id === x.id)) as any[];
+    if (!a || !b) return null;
+    const fit = a.gender !== b.gender ? mutualFit(a, prefsMap.get(a.id), b, prefsMap.get(b.id)) : null;
+    const rows: [string, (m: any) => string][] = [
+      ['나이', (m) => (m.age ? `${m.age}세` : '')],
+      ['지역', (m) => m.location || ''],
+      ['키', (m) => (m.height ? `${m.height}cm` : '')],
+      ['직업', (m) => m.job || ''],
+      ['직업 분류', (m) => detailsMap.get(m.id)?.jobCategory || ''],
+      ['해당 조건', (m) => (detailsMap.get(m.id)?.conditions || []).join(', ')],
+      ['학력', (m) => m.education || ''],
+      ['종교', (m) => m.religion || ''],
+      ['흡연 · 음주', (m) => [m.smoking, m.drinking].filter(Boolean).join(' · ')],
+      ['체형', (m) => m.body_type || ''],
+      ['원하는 상대', (m) => prefsSummary(prefsMap.get(m.id)) || '상관없어요'],
+    ];
+    return (
+      <BottomSheet visible={compareOpen} onClose={() => setCompareOpen(false)} title="두 회원 나란히 보기">
+        {fit && (
+          <Text style={[styles.compareFit, fit.ok && styles.compareFitOk]}>
+            {fit.ok ? '✓ 서로 원하는 조건이 맞아요' : `원하는 조건과 다른 점 · ${fit.miss.join('·')}`}
+          </Text>
+        )}
+        <View style={styles.compareHead}>
+          <Text style={styles.compareKey} />
+          <Text style={styles.compareName} numberOfLines={1}>{a.name}</Text>
+          <Text style={styles.compareName} numberOfLines={1}>{b.name}</Text>
+        </View>
+        {rows.map(([label, get]) => {
+          const va = get(a), vb = get(b);
+          if (!va && !vb) return null;
+          return (
+            <View key={label} style={styles.compareRow}>
+              <Text style={styles.compareKey}>{label}</Text>
+              <Text style={styles.compareVal}>{va || '–'}</Text>
+              <Text style={styles.compareVal}>{vb || '–'}</Text>
+            </View>
+          );
+        })}
+        <Text style={styles.compareNote}>원하는 상대와 직업 분류·해당 조건은 파트너에게만 보여요</Text>
+      </BottomSheet>
+    );
+  })();
+
   // 두 명을 고르면 목록 길이와 상관없이 화면 아래에 고정해서 보여준다
   const proposeBtn = selectedForMatch.length === 2 && (
     <View style={styles.proposeBar}>
-      <Text style={styles.proposeBarNames} numberOfLines={1}>{memberName(selectedForMatch[0].id)} ↔ {memberName(selectedForMatch[1].id)}</Text>
+      <View style={styles.proposeBarTop}>
+        <Text style={styles.proposeBarNames} numberOfLines={1}>{memberName(selectedForMatch[0].id)} ↔ {memberName(selectedForMatch[1].id)}</Text>
+        <TouchableOpacity onPress={() => setCompareOpen(true)} accessibilityLabel="두 회원 비교하기" hitSlop={8}>
+          <Text style={styles.compareLink}>나란히 비교 ›</Text>
+        </TouchableOpacity>
+      </View>
       <TextInput
         style={styles.proposeNote}
         value={proposeNote}
@@ -1369,7 +1436,24 @@ export default function MatchingScreen() {
                 </Text>
                 {item.closed_reason !== 'no_show' && item.after_care_hopeful_1 && item.after_care_hopeful_2 && (() => {
                   const o = afterCareOutcome(item.after_care_hopeful_1, item.after_care_hopeful_2, item.hopeful_1?.gender, item.hopeful_2?.gender, item.after_care_auto_1, item.after_care_auto_2);
-                  return <Text style={o.mutual ? styles.mutualText : styles.outcomeText}>{o.label}</Text>;
+                  return (
+                    <>
+                      <Text style={o.mutual ? styles.mutualText : styles.outcomeText}>{o.label}</Text>
+                      {/* 두 회원 모두 다시 만나고 싶어하면 커플 성사로 표시 (SQL 전이면 칸이 없어 숨김) */}
+                      {o.mutual && 'couple_at' in item && (item.couple_at ? (
+                        <View style={styles.coupleRow}>
+                          <Text style={styles.coupleDone}>💞 커플 성사 · {new Date(item.couple_at).toLocaleDateString('ko-KR')}</Text>
+                          <TouchableOpacity onPress={() => toggleCouple(item, false)} disabled={processingId !== null} accessibilityLabel="커플 성사 표시 취소" hitSlop={8}>
+                            <Text style={styles.coupleUndo}>표시 취소</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TouchableOpacity style={[styles.coupleBtn, processingId === item.id && styles.buttonDisabled]} onPress={() => toggleCouple(item, true)} disabled={processingId !== null} accessibilityLabel="커플 성사로 표시">
+                          {processingId === item.id ? <ActivityIndicator color="#5B21FF" /> : <Text style={styles.coupleBtnT}>💞 커플 성사로 표시</Text>}
+                        </TouchableOpacity>
+                      ))}
+                    </>
+                  );
                 })()}
               </View>
             )}
@@ -1498,6 +1582,7 @@ export default function MatchingScreen() {
           contentContainerStyle={styles.list}
         />
       {view === 'active' && proposeBtn}
+      {view === 'active' && compareSheet}
       </>
       )}
 
@@ -1567,10 +1652,25 @@ const styles = StyleSheet.create({
   pairHint: { color: '#322F38', fontWeight: '700' },
   memberRowBusy: { opacity: 0.5 },
   outcomeText: { fontSize: 13, color: '#322F38', fontWeight: '600', marginTop: 6 },
+  coupleBtn: { marginTop: 10, height: 42, borderRadius: 10, borderWidth: 1.5, borderColor: '#5B21FF', alignItems: 'center', justifyContent: 'center' },
+  coupleBtnT: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
+  coupleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+  coupleDone: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
+  coupleUndo: { fontSize: 12, color: '#98959E', textDecorationLine: 'underline' },
   rejectReason: { fontSize: 13, color: '#65626B', backgroundColor: '#F7F5FA', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, marginTop: 8 },
   partnerNoteLine: { fontSize: 12, color: '#87848D', marginTop: 6 },
   proposeBar: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12, borderTopWidth: 1, borderTopColor: '#ECEAF1', backgroundColor: '#fff' },
   proposeNote: { marginTop: 8, borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, paddingHorizontal: 12, height: 42, fontSize: 13, color: '#322F38' },
+  proposeBarTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  compareLink: { fontSize: 13, color: '#5B21FF', fontWeight: '600' },
+  compareFit: { fontSize: 13, color: '#B45309', backgroundColor: '#FFF7E6', borderRadius: 8, padding: 10, marginBottom: 12 },
+  compareFitOk: { color: '#5B21FF', backgroundColor: '#F1ECFF' },
+  compareHead: { flexDirection: 'row', paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#ECEAF1' },
+  compareName: { flex: 1, fontSize: 15, fontWeight: '700', color: '#322F38' },
+  compareRow: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F1F6' },
+  compareKey: { width: 78, fontSize: 12, color: '#87848D' },
+  compareVal: { flex: 1, fontSize: 13, color: '#322F38', paddingRight: 6 },
+  compareNote: { fontSize: 12, color: '#98959E', marginTop: 12 },
   proposeBarNames: { fontSize: 13, color: '#65626B', textAlign: 'center' },
   noShowBtn: { marginTop: 12, backgroundColor: '#5B21FF', borderRadius: 10, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
   noShowBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },

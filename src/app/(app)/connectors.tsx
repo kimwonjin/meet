@@ -26,6 +26,7 @@ import ProfileFillRequest from '@/components/ProfileFillRequest';
 import { fetchVerifiedIds } from '@/lib/memberNotes';
 import { fetchPausedIds } from '@/lib/pause';
 import { publicText } from '@/lib/contactGuard';
+import { fetchCoupleCount } from '@/lib/couples';
 
 interface Connector {
   id: string;
@@ -90,6 +91,15 @@ export default function ConnectorsScreen() {
   const memberFilter = useMemberFilter();
   // 회원이 보는 파트너 정보 (회원 구성·실적)
   const [overview, setOverview] = useState<any | null>(null);
+  // 고른 파트너의 커플 성사 수 (SQL 전이면 null → 줄을 숨김)
+  const [coupleCount, setCoupleCount] = useState<number | null>(null);
+  useEffect(() => {
+    setCoupleCount(null);
+    if (!selectedConnector?.id || user?.role !== 'hopeful') return;
+    let alive = true;
+    fetchCoupleCount(selectedConnector.id).then((n) => { if (alive) setCoupleCount(n); });
+    return () => { alive = false; };
+  }, [selectedConnector?.id]);
   // 회원이 파트너를 찾을 때 쓰는 필터 (지역 · 1회 비용 · 나와 맞는 회원 · 최근 활동)
   const [pfOpen, setPfOpen] = useState(false);
   const [pfRegions, setPfRegions] = useState<string[]>([]);
@@ -1010,6 +1020,12 @@ export default function ConnectorsScreen() {
                             <Text style={styles.infoValue}>{overview && !overview.error ? `${overview.mutual}건` : '-'}</Text>
                           </View>
                         </>
+                      )}
+                      {!!coupleCount && (
+                        <View style={styles.infoRow}>
+                          <Text style={styles.infoLabel}>커플 성사</Text>
+                          <Text style={[styles.infoValue, { color: '#5B21FF' }]}>💞 {coupleCount}쌍</Text>
+                        </View>
                       )}
                     </View>
 
