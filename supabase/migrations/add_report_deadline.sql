@@ -15,7 +15,7 @@ BEGIN
     RETURNING id, reason
   ), sent AS (
     INSERT INTO notifications (user_id, type, title, body, deep_link_route)
-    SELECT u.id, 'report_deadline', '처리 기한이 4시간 남은 신고가 있어요', d.reason || ' · 24시간 안에 확인해 주세요', '/settlements'
+    SELECT u.id, 'report_deadline', '처리 기한이 다가온 신고가 있어요', d.reason || ' · 24시간 안에 확인해 주세요', '/settlements'
     FROM due d CROSS JOIN users u WHERE u.role = 'operator'
     RETURNING 1
   )
