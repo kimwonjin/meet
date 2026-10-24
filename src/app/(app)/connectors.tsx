@@ -609,7 +609,7 @@ export default function ConnectorsScreen() {
               ) : <View style={{ flex: 1 }} />}
               {memberFilter.renderToggle()}
             </View>
-            {memberFilter.render(tabMembers, false, '🔍 이름·메모 내용으로 찾기')}
+            {memberFilter.render(tabMembers, false, tabStatus === 'ally' ? '🔍 회원·파트너 이름으로 찾기' : '🔍 이름·메모 내용으로 찾기')}
             {sortOn && (
               <View style={styles.sortRow}>
                 {([['recent', '최근 가입 순'], ['wait', '오래 기다린 순'], ['credit', '이용권 남은 순']] as const).map(([k, label]) => (

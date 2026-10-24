@@ -108,8 +108,10 @@ export function FeedbackInbox() {
   useEffect(load, [load]);
   if (rows === null) return null; // SQL 전이면 숨김
 
-  const open = rows.filter((r) => r.status !== 'done');
-  const done = rows.filter((r) => r.status === 'done');
+  // 메모 없이 이유만 고른 탈퇴는 위 '최근 탈퇴 이유'에 모이므로 처리할 의견 목록에는 넣지 않는다
+  const actionable = rows.filter((r) => !(r.screen === 'withdraw' && !String(r.message || '').includes(' · ')));
+  const open = actionable.filter((r) => r.status !== 'done');
+  const done = actionable.filter((r) => r.status === 'done');
   const list = showDone ? [...open, ...done] : open;
 
   async function toggle(r: any) {
