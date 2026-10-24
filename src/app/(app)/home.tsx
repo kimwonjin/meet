@@ -19,9 +19,11 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
 import TermsUpdatePrompt from '@/components/TermsUpdatePrompt';
+import NoticeBanner from '@/components/NoticeBanner';
 import { daysSince, fetchWaitingMembers, PENDING_JOIN_DAYS, WAITING_DAYS, WaitingMember } from '@/lib/waiting';
 import { PushPrompt } from '@/components/PushSettings';
 import { PauseBanner } from '@/components/PauseSettings';
+import { AwayBanner } from '@/components/AwaySettings';
 import { getPauseState } from '@/lib/pause';
 import { createNotification } from '@/lib/notifications';
 import { getOrCreateThread, sendMessage } from '@/lib/chat';
@@ -328,6 +330,8 @@ export default function HomeScreen() {
             connector_2_id: r.connector_2_id,
             // 후기 건너뛰기 (add_review_skip.sql 실행 후 다른 기기에서도 유지)
             review_skipped: !!(isHopeful1 ? r.review_skipped_1 : r.review_skipped_2),
+            // 만남 후 한 줄 소감 (add_partner_away_and_impression.sql 실행 후)
+            impression_available: 'impression_1' in r,
           };
         });
 
@@ -609,6 +613,8 @@ export default function HomeScreen() {
     }
   }
 
+  // 만남 후 한 줄 소감 (담당 파트너만 봄). 애프터를 고를 때 함께 저장한다
+  const [impressions, setImpressions] = useState<Record<string, string>>({});
   async function handleSubmitAfterCare(matchId: string, afterCareType: '신청' | '미신청' | '노쇼신고') {
     if (!user) return;
 
@@ -639,6 +645,10 @@ export default function HomeScreen() {
       }
 
       toast.show('의사를 전달했어요', 'success');
+      const impression = (impressions[matchId] || '').trim();
+      if (impression && match?.impression_available) {
+        await supabase.from('match_requests').update(isHopeful1 ? { impression_1: impression } : { impression_2: impression }).eq('id', matchId);
+      }
 
       // 상대방이 이미 제출했는지는 화면에 남아있는 예전 상태가 아니라 방금 저장된 실제 DB 값으로 판단해야 한다
       // (두 회원이 서로 다른 기기에서 시차를 두고 제출하면 내 화면의 match는 상대방 제출 사실을 모를 수 있다)
@@ -822,7 +832,9 @@ export default function HomeScreen() {
         </View>
 
         <PushPrompt />
+        <AwayBanner />
         <TermsUpdatePrompt />
+        <NoticeBanner />
 
         {/* 나머지 할 일: 한 줄씩 */}
         {todos.length > 1 && (
@@ -1292,6 +1304,17 @@ export default function HomeScreen() {
                   {formatDeadline(afterCareDeadline(item.meeting_completed_at))}까지 고르지 않으면 '이번이 마지막이에요'로 처리돼요
                 </Text>
               )}
+              {item.impression_available && (
+                <TextInput
+                  style={styles.impressionInput}
+                  placeholder="파트너에게만 전할 한 줄 소감 (선택)"
+                  placeholderTextColor="#BAB7C0"
+                  value={impressions[item.id] || ''}
+                  onChangeText={(t) => setImpressions((p) => ({ ...p, [item.id]: t.slice(0, 100) }))}
+                  maxLength={100}
+                  accessibilityLabel="한 줄 소감"
+                />
+              )}
               <View style={styles.afterCareButtons}>
                 <TouchableOpacity
                   style={[styles.afterCareBtn, styles.afterCarePrimary, processingId === item.id && styles.buttonDisabled]}
@@ -1442,6 +1465,7 @@ export default function HomeScreen() {
 
       <PushPrompt />
         <TermsUpdatePrompt />
+        <NoticeBanner />
 
       {/* 나머지 할 일: 한 줄씩 (첫 할 일의 남은 건도 포함) */}
       {firstTask && (tasks.length > 1 || firstTask.items.length > 1) && (
@@ -2002,6 +2026,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
   },
+  impressionInput: { borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 10, paddingHorizontal: 12, height: 44, fontSize: 14, color: '#322F38', backgroundColor: '#fff', marginBottom: 10 },
   afterCareLabel: {
     fontSize: 12,
     color: '#65626B',

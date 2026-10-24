@@ -11,6 +11,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
 import SafetyActions from '@/components/SafetyActions';
 import { getBlockState } from '@/lib/safety';
+import { AwayChatNotice } from '@/components/AwaySettings';
 import { loadPhrases, MAX_PHRASES, savePhrases } from '@/lib/quickPhrases';
 import { makeImageContent, parseImage, previewText } from '@/lib/chatImage';
 import { pickAndUploadPhoto } from '@/lib/photos';
@@ -353,6 +354,9 @@ export default function ChatScreen() {
               <View style={{ width: 30 }} />
             )}
           </View>
+
+          {/* 상대 파트너가 자리 비움 중이면 알린다 (파트너가 아니면 아무것도 안 보임) */}
+          {activeOther && operator?.id !== activeOther.id && <AwayChatNotice partnerId={activeOther.id} name={activeOther.name} />}
 
           {/* 운영자 대화방 상단 고정 안내: 무엇이든 편하게 말할 수 있는 창구임을 알린다 */}
           {activeOther && operator?.id === activeOther.id && user?.role !== 'operator' && (

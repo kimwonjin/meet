@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BackupMenuRow } from '@/components/BackupSettings';
 import { PushMenuRow } from '@/components/PushSettings';
 import { PauseMenuRow } from '@/components/PauseSettings';
+import { AwayMenuRow } from '@/components/AwaySettings';
 import { PrefsMenuRow } from '@/components/PrefsSettings';
 import { FeedbackMenuRow } from '@/components/FeedbackSettings';
 import { AvoidMenuRow } from '@/components/AvoidSettings';
@@ -1138,6 +1139,7 @@ export default function ProfileScreen() {
           </View></View>
           <Text style={styles.menuGroup}>설정</Text>
           <View style={styles.menuCard}><View style={styles.menuCardInner}>
+          <AwayMenuRow styles={styles} />
           <PushMenuRow styles={styles} />
           <FeedbackMenuRow styles={styles} />
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowSwitchSheet(true)}>

@@ -1429,6 +1429,12 @@ export default function MatchingScreen() {
               <Text style={styles.rejectReason}>거절 이유: {item.reject_reason}</Text>
             )}
             {!!item.partner_note && <Text style={styles.partnerNoteLine}>💬 {item.partner_note}</Text>}
+            {/* 만남 후 회원이 남긴 한 줄 소감: 담당 파트너만 내 회원 것을 본다 */}
+            {([[1, item.impression_1], [2, item.impression_2]] as [1 | 2, string | null][])
+              .filter(([n, t]) => !!t && (n === 1 ? item.connector_1_id : item.connector_2_id) === user?.id)
+              .map(([n, t]) => (
+                <Text key={n} style={styles.impressionLine}>🗒 {(n === 1 ? item.hopeful_1 : item.hopeful_2)?.name || '회원'}님 소감: {t}</Text>
+              ))}
 
             {!noShowReporter(item) && item.meeting_status === 'completed' && (item.settlement_completed || (item.after_care_hopeful_1 && item.after_care_hopeful_2)) && (
               <View style={styles.statusMessage}>
@@ -1660,6 +1666,7 @@ const styles = StyleSheet.create({
   coupleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
   coupleDone: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
   coupleUndo: { fontSize: 12, color: '#98959E', textDecorationLine: 'underline' },
+  impressionLine: { fontSize: 13, color: '#434049', lineHeight: 19, marginTop: 8 },
   rejectReason: { fontSize: 13, color: '#65626B', backgroundColor: '#F7F5FA', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, marginTop: 8 },
   partnerNoteLine: { fontSize: 12, color: '#87848D', marginTop: 6 },
   proposeBar: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12, borderTopWidth: 1, borderTopColor: '#ECEAF1', backgroundColor: '#fff' },
