@@ -101,6 +101,8 @@ export default function HomeScreen() {
   const [approvedMemberCount, setApprovedMemberCount] = useState(0);
   const [profileGaps, setProfileGaps] = useState<string[]>([]);
   const [showInvite, setShowInvite] = useState(false);
+  // 파트너 '일정 전체' 시트 (앞으로 2주 + 완료 처리가 필요한 만남)
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   // 파트너 홈 '내 현황': 이번 달 성사 · 출금 가능 금액 · 최근 7일 초대 링크 열람 (null = 아직 모름/준비 전)
   const [settledThisMonth, setSettledThisMonth] = useState(0);
   const [payoutAvailable, setPayoutAvailable] = useState<number | null>(null);
@@ -734,6 +736,27 @@ export default function HomeScreen() {
       },
     ].filter(Boolean) as Todo[];
 
+    // 일정 전체 시트: 오늘부터 2주 안의 확정된 만남 (날짜별)
+    const in14 = new Date(startOfToday.getTime() + 15 * 86400000);
+    const upcomingAll = matchingRequests
+      .filter((m) => m.meeting_scheduled_at && m.meeting_status !== 'completed' && m.status !== 'rejected' && !m.settlement_completed
+        && new Date(m.meeting_scheduled_at) >= startOfToday && new Date(m.meeting_scheduled_at) < in14)
+      .sort((a, b) => new Date(a.meeting_scheduled_at).getTime() - new Date(b.meeting_scheduled_at).getTime());
+    const dayKey = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
+    const dayLabel = (iso: string) => {
+      const d = new Date(iso); const diff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - startOfToday.getTime()) / 86400000);
+      const md = `${d.getMonth() + 1}/${d.getDate()}(${WEEK[d.getDay()]})`;
+      return diff === 0 ? `오늘 · ${md}` : diff === 1 ? `내일 · ${md}` : md;
+    };
+    const scheduleGroups: { key: string; label: string; items: any[] }[] = [];
+    for (const m of upcomingAll) {
+      const k = dayKey(m.meeting_scheduled_at);
+      const g = scheduleGroups.find((x) => x.key === k);
+      if (g) g.items.push(m); else scheduleGroups.push({ key: k, label: dayLabel(m.meeting_scheduled_at), items: [m] });
+    }
+    const hhmm = (iso: string) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    const isAlly = (m: any) => m.connector_1_id !== m.connector_2_id;
+
     // 다가오는 만남: 날짜와 상관없이 가까운 3개
     const upcoming = matchingRequests
       .filter((m) => m.meeting_scheduled_at && m.meeting_status !== 'completed' && new Date(m.meeting_scheduled_at) >= startOfToday)
@@ -864,7 +887,14 @@ export default function HomeScreen() {
 
         {/* 다가오는 만남 (2개) */}
         <View style={styles.band} />
-        <Text style={styles.aH3}>다가오는 만남</Text>
+        <View style={styles.aH3Row}>
+          <Text style={[styles.aH3, { margin: 0, marginHorizontal: 0, marginTop: 0, marginBottom: 0 }]}>다가오는 만남</Text>
+          {(upcomingAll.length > 0 || finishList.length > 0) && (
+            <TouchableOpacity onPress={() => setScheduleOpen(true)} accessibilityLabel="일정 전체" hitSlop={8}>
+              <Text style={styles.aAct}>일정 전체 ›</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         {upcoming.length === 0 ? (
           <Text style={styles.aNone}>확정된 만남이 아직 없어요</Text>
         ) : (
@@ -921,6 +951,35 @@ export default function HomeScreen() {
         )}
         <View style={{ height: 32 }} />
         <InviteSheet visible={showInvite} onClose={() => setShowInvite(false)} partnerName={user.name} />
+        {/* 일정 전체: 격자 달력 대신 날짜별 세로 목록 (만남 없는 날은 생략) */}
+        <BottomSheet visible={scheduleOpen} onClose={() => setScheduleOpen(false)} title="일정 · 앞으로 2주">
+          {finishList.length > 0 && (
+            <View style={styles.schGroup}>
+              <Text style={[styles.schDay, { color: '#E5484D' }]}>⚠️ 완료 처리 필요</Text>
+              {finishList.map((m) => (
+                <TouchableOpacity key={m.id} style={styles.schRow} onPress={() => { setScheduleOpen(false); focusMatch(m.id)(); }} accessibilityLabel={`${pair(m)} 완료 처리`}>
+                  <Text style={styles.schTime}>{m.meeting_scheduled_at ? `${new Date(m.meeting_scheduled_at).getMonth() + 1}/${new Date(m.meeting_scheduled_at).getDate()}` : ''}</Text>
+                  <Text style={styles.schWho} numberOfLines={1}>{pair(m)}{isAlly(m) ? ' (동맹)' : ''}</Text>
+                  <Text style={styles.schAct}>완료 처리 ›</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+          {scheduleGroups.length === 0 ? (
+            <Text style={styles.aNone}>앞으로 2주 동안 확정된 만남이 없어요</Text>
+          ) : scheduleGroups.map((g) => (
+            <View key={g.key} style={styles.schGroup}>
+              <Text style={styles.schDay}>{g.label}</Text>
+              {g.items.map((m) => (
+                <TouchableOpacity key={m.id} style={styles.schRow} onPress={() => { setScheduleOpen(false); focusMatch(m.id)(); }} accessibilityLabel={`${pair(m)} 만남 보기`}>
+                  <Text style={styles.schTime}>{hhmm(m.meeting_scheduled_at)}</Text>
+                  <Text style={styles.schWho} numberOfLines={1}>{pair(m)}{isAlly(m) ? ' (동맹)' : ''}</Text>
+                  <Text style={styles.schChev}>›</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ))}
+        </BottomSheet>
       </ScrollView>
     );
   }
@@ -1765,6 +1824,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#5B21FF',
   },
+  aH3Row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 22, marginTop: 20, marginBottom: 10 },
+  schGroup: { marginBottom: 14 },
+  schDay: { fontSize: 13, fontWeight: '700', color: '#54515A', marginBottom: 6 },
+  schRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#F1EFF4' },
+  schTime: { width: 44, fontSize: 13, color: '#5B21FF', fontWeight: '700' },
+  schWho: { flex: 1, fontSize: 14, color: '#322F38' },
+  schAct: { fontSize: 13, color: '#E5484D', fontWeight: '600' },
+  schChev: { fontSize: 16, color: '#CBC8D1' },
   noteBox: { backgroundColor: '#F7F4FF', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginTop: 10 },
   noteLabel: { fontSize: 12, color: '#5B21FF', fontWeight: '700', marginBottom: 2 },
   noteText: { fontSize: 13, color: '#434049', lineHeight: 19 },

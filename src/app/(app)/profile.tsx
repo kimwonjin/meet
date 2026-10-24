@@ -31,6 +31,7 @@ import { recordConsents, TermsDocKey } from '@/lib/terms';
 import { CONTACT_HIT_LABEL, ContactHit, findContactIn } from '@/lib/contactGuard';
 import { EXTRA_CONDITIONS, JOB_CATEGORIES, toggleCondition } from '@/lib/memberDetails';
 import { DISTRICTS } from '@/lib/regions';
+import MemberProfileView from '@/components/MemberProfileView';
 import { getPendingRefund, getRefundable, Refundable, requestRefund, withdrawAccount } from '@/lib/refunds';
 import { afterWithdraw, prepareWithdraw } from '@/lib/withdrawal';
 import { createNotification } from '@/lib/notifications';
@@ -136,6 +137,9 @@ export default function ProfileScreen() {
   const [companyAvailable, setCompanyAvailable] = useState(false);
   // 구·시 칸 (add_district.sql 전에는 없음)
   const [districtAvailable, setDistrictAvailable] = useState(false);
+  // '상대에게 이렇게 보여요' 미리보기
+  const [meBasics, setMeBasics] = useState<{ gender: string | null; age: number | null }>({ gender: null, age: null });
+  const [showPreview, setShowPreview] = useState(false);
   // 처음 프로필 채우기 단계 수: 직업 분류·해당 조건 단계가 더해진다
   const profileSteps = PROFILE_STEPS_BASE + (companyAvailable ? 2 : 0);
   // 프로필에 연락처가 들어가 저장을 막은 칸 (약관: 만남일 전 연락처 노출 금지)
@@ -433,11 +437,12 @@ export default function ProfileScreen() {
     setProfileLoaded(false);
     const { data, error } = await supabase
       .from('users')
-      .select('location, height, job, education, bio, religion, smoking, drinking, body_type, photo_urls')
+      .select('location, height, job, education, bio, religion, smoking, drinking, body_type, photo_urls, gender, age')
       .eq('id', user!.id)
       .maybeSingle();
     if (error || !data) return;
     setPhotoUrls(data.photo_urls ?? []);
+    setMeBasics({ gender: (data as any).gender ?? null, age: (data as any).age ?? null });
     setProfileData({
       location: data.location ?? '',
       height: data.height != null ? String(data.height) : '',
@@ -1376,6 +1381,28 @@ export default function ProfileScreen() {
       </BottomSheet>
 
       <BottomSheet visible={showProfileModal && profileLoaded && wizardStep === null} onClose={() => setShowProfileModal(false)} title="내 프로필 수정">
+        {/* 상대 시점 미리보기 + 채운 정도 */}
+        {(() => {
+          const items: [string, boolean][] = [
+            ['사진', photoUrls.some(Boolean)], ['지역', !!profileData.location], ['키', !!profileData.height], ['직업', !!profileData.job.trim()],
+            ['학력', !!profileData.education], ['자기소개', !!profileData.bio.trim()], ['종교', !!profileData.religion],
+            ['흡연·음주', !!profileData.smoking && !!profileData.drinking], ['체형', !!profileData.body_type],
+            ...(companyAvailable ? ([['직업 분류', !!profileData.job_category]] as [string, boolean][]) : []),
+          ];
+          const done = items.filter(([, v]) => v).length;
+          const pct = Math.round((done / items.length) * 100);
+          const missing = items.filter(([, v]) => !v).map(([k]) => k);
+          return (
+            <TouchableOpacity style={styles.previewRow} onPress={() => setShowPreview(true)} accessibilityLabel="상대에게 이렇게 보여요">
+              <View style={{ flex: 1 }}>
+                <Text style={styles.previewTitle}>👀 상대에게 이렇게 보여요</Text>
+                <Text style={styles.previewSub} numberOfLines={1}>채운 정도 {pct}%{missing.length ? ` · 빠진 것: ${missing.join(', ')}` : ' · 다 채웠어요'}</Text>
+                <View style={styles.previewBar}><View style={[styles.previewBarFill, { width: `${pct}%` }]} /></View>
+              </View>
+              <Text style={styles.arrow}>›</Text>
+            </TouchableOpacity>
+          );
+        })()}
         <View style={styles.profileFormSection}>
           <Text style={styles.formLabel}>사진</Text>
           {user && <PhotoEditor userId={user.id} photos={photoUrls} onChange={setPhotoUrls} />}
@@ -1582,6 +1609,15 @@ export default function ProfileScreen() {
         >
           <Text style={styles.profileSaveBtnText}>{loading ? '저장 중...' : !profileLoaded ? '불러오는 중...' : '저장하기'}</Text>
         </TouchableOpacity>
+      </BottomSheet>
+      {/* 미리보기: 소개받는 상대가 보는 그대로 (저장 전 내용도 반영) */}
+      <BottomSheet visible={showPreview} onClose={() => setShowPreview(false)} title="상대에게 이렇게 보여요">
+        {user && (
+          <MemberProfileView
+            member={{ id: user.id, name: user.name, gender: meBasics.gender ?? undefined, age: meBasics.age ?? undefined, location: profileData.location, height: profileData.height ? Number(profileData.height) : undefined, job: profileData.job, education: profileData.education, bio: profileData.bio, religion: profileData.religion, smoking: profileData.smoking, drinking: profileData.drinking, body_type: profileData.body_type, photo_urls: photoUrls } as any}
+          />
+        )}
+        <Text style={styles.previewNote}>회사·직업 분류·해당 조건·생년월일·원하는 상대는 파트너에게만 보이고, 소개받는 상대에게는 보이지 않아요</Text>
       </BottomSheet>
 
       <BottomSheet visible={showSwitchSheet} onClose={() => setShowSwitchSheet(false)} title="회원 화면으로 전환할까요?">
@@ -2382,6 +2418,12 @@ const styles = StyleSheet.create({
   inviteItem: { backgroundColor: '#F1ECFF' },
   newBadge: { backgroundColor: '#5B21FF', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  previewRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F4FF', borderRadius: 14, padding: 14, marginBottom: 18 },
+  previewTitle: { fontSize: 15, fontWeight: '700', color: '#322F38' },
+  previewSub: { fontSize: 12, color: '#65626B', marginTop: 3 },
+  previewBar: { height: 6, borderRadius: 3, backgroundColor: '#E6DEFF', marginTop: 8, overflow: 'hidden' },
+  previewBarFill: { height: 6, borderRadius: 3, backgroundColor: '#5B21FF' },
+  previewNote: { fontSize: 12, color: '#98959E', lineHeight: 18, marginTop: 12 },
   menuGroup: { fontSize: 13, fontWeight: '700', color: '#87848D', marginTop: 12, marginBottom: 8, marginLeft: 4 },
   // 묶음 카드 안의 한 줄 (줄 사이는 얇은 선, 마지막 줄 선은 카드가 가린다)
   menuItem: {

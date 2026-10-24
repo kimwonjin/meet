@@ -11,6 +11,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
 import SafetyActions from '@/components/SafetyActions';
 import { getBlockState } from '@/lib/safety';
+import { loadPhrases, MAX_PHRASES, savePhrases } from '@/lib/quickPhrases';
 import { fetchThreads, fetchMessages, sendMessage, markThreadRead, getOrCreateThread, findOperator } from '@/lib/chat';
 
 type Filter = '전체' | '회원' | '파트너' | '운영자';
@@ -39,6 +40,15 @@ export default function ChatScreen() {
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [messageInput, setMessageInput] = useState('');
+  // 파트너 '자주 쓰는 문구' (입력창 위에 펼쳐서 누르면 입력창에 들어간다)
+  const [phrases, setPhrases] = useState<string[] | null>(null);
+  const [phrasesOpen, setPhrasesOpen] = useState(false);
+  const isPartner = user?.role === 'connector';
+  useEffect(() => {
+    if (!isPartner || !user || !phrasesOpen || phrases) return;
+    loadPhrases(user.id, user.name).then(setPhrases);
+  }, [phrasesOpen]);
+  function updatePhrases(next: string[]) { setPhrases(next); if (user) savePhrases(user.id, next); }
   const [sending, setSending] = useState(false);
   const messageListRef = useRef<FlatList>(null);
 
@@ -359,7 +369,51 @@ export default function ChatScreen() {
               </Text>
             </View>
           ) : (
+          <>
+          {isPartner && phrasesOpen && (
+            <View style={styles.phraseBox}>
+              {!phrases ? <ActivityIndicator color="#5B21FF" style={{ marginVertical: 8 }} /> : (
+                <FlatList
+                  data={phrases}
+                  keyExtractor={(t, i) => `${i}-${t}`}
+                  style={{ maxHeight: 200 }}
+                  keyboardShouldPersistTaps="handled"
+                  ListEmptyComponent={<Text style={styles.phraseEmpty}>저장한 문구가 없어요</Text>}
+                  renderItem={({ item, index }) => (
+                    <View style={styles.phraseRow}>
+                      <TouchableOpacity style={{ flex: 1 }} onPress={() => { setMessageInput(item); setPhrasesOpen(false); }} accessibilityLabel={`문구 넣기 ${item}`}>
+                        <Text style={styles.phraseText} numberOfLines={2}>{item}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => updatePhrases(phrases.filter((_, i) => i !== index))} accessibilityLabel={`문구 빼기 ${item}`} hitSlop={8}>
+                        <Text style={styles.phraseDel}>빼기</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                />
+              )}
+              <TouchableOpacity
+                style={[styles.phraseAdd, !messageInput.trim() && { opacity: 0.5 }]}
+                disabled={!messageInput.trim() || !phrases}
+                onPress={() => {
+                  const t = messageInput.trim();
+                  if (!phrases || !t) return;
+                  if (phrases.includes(t)) { toast.show('이미 저장한 문구예요', 'info'); return; }
+                  if (phrases.length >= MAX_PHRASES) { toast.show(`문구는 ${MAX_PHRASES}개까지 저장할 수 있어요`, 'info'); return; }
+                  updatePhrases([t, ...phrases]);
+                  toast.show('✓ 자주 쓰는 문구에 저장했어요', 'success');
+                }}
+                accessibilityLabel="입력한 글을 문구로 저장"
+              >
+                <Text style={styles.phraseAddT}>＋ 지금 입력한 글을 문구로 저장</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           <View style={styles.inputRow}>
+            {isPartner && (
+              <TouchableOpacity style={[styles.phraseBtn, phrasesOpen && styles.phraseBtnOn]} onPress={() => setPhrasesOpen(!phrasesOpen)} accessibilityLabel={phrasesOpen ? '자주 쓰는 문구 닫기' : '자주 쓰는 문구'}>
+                <Text style={[styles.phraseBtnT, phrasesOpen && { color: '#5B21FF' }]}>문구</Text>
+              </TouchableOpacity>
+            )}
             <TextInput
               style={styles.messageInput}
               placeholder="메시지 입력"
@@ -373,6 +427,7 @@ export default function ChatScreen() {
               {sending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.sendBtnText}>전송</Text>}
             </TouchableOpacity>
           </View>
+          </>
           )}
         </KeyboardAvoidingView>
       </Modal>
@@ -384,6 +439,16 @@ const styles = StyleSheet.create({
   operatorNotice: { marginHorizontal: 16, marginTop: 12, paddingVertical: 12, paddingHorizontal: 14, borderLeftWidth: 3, borderLeftColor: '#5B21FF', backgroundColor: '#F7F5FA', borderRadius: 6 },
   operatorNoticeTitle: { fontSize: 14, fontWeight: '700', color: '#18151E' },
   operatorNoticeBody: { fontSize: 13, color: '#65626B', marginTop: 4, lineHeight: 19 },
+  phraseBox: { borderTopWidth: 1, borderTopColor: '#ECEAF1', backgroundColor: '#FAF9FC', paddingHorizontal: 12, paddingTop: 6, paddingBottom: 8 },
+  phraseRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#F0EEF3' },
+  phraseText: { fontSize: 13, color: '#322F38', lineHeight: 19 },
+  phraseDel: { fontSize: 12, color: '#98959E' },
+  phraseEmpty: { fontSize: 13, color: '#98959E', textAlign: 'center', paddingVertical: 10 },
+  phraseAdd: { paddingVertical: 10, alignItems: 'center' },
+  phraseAddT: { fontSize: 13, color: '#5B21FF', fontWeight: '600' },
+  phraseBtn: { borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 18, paddingHorizontal: 10, height: 36, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
+  phraseBtnOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
+  phraseBtnT: { fontSize: 13, color: '#54515A', fontWeight: '600' },
   withdrawnNote: {
     flex: 1,
     textAlign: 'center',
