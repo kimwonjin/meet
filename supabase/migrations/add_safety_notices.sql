@@ -1,6 +1,6 @@
--- 만남 안전 알림 (30분마다 확인, 한 사람에게 한 번씩: match_reminders 사용 → add_reminders.sql 먼저)
--- 1) 만남 당일 아침 9시 이후 (만남 1시간 전까지): 안전 수칙
--- 2) 만남 다음 날 오전 10시 이후 (그날 안): "만남은 괜찮으셨나요?" → 홈에서 '괜찮았어요 / 불편한 일이 있었어요'
+-- 만남 안전 알림 (매일 오전 9시 확인, 한 사람에게 한 번씩: match_reminders 사용 → add_reminders.sql 먼저)
+-- 1) 만남 당일 아침 (만남 1시간 전까지): 안전 수칙
+-- 2) 만남 다음 날 아침: "만남은 괜찮으셨나요?" → 홈에서 '괜찮았어요 / 불편한 일이 있었어요'
 -- 취소된 매칭, 탈퇴·정지한 회원에게는 보내지 않는다. 실행 전에는 알림만 없고 앱 안 안내는 그대로 보인다
 
 CREATE OR REPLACE FUNCTION fn_send_safety_notices() RETURNS INTEGER
@@ -24,7 +24,7 @@ BEGIN
       '처음엔 사람이 많은 곳에서 만나고, 만나는 곳을 가까운 사람에게 알려 두세요. 불편하면 앱에서 바로 신고할 수 있어요' AS body,
       NULL::jsonb AS params
     FROM m CROSS JOIN LATERAL (VALUES (m.hopeful_1_id), (m.hopeful_2_id)) AS h(uid)
-    WHERE m.kst::date = v_now::date AND v_now::time >= TIME '09:00'
+    WHERE m.kst::date = v_now::date AND v_now::time >= TIME '08:00'
       AND m.meeting_scheduled_at > now() + INTERVAL '1 hour'
     UNION ALL
     SELECT m.id, 'safety_check', h.uid,
@@ -32,7 +32,7 @@ BEGIN
       '불편한 일이 있었다면 알려 주세요. 알려 준 사실은 상대에게 알리지 않아요',
       jsonb_build_object('safety', m.id)
     FROM m CROSS JOIN LATERAL (VALUES (m.hopeful_1_id), (m.hopeful_2_id)) AS h(uid)
-    WHERE m.kst::date = v_now::date - 1 AND v_now::time >= TIME '10:00'
+    WHERE m.kst::date = v_now::date - 1 AND v_now::time >= TIME '08:00'
   ),
   ok AS (
     SELECT DISTINCT ON (cand.match_id, cand.kind, cand.user_id) cand.*
@@ -56,4 +56,4 @@ $$;
 
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'dudu-safety';
-SELECT cron.schedule('dudu-safety', '*/30 * * * *', 'SELECT fn_send_safety_notices();');
+SELECT cron.schedule('dudu-safety', '0 0 * * *', 'SELECT fn_send_safety_notices();');

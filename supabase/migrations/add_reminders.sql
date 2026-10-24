@@ -1,7 +1,7 @@
--- 기한·만남 자동 알림 (30분마다 서버가 확인해서 보낸다)
+-- 기한·만남 자동 알림 (매일 오전 9시에 서버가 확인해서 보낸다)
 -- 1) 동맹 매칭 동의 기한이 24시간 안으로 다가오면 → 아직 동의하지 않은 파트너에게
 -- 2) 소개 제안 답변 기한이 24시간 안으로 다가오면 → 아직 답하지 않은 회원에게
--- 3) 만남이 24시간 안으로 다가오면 (1시간 전까지) → 두 회원에게
+-- 3) 만남이 24시간 안으로 다가오면 → 두 회원에게
 -- 4) 애프터(다음 만남 의사) 기한이 24시간 안으로 다가오면 → 아직 고르지 않은 회원에게
 -- 같은 알림은 한 사람에게 한 번만 (match_reminders). 알림이 저장되면 휴대폰 알림도 함께 간다 (add_web_push.sql)
 -- 기한 계산은 앱과 같다: 제안 7일 (동맹 매칭은 두 파트너 동의 뒤부터 다시 7일), 애프터 7일
@@ -75,7 +75,7 @@ BEGIN
     FROM d CROSS JOIN LATERAL (VALUES (d.hopeful_1_id), (d.hopeful_2_id)) AS h(uid)
     WHERE d.members_done AND d.meeting_scheduled_at IS NOT NULL
       AND d.meeting_status IS DISTINCT FROM 'completed'
-      AND d.meeting_scheduled_at > now() + INTERVAL '1 hour' AND d.meeting_scheduled_at <= now() + INTERVAL '24 hours'
+      AND d.meeting_scheduled_at > now() AND d.meeting_scheduled_at <= now() + INTERVAL '24 hours'
     UNION ALL
     -- 4) 애프터 기한
     SELECT d.id, 'after_due', h.uid,
@@ -109,7 +109,7 @@ BEGIN
 END;
 $$;
 
--- 30분마다 실행 (같은 이름의 예약이 있으면 바꿔 단다)
+-- 매일 한 번, 한국 시간 오전 9시 (00:00 UTC). 같은 이름의 예약이 있으면 바꿔 단다
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'dudu-reminders';
-SELECT cron.schedule('dudu-reminders', '*/30 * * * *', 'SELECT fn_send_reminders();');
+SELECT cron.schedule('dudu-reminders', '0 0 * * *', 'SELECT fn_send_reminders();');
