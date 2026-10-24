@@ -31,6 +31,7 @@ import { formatMeetingDate } from '@/lib/format';
 import AvailableDatesSheet from '@/components/AvailableDatesSheet';
 import { toDateKey } from '@/components/CalendarGrid';
 import { autoScheduleMatch, earliestCommonDate } from '@/lib/schedule';
+import { MEET_TIP, meetPlaceLine } from '@/lib/meetPlace';
 import { afterCareDeadline, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline, notifyAfterCareResult, proposalDeadline } from '@/lib/afterCare';
 import { Avatar } from '@/components/ProfilePhoto';
 import MemberProfileView from '@/components/MemberProfileView';
@@ -1239,6 +1240,10 @@ export default function HomeScreen() {
               <View style={styles.meetingBox}>
                 <Text style={styles.meetingDate}>📅 {formatMeetingDate(item.meeting_scheduled_at)}</Text>
                 <Text style={styles.meetingHint}>상대 연락처를 채팅으로 보내드렸어요. 시간과 장소는 서로 연락해 정해주세요.</Text>
+                {(() => {
+                  const place = meetPlaceLine(user as any, item.partner || {});
+                  return place ? <Text style={styles.meetingPlace}>{place}{'\n'}<Text style={styles.meetingPlaceSub}>{MEET_TIP}</Text></Text> : null;
+                })()}
                 {/* 안전 수칙은 접어 두고 필요할 때 펼친다 */}
                 <TouchableOpacity onPress={() => setShowSafetyTips(!showSafetyTips)} accessibilityLabel={showSafetyTips ? '안전하게 만나는 법 접기' : '안전하게 만나는 법 보기'} style={styles.tipsToggle}>
                   <Text style={styles.tipsToggleText}>🛡️ 안전하게 만나는 법 {showSafetyTips ? '▴' : '▾'}</Text>
@@ -1854,6 +1859,8 @@ const styles = StyleSheet.create({
   safetyOkText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   safetyBad: { alignSelf: 'center', paddingVertical: 14 },
   safetyBadText: { fontSize: 14, color: '#E5484D', textDecorationLine: 'underline' },
+  meetingPlace: { fontSize: 13, color: '#322F38', fontWeight: '600', lineHeight: 20, marginTop: 8 },
+  meetingPlaceSub: { fontSize: 12, color: '#87848D', fontWeight: '400' },
   meetingHint: {
     fontSize: 12,
     color: '#65626B',

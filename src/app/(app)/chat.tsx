@@ -49,8 +49,8 @@ export default function ChatScreen() {
   const [phrasesOpen, setPhrasesOpen] = useState(false);
   const isPartner = user?.role === 'connector';
   useEffect(() => {
-    if (!isPartner || !user || !phrasesOpen || phrases) return;
-    loadPhrases(user.id, user.name).then(setPhrases);
+    if (!user || !phrasesOpen || phrases) return;
+    loadPhrases(user.id, user.name, isPartner).then(setPhrases);
   }, [phrasesOpen]);
   function updatePhrases(next: string[]) { setPhrases(next); if (user) savePhrases(user.id, next); }
   const [sending, setSending] = useState(false);
@@ -403,7 +403,7 @@ export default function ChatScreen() {
             </View>
           ) : (
           <>
-          {isPartner && phrasesOpen && (
+          {phrasesOpen && (
             <View style={styles.phraseBox}>
               {!phrases ? <ActivityIndicator color="#5B21FF" style={{ marginVertical: 8 }} /> : (
                 <FlatList
@@ -442,11 +442,9 @@ export default function ChatScreen() {
             </View>
           )}
           <View style={styles.inputRow}>
-            {isPartner && (
-              <TouchableOpacity style={[styles.phraseBtn, phrasesOpen && styles.phraseBtnOn]} onPress={() => setPhrasesOpen(!phrasesOpen)} accessibilityLabel={phrasesOpen ? '자주 쓰는 문구 닫기' : '자주 쓰는 문구'}>
-                <Text style={[styles.phraseBtnT, phrasesOpen && { color: '#5B21FF' }]}>문구</Text>
+            <TouchableOpacity style={[styles.phraseBtn, phrasesOpen && styles.phraseBtnOn]} onPress={() => setPhrasesOpen(!phrasesOpen)} accessibilityLabel={isPartner ? (phrasesOpen ? '자주 쓰는 문구 닫기' : '자주 쓰는 문구') : (phrasesOpen ? '빠른 답장 닫기' : '빠른 답장')}>
+                <Text style={[styles.phraseBtnT, phrasesOpen && { color: '#5B21FF' }]}>{isPartner ? '문구' : '답장'}</Text>
               </TouchableOpacity>
-            )}
             <TouchableOpacity style={styles.photoBtn} onPress={handleSendImage} disabled={sending} accessibilityLabel="사진 보내기">
               <Text style={styles.photoBtnT}>📷</Text>
             </TouchableOpacity>

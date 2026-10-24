@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { createNotification } from './notifications';
 import { formatMeetingDate } from './format';
 import { getOrCreateThread, sendMessage } from './chat';
+import { MEET_TIP, meetPlaceLine } from './meetPlace';
 
 // 일정은 날짜만 정한다. 시간대 차이로 날짜가 밀리지 않도록 그날 정오로 저장한다.
 export function dateKeyToMeetingAt(dateKey: string) {
@@ -30,10 +31,10 @@ export async function sendContactsViaChat(match: {
   connector_1_id: string;
   connector_2_id: string;
 }) {
-  const { data: members } = await supabase
-    .from('users')
-    .select('id, name, phone')
-    .in('id', [match.hopeful_1_id, match.hopeful_2_id]);
+  const ids = [match.hopeful_1_id, match.hopeful_2_id];
+  // 구·시 칸(add_district.sql)이 없으면 지역만으로 장소를 추천한다
+  let { data: members, error }: { data: any[] | null; error: any } = await supabase.from('users').select('id, name, phone, location, district').in('id', ids);
+  if (error) ({ data: members } = await supabase.from('users').select('id, name, phone, location').in('id', ids));
   const find = (id: string) => (members || []).find((u: any) => u.id === id);
   const deliveries = [
     { to: match.hopeful_1_id, from: match.connector_1_id, other: find(match.hopeful_2_id) },
@@ -44,7 +45,8 @@ export async function sendContactsViaChat(match: {
       if (!other?.phone || !from) return;
       const threadId = await getOrCreateThread(from, to);
       if (!threadId) return;
-      await sendMessage(threadId, from, `소개팅 상대 ${other.name}님 연락처: ${other.phone}\n시간과 장소는 서로 연락해 정해주세요.`);
+      const place = meetPlaceLine(find(to) || {}, other);
+      await sendMessage(threadId, from, `소개팅 상대 ${other.name}님 연락처: ${other.phone}\n시간과 장소는 서로 연락해 정해주세요.${place ? `\n\n${place}\n${MEET_TIP}` : ''}`);
     })
   );
 }
