@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { APP_MAX_WIDTH } from '@/lib/layout';
 import SkeletonScreen from '@/components/Skeleton';
 import { usePullRefresh } from '@/hooks/use-pull-refresh';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Modal, TextInput, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,6 +12,8 @@ import { useFocusPolling } from '@/hooks/use-focus-polling';
 import SafetyActions from '@/components/SafetyActions';
 import { getBlockState } from '@/lib/safety';
 import { loadPhrases, MAX_PHRASES, savePhrases } from '@/lib/quickPhrases';
+import { makeImageContent, parseImage, previewText } from '@/lib/chatImage';
+import { pickAndUploadPhoto } from '@/lib/photos';
 import { fetchThreads, fetchMessages, sendMessage, markThreadRead, getOrCreateThread, findOperator } from '@/lib/chat';
 
 type Filter = '전체' | '회원' | '파트너' | '운영자';
@@ -40,6 +42,8 @@ export default function ChatScreen() {
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [messageInput, setMessageInput] = useState('');
+  // 크게 보는 채팅 사진
+  const [viewImage, setViewImage] = useState<string | null>(null);
   // 파트너 '자주 쓰는 문구' (입력창 위에 펼쳐서 누르면 입력창에 들어간다)
   const [phrases, setPhrases] = useState<string[] | null>(null);
   const [phrasesOpen, setPhrasesOpen] = useState(false);
@@ -165,6 +169,29 @@ export default function ChatScreen() {
     load();
   }
 
+  // 앨범에서 사진 1장을 골라 올리고 보낸다 (취소하면 아무 일도 없음)
+  async function handleSendImage() {
+    if (!user || !activeThreadId || sendingRef.current) return;
+    const threadId = activeThreadId;
+    sendingRef.current = true;
+    setSending(true);
+    try {
+      const url = await pickAndUploadPhoto(user.id, { crop: false, folder: 'chat' });
+      if (!url) return;
+      const { error } = await sendMessage(threadId, user.id, makeImageContent(url));
+      if ((error as any)?.code === 'INACTIVE') { toast.show('계정 상태가 바뀌어 다시 로그인이 필요해요', 'info'); await refreshUser(user.id); return; }
+      if (error) throw error;
+      const msgs = await fetchMessages(threadId);
+      if (activeThreadRef.current === threadId) setMessages(msgs);
+      setTimeout(() => messageListRef.current?.scrollToEnd({ animated: true }), 150);
+    } catch (e: any) {
+      toast.show(e?.message?.includes('권한') ? e.message : '사진을 보내지 못했어요. 잠시 후 다시 시도해 주세요', 'error');
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
+  }
+
   async function handleSend() {
     if (!user || !activeThreadId || !messageInput.trim() || sendingRef.current) return;
     const threadId = activeThreadId;
@@ -261,7 +288,7 @@ export default function ChatScreen() {
                   )}
                 </View>
                 <Text style={styles.threadPreview} numberOfLines={1}>
-                  {operatorThread?.lastMessagePreview || '운영자에게 문의하기'}
+                  {previewText(operatorThread?.lastMessagePreview) || '운영자에게 문의하기'}
                 </Text>
               </View>
               {operatorThread && operatorThread.unreadCount > 0 && (
@@ -295,7 +322,7 @@ export default function ChatScreen() {
                 )}
               </View>
               <Text style={styles.threadPreview} numberOfLines={1}>
-                {item.lastMessagePreview || '대화를 시작해보세요'}
+                {previewText(item.lastMessagePreview) || '대화를 시작해보세요'}
               </Text>
             </View>
             {item.unreadCount > 0 && (
@@ -344,9 +371,15 @@ export default function ChatScreen() {
               const isMine = item.sender_id === user?.id;
               return (
                 <View style={[styles.messageRow, isMine ? styles.messageRowMine : styles.messageRowTheirs]}>
-                  <View style={[styles.messageBubble, isMine ? styles.messageBubbleMine : styles.messageBubbleTheirs]}>
-                    <Text style={[styles.messageText, isMine && styles.messageTextMine]}>{item.content}</Text>
-                  </View>
+                  {parseImage(item.content) ? (
+                    <TouchableOpacity onPress={() => setViewImage(parseImage(item.content))} accessibilityLabel="사진 크게 보기">
+                      <Image source={{ uri: parseImage(item.content)! }} style={styles.chatImage} resizeMode="cover" />
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={[styles.messageBubble, isMine ? styles.messageBubbleMine : styles.messageBubbleTheirs]}>
+                      <Text style={[styles.messageText, isMine && styles.messageTextMine]}>{item.content}</Text>
+                    </View>
+                  )}
                 </View>
               );
             }}
@@ -414,6 +447,9 @@ export default function ChatScreen() {
                 <Text style={[styles.phraseBtnT, phrasesOpen && { color: '#5B21FF' }]}>문구</Text>
               </TouchableOpacity>
             )}
+            <TouchableOpacity style={styles.photoBtn} onPress={handleSendImage} disabled={sending} accessibilityLabel="사진 보내기">
+              <Text style={styles.photoBtnT}>📷</Text>
+            </TouchableOpacity>
             <TextInput
               style={styles.messageInput}
               placeholder="메시지 입력"
@@ -429,6 +465,13 @@ export default function ChatScreen() {
           </View>
           </>
           )}
+        {/* 사진 크게 보기 (누르면 닫힘) */}
+        {viewImage && (
+          <TouchableOpacity style={styles.imageViewer} activeOpacity={1} onPress={() => setViewImage(null)} accessibilityLabel="사진 닫기">
+            <Image source={{ uri: viewImage }} style={styles.imageViewerImg} resizeMode="contain" />
+            <View style={styles.imageViewerClose}><Text style={styles.imageViewerCloseT}>✕</Text></View>
+          </TouchableOpacity>
+        )}
         </KeyboardAvoidingView>
       </Modal>
     </View>
@@ -439,6 +482,13 @@ const styles = StyleSheet.create({
   operatorNotice: { marginHorizontal: 16, marginTop: 12, paddingVertical: 12, paddingHorizontal: 14, borderLeftWidth: 3, borderLeftColor: '#5B21FF', backgroundColor: '#F7F5FA', borderRadius: 6 },
   operatorNoticeTitle: { fontSize: 14, fontWeight: '700', color: '#18151E' },
   operatorNoticeBody: { fontSize: 13, color: '#65626B', marginTop: 4, lineHeight: 19 },
+  chatImage: { width: 200, height: 260, borderRadius: 14, backgroundColor: '#F1EFF4' },
+  photoBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
+  photoBtnT: { fontSize: 20 },
+  imageViewer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.9)', alignItems: 'center', justifyContent: 'center', zIndex: 20 },
+  imageViewerImg: { width: '100%', height: '80%' },
+  imageViewerClose: { position: 'absolute', top: 40, right: 20, padding: 10 },
+  imageViewerCloseT: { color: '#fff', fontSize: 28 },
   phraseBox: { borderTopWidth: 1, borderTopColor: '#ECEAF1', backgroundColor: '#FAF9FC', paddingHorizontal: 12, paddingTop: 6, paddingBottom: 8 },
   phraseRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#F0EEF3' },
   phraseText: { fontSize: 13, color: '#322F38', lineHeight: 19 },

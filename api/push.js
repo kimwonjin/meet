@@ -112,7 +112,9 @@ export async function pushChat(id, origin, fetchImpl = fetch, waitMs = 7000) {
   const sender = users.find((u) => u.id === m.sender_id);
   if (users.find((u) => u.id === recipient)?.withdrawn_at) return { sent: 0, reason: 'withdrawn' };
   const name = sender?.name || '상대방';
-  const text = String(m.content || '');
+  // 채팅 사진은 주소 대신 '사진을 보냈어요'로
+  const raw = String(m.content || '');
+  const text = raw.startsWith('📷 사진\n') ? '📷 사진을 보냈어요' : raw;
   const params = new URLSearchParams({ with: m.sender_id, name });
   return sendToUser(recipient, {
     title: `${name}님의 메시지`,
