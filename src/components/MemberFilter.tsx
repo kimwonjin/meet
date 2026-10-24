@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { EXTRA_CONDITIONS, JOB_CATEGORIES, MemberDetail } from '@/lib/memberDetails';
 
 export type FilterableMember = { id: string; name?: string; gender?: string; age?: number; location?: string };
 
@@ -11,14 +12,17 @@ function toggleIn<T>(list: T[], v: T) {
 
 // 회원 목록 필터 (이름·성별·연령대·지역). 매칭 탭과 회원 탭에서 같이 쓴다.
 // keepIds: 필터와 관계없이 항상 보여줄 회원 (예: 이미 고른 회원)
-export function useMemberFilter() {
+// details: 파트너 화면에서 회원들의 직업 분류·조건 (있으면 그 필터도 보여준다)
+export function useMemberFilter(details?: Map<string, MemberDetail>) {
   const [query, setQuery] = useState('');
   const [gender, setGender] = useState<'all' | 'M' | 'F'>('all');
   const [ages, setAges] = useState<number[]>([]); // 20, 30, 40(=40대 이상)
   const [regions, setRegions] = useState<string[]>([]);
+  const [jobCats, setJobCats] = useState<string[]>([]);
+  const [conds, setConds] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
-  const active = !!query.trim() || gender !== 'all' || ages.length > 0 || regions.length > 0;
-  const chipCount = (gender !== 'all' ? 1 : 0) + ages.length + regions.length;
+  const active = !!query.trim() || gender !== 'all' || ages.length > 0 || regions.length > 0 || jobCats.length > 0 || conds.length > 0;
+  const chipCount = (gender !== 'all' ? 1 : 0) + ages.length + regions.length + jobCats.length + conds.length;
 
   // partnerName: 동맹 회원이면 소속 파트너 이름도 같이 찾는다
   function passes(m: FilterableMember, keepIds: string[] = [], partnerName?: string) {
@@ -31,6 +35,10 @@ export function useMemberFilter() {
       if (!ages.includes(Math.min(40, Math.floor(m.age / 10) * 10))) return false;
     }
     if (regions.length && !regions.includes(m.location || '')) return false;
+    // 직업 분류는 고른 것 중 하나, 조건은 고른 것 중 하나라도 해당하면 통과
+    const d = details?.get(m.id);
+    if (jobCats.length && !(d?.jobCategory && jobCats.includes(d.jobCategory))) return false;
+    if (conds.length && !(d?.conditions || []).some((c) => conds.includes(c))) return false;
     return true;
   }
 
@@ -39,6 +47,8 @@ export function useMemberFilter() {
     setGender('all');
     setAges([]);
     setRegions([]);
+    setJobCats([]);
+    setConds([]);
   }
 
   // '필터' 버튼만 따로 (다른 줄에 놓고 싶을 때)
@@ -96,6 +106,20 @@ export function useMemberFilter() {
                 {regionOptions.map((r) => chip(r, regions.includes(r), () => setRegions(toggleIn(regions, r))))}
               </View>
             )}
+            {/* 회원이 직접 고른 직업 분류·조건 (고른 회원이 있을 때만) */}
+            {(() => {
+              const ds = candidates.map((m) => details?.get(m.id)).filter(Boolean) as MemberDetail[];
+              const cats = JOB_CATEGORIES.filter((c) => jobCats.includes(c) || ds.some((d) => d.jobCategory === c));
+              const cs = EXTRA_CONDITIONS.filter((c) => c !== '해당 없음' && (conds.includes(c) || ds.some((d) => d.conditions.includes(c))));
+              return (
+                <>
+                  {cats.length > 0 && <Text style={styles.label}>직업 분류</Text>}
+                  {cats.length > 0 && <View style={styles.row}>{cats.map((c) => chip(c, jobCats.includes(c), () => setJobCats(toggleIn(jobCats, c))))}</View>}
+                  {cs.length > 0 && <Text style={styles.label}>해당 조건 (회원이 직접 고름)</Text>}
+                  {cs.length > 0 && <View style={styles.row}>{cs.map((c) => chip(c, conds.includes(c), () => setConds(toggleIn(conds, c))))}</View>}
+                </>
+              );
+            })()}
           </>
         )}
         {active && (

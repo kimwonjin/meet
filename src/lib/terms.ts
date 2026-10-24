@@ -9,6 +9,20 @@ export const TERMS_VERSION = '2026-10-24';
 
 export type TermsDocKey = 'service' | 'privacy' | 'partner';
 
+// 이번 버전에서 바뀐 점 (기존 회원에게 다시 동의받을 때 보여준다). 버전을 올릴 때 함께 고친다
+export const TERMS_CHANGES: string[] = [
+  '만남 날짜가 정해지기 전에는 프로필에 연락처·SNS 아이디를 적을 수 없어요',
+  "'파트너 확인' 표시와 직접 고른 조건(직업 분류 등)의 의미를 분명히 했어요",
+  '신고는 접수 후 24시간 안에 확인해요',
+  '서비스를 종료하면 15일 전에 알리고 남은 이용권은 전액 환불해요',
+  '회사·직업 분류·조건·아는 사람 피하기 정보를 어떻게 쓰고 누구에게 보이는지 적었어요',
+];
+// 파트너에게만 추가로 보여 줄 바뀐 점
+export const PARTNER_TERMS_CHANGES: string[] = [
+  "회원 메모와 '직접 만나 확인' 표시를 쓰는 기준을 정했어요",
+  '서비스 밖 직접 거래의 위약금과 활동을 마친 뒤의 의무를 정했어요',
+];
+
 export type TermsDoc = {
   key: TermsDocKey;
   title: string;
@@ -314,6 +328,15 @@ export const TERMS_DOCS: Record<TermsDocKey, TermsDoc> = {
   get privacy() { return PRIVACY_POLICY(); },
   get partner() { return PARTNER_TERMS(); },
 };
+
+// 예전 버전에만 동의한 문서 (다시 동의받을 문서). 동의 기록이 아예 없거나 표가 없으면 빈 목록
+export async function outdatedConsents(userId: string, docs: TermsDocKey[]): Promise<TermsDocKey[]> {
+  const { data, error } = await supabase.from('user_consents').select('doc, version').eq('user_id', userId).in('doc', docs);
+  if (error || !data?.length) return [];
+  const current = new Set((data as any[]).filter((r) => r.version === TERMS_VERSION).map((r) => r.doc));
+  const agreedBefore = new Set((data as any[]).map((r) => r.doc));
+  return docs.filter((d) => agreedBefore.has(d) && !current.has(d));
+}
 
 // 동의 기록 저장
 export async function recordConsents(userId: string, docs: string[]) {

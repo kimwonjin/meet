@@ -4,6 +4,7 @@ import ProtectedPhoto from './ProtectedPhoto';
 import { shownPhotos } from '@/lib/photos';
 import { fetchVerifiedIds } from '@/lib/memberNotes';
 import { fetchPrefs, Prefs, prefsSummary } from '@/lib/preferences';
+import { findContact } from '@/lib/contactGuard';
 import { supabase } from '@/lib/supabase';
 
 export type MemberProfile = {
@@ -150,7 +151,15 @@ export default function MemberProfileView({ member, showBirthDate = false, verif
         <>
           <Text style={styles.sectionTitle}>자기소개</Text>
           <View style={styles.bioBox}>
-            <Text style={styles.bioText}>{member.bio}</Text>
+            {/* 소개받는 상대에게는 연락처가 든 자기소개를 가린다 (파트너는 원문을 보고 고치도록 안내) */}
+            {!showBirthDate && findContact(member.bio) ? (
+              <Text style={[styles.bioText, { color: '#87848D' }]}>연락처가 들어 있어 자기소개를 가렸어요</Text>
+            ) : (
+              <Text style={styles.bioText}>{member.bio}</Text>
+            )}
+            {showBirthDate && !!findContact(member.bio) && (
+              <Text style={{ fontSize: 12, color: '#E5484D', marginTop: 6 }}>연락처가 들어 있어 소개받는 상대에게는 가려져요</Text>
+            )}
           </View>
         </>
       )}

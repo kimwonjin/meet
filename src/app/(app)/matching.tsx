@@ -30,6 +30,7 @@ import AlliancesPanel from '@/components/AlliancesPanel';
 import { fetchPausedIds } from '@/lib/pause';
 import { fetchAvoidPairs } from '@/lib/avoid';
 import { fetchPrefs, mutualFit, Prefs } from '@/lib/preferences';
+import { fetchMemberDetails, MemberDetail } from '@/lib/memberDetails';
 import { AFTER_CARE_DAYS, afterCareDeadline, afterCareOutcome, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline, proposalDeadline } from '@/lib/afterCare';
 
 
@@ -61,7 +62,8 @@ export default function MatchingScreen() {
   // 받은 동맹 요청 수 ('동맹' 칸 숫자)
   const [allyIncoming, setAllyIncoming] = useState(0);
   // 회원 후보 필터 (회원 탭과 같은 필터)
-  const memberFilter = useMemberFilter();
+  const [detailsMap, setDetailsMap] = useState<Map<string, MemberDetail>>(new Map());
+  const memberFilter = useMemberFilter(detailsMap);
   // 회원별 최근 매칭 제안 날짜 · 진행 중 여부 (오래 쉰 회원을 먼저 찾기 위해)
   const [lastMatch, setLastMatch] = useState<Record<string, { at: string; active: boolean }>>({});
   // 두 회원이 예전에 엮였던 기록 ('작은id|큰id' → 이미 만남 / 지난번 거절)
@@ -130,6 +132,7 @@ export default function MatchingScreen() {
     if (!candidateKey) return;
     fetchPausedIds(candidateKey.split(',')).then(setPausedIds).catch(() => {});
     fetchPrefs(candidateKey.split(',')).then(setPrefsMap).catch(() => {});
+    fetchMemberDetails(candidateKey.split(',')).then(setDetailsMap).catch(() => {});
   }, [candidateKey]);
   // 프로필을 크게 보고 있는 후보 회원
   const [previewMember, setPreviewMember] = useState<{ member: Member; connectorId: string } | null>(null);

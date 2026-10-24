@@ -18,6 +18,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
+import TermsUpdatePrompt from '@/components/TermsUpdatePrompt';
 import { PushPrompt } from '@/components/PushSettings';
 import { PauseBanner } from '@/components/PauseSettings';
 import { createNotification } from '@/lib/notifications';
@@ -746,6 +747,7 @@ export default function HomeScreen() {
         </View>
 
         <PushPrompt />
+        <TermsUpdatePrompt />
 
         {/* 나머지 할 일: 한 줄씩 */}
         {todos.length > 1 && (
@@ -1299,6 +1301,7 @@ export default function HomeScreen() {
       </View>
 
       <PushPrompt />
+        <TermsUpdatePrompt />
 
       {/* 나머지 할 일: 한 줄씩 (첫 할 일의 남은 건도 포함) */}
       {firstTask && (tasks.length > 1 || firstTask.items.length > 1) && (

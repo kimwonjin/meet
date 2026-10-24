@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
+import { reportDeadline } from '@/lib/reportDeadline';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import NotificationBell from '@/components/NotificationBell';
@@ -46,7 +47,7 @@ export default function DashboardScreen() {
   const [period, setPeriod] = useState<Period>('week');
   const [stats, setStats] = useState<Stat[] | null>(null);
   const [totals, setTotals] = useState<{ members: number; partners: number } | null>(null);
-  const [todo, setTodo] = useState<{ approvals: number; withdrawals: number; refunds: number; reports: number } | null>(null);
+  const [todo, setTodo] = useState<{ approvals: number; withdrawals: number; refunds: number; reports: number; reportsDue: number } | null>(null);
   const [idle, setIdle] = useState<Idle[] | null>(null);
   const [showAllIdle, setShowAllIdle] = useState(false);
   const [noticeOpen, setNoticeOpen] = useState(false);
@@ -90,10 +91,12 @@ export default function DashboardScreen() {
       count('connectors', (q) => q.eq('status', 'pending')),
       count('withdrawal_requests', (q) => q.eq('status', 'pending')),
       count('refund_requests', (q) => q.eq('status', 'pending')),
-      count('user_reports', (q) => q.eq('status', 'open')),
+      supabase.from('user_reports').select('created_at').eq('status', 'open').then(({ data }) => (data || []) as { created_at: string }[]),
     ]);
     setTotals({ members, partners });
-    setTodo({ approvals, withdrawals, refunds, reports });
+    // 접수 20시간이 지난 신고 (24시간 안에 처리해야 함)
+    const reportsDue = reports.filter((r) => reportDeadline(r.created_at).level !== 'ok').length;
+    setTodo({ approvals, withdrawals, refunds, reports: reports.length, reportsDue });
 
     // 30일 동안 매칭 제안이 없는 파트너 (탈퇴·정지 제외, 오래 쉰 순)
     const since = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -177,6 +180,7 @@ export default function DashboardScreen() {
         {!todo ? <ActivityIndicator color="#5B21FF" style={{ marginVertical: 12 }} /> : todoRows.map(([label, n, seg]) => (
           <TouchableOpacity key={seg} style={s.todoRow} onPress={() => router.push({ pathname: '/settlements', params: { segment: seg } })} accessibilityLabel={`${label} ${n}건`}>
             <Text style={s.todoLabel}>{label}</Text>
+            {seg === 'reports' && todo.reportsDue > 0 && <Text style={s.todoDue}>⏰ 기한 임박 {todo.reportsDue}건</Text>}
             <Text style={[s.todoN, n > 0 && s.todoNOn]}>{n}건 ›</Text>
           </TouchableOpacity>
         ))}
@@ -254,6 +258,7 @@ const s = StyleSheet.create({
   card: { marginHorizontal: 20, borderWidth: 1, borderColor: '#EFEDF2', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 6 },
   todoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F5F3F8' },
   todoLabel: { fontSize: 14, color: '#322F38' },
+  todoDue: { fontSize: 12, color: '#E5484D', fontWeight: '700', marginLeft: 'auto', marginRight: 8 },
   todoN: { fontSize: 14, color: '#98959E' },
   todoNOn: { color: '#5B21FF', fontWeight: '700' },
   periodRow: { flexDirection: 'row', gap: 8, marginHorizontal: 20, marginTop: 24, marginBottom: 10 },

@@ -27,6 +27,8 @@ import BlockListSheet from '@/components/BlockListSheet';
 import InviteSheet from '@/components/InviteSheet';
 import ConsentChecklist, { ConsentItem } from '@/components/ConsentChecklist';
 import { recordConsents, TermsDocKey } from '@/lib/terms';
+import { CONTACT_HIT_LABEL, ContactHit, findContactIn } from '@/lib/contactGuard';
+import { EXTRA_CONDITIONS, JOB_CATEGORIES, toggleCondition } from '@/lib/memberDetails';
 import { getPendingRefund, getRefundable, Refundable, requestRefund, withdrawAccount } from '@/lib/refunds';
 import { afterWithdraw, prepareWithdraw } from '@/lib/withdrawal';
 import { createNotification } from '@/lib/notifications';
@@ -131,6 +133,13 @@ export default function ProfileScreen() {
   const [companyAvailable, setCompanyAvailable] = useState(false);
   // 처음 프로필 채우기 단계 수: 직업 분류·해당 조건 단계가 더해진다
   const profileSteps = PROFILE_STEPS_BASE + (companyAvailable ? 2 : 0);
+  // 프로필에 연락처가 들어가 저장을 막은 칸 (약관: 만남일 전 연락처 노출 금지)
+  const [contactErr, setContactErr] = useState<{ field: string; hit: ContactHit } | null>(null);
+  const contactWarn = (field: string) => contactErr?.field === field ? (
+    <Text style={[styles.formHint, { color: '#E5484D', marginTop: 6 }]} accessibilityLiveRegion="polite">
+      {CONTACT_HIT_LABEL[contactErr.hit]}는 적을 수 없어요. 연락처는 만남 날짜가 정해지면 자동으로 전달돼요
+    </Text>
+  ) : null;
   // 단계를 넘길 때마다 기기에 저장 (닫지 않고 앱을 나가도 이어서 하도록)
   useEffect(() => {
     if (wizardStep === null || !user) return;
@@ -464,6 +473,13 @@ export default function ProfileScreen() {
       if (wizardStep !== null) setWizardStep(2);
       return false;
     }
+    const hit = findContactIn({ bio: profileData.bio, job: profileData.job, company: companyAvailable ? profileData.company : '' }, ['job', 'company']);
+    setContactErr(hit);
+    if (hit) {
+      toast.show(`${CONTACT_HIT_LABEL[hit.hit]}는 프로필에 적을 수 없어요`, 'error');
+      if (wizardStep !== null) setWizardStep(hit.field === 'bio' ? profileSteps - 1 : profileSteps - 4);
+      return false;
+    }
     setLoading(true);
     try {
       const { error } = await supabase
@@ -483,11 +499,12 @@ export default function ProfileScreen() {
 
       if (error) throw error;
       if (companyAvailable) {
-        await supabase.from('users').update({
+        const { error: extraErr } = await supabase.from('users').update({
           company: (profileData.company || '').trim() || null,
           job_category: profileData.job_category || null,
-          extra_conditions: (profileData.extra_conditions || []).length ? profileData.extra_conditions : null,
+          extra_conditions: profileData.extra_conditions || [],
         }).eq('id', user!.id);
+        if (extraErr) throw extraErr;
       }
 
       toast.show('프로필이 저장되었습니다', 'success');
@@ -1258,10 +1275,12 @@ export default function ProfileScreen() {
               <>
                 <Text style={styles.formLabel}>직업</Text>
                 <TextInput style={[styles.formInput, { marginBottom: 16 }]} placeholder="개발자" placeholderTextColor="#DCD9E2" value={profileData.job} onChangeText={(t) => set({ job: t })} />
+                {contactWarn('job')}
                 {companyAvailable && (
                   <>
                     <Text style={styles.formLabel}>회사 (선택)</Text>
                     <TextInput style={[styles.formInput, { marginBottom: 4 }]} placeholder="예: 두두전자" placeholderTextColor="#DCD9E2" value={profileData.company ?? ''} onChangeText={(t) => set({ company: t.slice(0, 40) })} accessibilityLabel="회사" />
+                    {contactWarn('company')}
                     <Text style={[styles.formHint, { marginBottom: 16 }]}>파트너에게만 보여요. 같은 회사 사람을 소개받지 않게 할 때 써요</Text>
                   </>
                 )}
@@ -1279,7 +1298,11 @@ export default function ProfileScreen() {
               </>
             ) },
             { title: '마지막으로, 자기소개를 남겨 주세요', sub: '취미나 주말을 보내는 방법처럼 편하게 적어 주세요.', body: (
-              <TextInput style={[styles.formInput, { minHeight: 120 }]} placeholder="예) 주말엔 등산하고 맛집 찾아다니는 걸 좋아해요" placeholderTextColor="#DCD9E2" multiline value={profileData.bio} onChangeText={(t) => set({ bio: t })} />
+              <>
+              <TextInput style={[styles.formInput, { minHeight: 120 }]} placeholder="예) 주말엔 등산하고 맛집 찾아다니는 걸 좋아해요" placeholderTextColor="#DCD9E2" multiline value={profileData.bio} onChangeText={(t) => set({ bio: t })} accessibilityLabel="자기소개" />
+                {contactWarn('bio')}
+                <Text style={[styles.formHint, { marginTop: 6 }]}>연락처·SNS 아이디는 적지 않아도 돼요. 만남 날짜가 정해지면 자동으로 전달돼요</Text>
+              </>
             ) },
           ];
           const st = steps[wizardStep];
@@ -1347,6 +1370,7 @@ export default function ProfileScreen() {
             value={profileData.job}
             onChangeText={(text) => setProfileData({...profileData, job: text})}
           />
+          {contactWarn('job')}
         </View>
 
         {companyAvailable && (
@@ -1388,6 +1412,7 @@ export default function ProfileScreen() {
               onChangeText={(text) => setProfileData({ ...profileData, company: text.slice(0, 40) })}
               accessibilityLabel="회사"
             />
+            {contactWarn('company')}
             <Text style={styles.formHint}>파트너에게만 보여요. 같은 회사 사람을 소개받지 않게 할 때 써요</Text>
           </View>
         )}
@@ -1476,7 +1501,10 @@ export default function ProfileScreen() {
             multiline
             value={profileData.bio}
             onChangeText={(text) => setProfileData({...profileData, bio: text})}
+            accessibilityLabel="자기소개"
           />
+          {contactWarn('bio')}
+          <Text style={[styles.formHint, { marginTop: 6 }]}>연락처·SNS 아이디는 적지 않아도 돼요. 만남 날짜가 정해지면 자동으로 전달돼요</Text>
         </View>
 
         <TouchableOpacity
@@ -2153,15 +2181,6 @@ function moneyFit(n: number) {
 }
 
 const PROFILE_STEPS_BASE = 7;
-// 직업 분류(하나)·해당 조건(여러 개, '해당 없음'은 혼자만). 파트너에게만 보인다
-export const JOB_CATEGORIES = ['대기업 정규직', '공기업·공무원', '중견·중소기업', '사업가·기업 대표', '의사', '회계사·세무사·노무사·변호사', '금융직', '교사·교육직', '이외 전문직', '해당하는 직업 없음'];
-export const EXTRA_CONDITIONS = ['연봉 1억 이상', '개인 자산 10억 이상', '전문직 (의사·변호사·금융직 등)', '가족 자산 50억 이상', '연 매출 50억 이상 대표', '해당 없음'];
-function toggleCondition(list: string[], v: string) {
-  if (v === '해당 없음') return list.includes(v) ? [] : [v];
-  const rest = list.filter((x) => x !== '해당 없음');
-  return rest.includes(v) ? rest.filter((x) => x !== v) : [...rest, v];
-}
-
 const styles = StyleSheet.create({
   wizardFooter: { flexDirection: 'row', gap: 8 },
   applyCancel: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 16, marginTop: 4 },

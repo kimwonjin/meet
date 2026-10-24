@@ -5,6 +5,7 @@ import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, TextInput } from 'react-native';
 import { Redirect, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { partnerIntro } from '@/lib/format';
+import { reportDeadline } from '@/lib/reportDeadline';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -455,7 +456,8 @@ export default function SettlementsScreen() {
   const pendingWithdrawals = withdrawals.filter((w) => w.status === 'pending');
   const completedWithdrawals = withdrawals.filter((w) => w.status === 'completed');
   const pendingRefunds = refunds.filter((r) => r.status === 'pending');
-  const openReports = reports.filter((r) => r.status === 'open');
+  // 처리 안 한 신고는 오래된 것부터 (24시간 기한)
+  const openReports = reports.filter((r) => r.status === 'open').sort((a, b) => a.created_at.localeCompare(b.created_at));
 
   // 파트너가 준 무료 이용권 현황 (정산 내역이 없어도 보여준다)
   const freeGiftBox = freeGifts.length > 0 ? (
@@ -809,12 +811,19 @@ export default function SettlementsScreen() {
             refreshControl={pullRefresh}
             style={{ flex: 1 }}
             contentContainerStyle={styles.list}
-            renderItem={({ item }) => (
-              <View style={styles.card}>
+            renderItem={({ item }) => {
+              const dl = item.status === 'open' ? reportDeadline(item.created_at) : null;
+              return (
+              <View style={[styles.card, dl?.level === 'soon' && styles.reportSoon, dl?.level === 'over' && styles.reportOver]}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>{item.reason}</Text>
-                  <Text style={styles.cardDate}>{new Date(item.created_at).toLocaleDateString('ko-KR')}</Text>
+                  <Text style={styles.cardDate}>{new Date(item.created_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</Text>
                 </View>
+                {dl && (
+                  <Text style={[styles.reportDeadline, dl.level !== 'ok' && styles.reportDeadlineOn]} accessibilityLabel={`처리 기한 ${dl.label}`}>
+                    {dl.level === 'over' ? '⚠️ ' : dl.level === 'soon' ? '⏰ ' : ''}처리 기한 {dl.label}
+                  </Text>
+                )}
                 <View style={styles.row}>
                   <Text style={styles.rowLabel}>신고 대상</Text>
                   <Text style={styles.rowValue}>{item.target_name}</Text>
@@ -865,7 +874,8 @@ export default function SettlementsScreen() {
                   </View>
                 )}
               </View>
-            )}
+              );
+            }}
           />
         )
       )}
@@ -918,6 +928,10 @@ const styles = StyleSheet.create({
   reviewOld: { fontSize: 13, color: '#98959E', lineHeight: 19 },
   reviewNew: { fontSize: 14, color: '#211E27', lineHeight: 20, marginTop: 4 },
   reasonInput: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, padding: 12, minHeight: 80, fontSize: 14, textAlignVertical: 'top', marginVertical: 12 },
+  reportSoon: { borderWidth: 1.5, borderColor: '#F5A524' },
+  reportOver: { borderWidth: 1.5, borderColor: '#E5484D' },
+  reportDeadline: { fontSize: 12, color: '#87848D', marginTop: -2, marginBottom: 8 },
+  reportDeadlineOn: { color: '#E5484D', fontWeight: '700' },
   reportRepeat: { fontSize: 12, color: '#E53935', fontWeight: '600', marginTop: 8 },
   suspendRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
   suspendedText: { fontSize: 13, color: '#E53935', fontWeight: '700' },
