@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { BackupMenuRow } from '@/components/BackupSettings';
 import { PushMenuRow } from '@/components/PushSettings';
 import { PauseMenuRow } from '@/components/PauseSettings';
 import { PrefsMenuRow } from '@/components/PrefsSettings';
@@ -1159,6 +1160,7 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
         )}
+        {user?.role === 'operator' && <BackupMenuRow styles={styles} />}
         {user?.role === 'operator' && <PushMenuRow styles={styles} />}
         </View></View>
         {user?.role === 'operator' && (

@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { UserLookupRow } from '@/components/UserLookup';
+import { BackupReminder } from '@/components/BackupSettings';
 import { reportDeadline } from '@/lib/reportDeadline';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -175,6 +176,7 @@ export default function DashboardScreen() {
         <Text style={s.noticeBtnSub}>회원·파트너에게 알림으로 ›</Text>
       </TouchableOpacity>
       <UserLookupRow style={s.lookupRow} />
+      <BackupReminder style={s.lookupRow} />
 
       {/* 지금 처리할 일 */}
       <Text style={s.h2}>지금 처리할 일 {todo ? <Text style={todoTotal ? s.h2Count : s.h2Zero}>{todoTotal ? `${todoTotal}건` : '없어요'}</Text> : null}</Text>
