@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
+  TextInput,
 } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
@@ -30,6 +31,7 @@ import AlliancesPanel from '@/components/AlliancesPanel';
 import { fetchPausedIds } from '@/lib/pause';
 import { fetchAvoidPairs } from '@/lib/avoid';
 import { fetchPrefs, mutualFit, Prefs } from '@/lib/preferences';
+import { findContact } from '@/lib/contactGuard';
 import { fetchMemberDetails, MemberDetail } from '@/lib/memberDetails';
 import { AFTER_CARE_DAYS, afterCareDeadline, afterCareOutcome, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline, proposalDeadline } from '@/lib/afterCare';
 
@@ -140,6 +142,8 @@ export default function MatchingScreen() {
   const [viewMember, setViewMember] = useState<{ member: any; partner?: string } | null>(null);
   const [selectedForMatch, setSelectedForMatch] = useState<{ id: string; connectorId: string }[]>([]);
   const [proposing, setProposing] = useState(false);
+  // 매칭 제안과 함께 두 회원에게 보내는 파트너 한마디 (선택)
+  const [proposeNote, setProposeNote] = useState('');
 
   // 화면에 들어올 때 한 번 + 15초마다 (처음 열 때 두 번 불러오지 않도록 이것 하나로)
   useFocusPolling(() => {
@@ -435,6 +439,11 @@ export default function MatchingScreen() {
     setProposing(true);
     try {
       const [a, b] = selectedForMatch;
+      const note = proposeNote.trim();
+      if (note && findContact(note)) {
+        toast.show('한마디에는 연락처를 적을 수 없어요', 'error');
+        return;
+      }
       // 화면을 연 사이에 회원이 '잠시 쉬기'를 켰을 수 있다
       const [pausedNow, avoidNow] = await Promise.all([fetchPausedIds([a.id, b.id]), fetchAvoidPairs([a.id, b.id])]);
       if (avoidNow.size) {
@@ -497,6 +506,9 @@ export default function MatchingScreen() {
         ]);
       }
 
+      // 한마디는 따로 저장한다 (SQL 전이면 칸이 없어 조용히 넘어간다)
+      if (note && result.id) await supabase.from('match_requests').update({ partner_note: note }).eq('id', result.id);
+      setProposeNote('');
       toast.show('✓ 매칭을 제안했습니다. 매칭내역에서 진행 상황을 볼 수 있어요', 'success');
       setSelectedForMatch([]);
       setView('history');
@@ -958,6 +970,14 @@ export default function MatchingScreen() {
   const proposeBtn = selectedForMatch.length === 2 && (
     <View style={styles.proposeBar}>
       <Text style={styles.proposeBarNames} numberOfLines={1}>{memberName(selectedForMatch[0].id)} ↔ {memberName(selectedForMatch[1].id)}</Text>
+      <TextInput
+        style={styles.proposeNote}
+        value={proposeNote}
+        onChangeText={(t) => setProposeNote(t.slice(0, 100))}
+        placeholder="두 분께 한마디 (선택) 예: 둘 다 여행을 좋아하셔서 잘 맞을 것 같아요"
+        placeholderTextColor="#A9A6AF"
+        accessibilityLabel="파트너 한마디"
+      />
       <TouchableOpacity
         style={[styles.proposeBtn, { marginTop: 8 }, proposing && styles.buttonDisabled]}
         onPress={handleProposeMatch}
@@ -1334,6 +1354,12 @@ export default function MatchingScreen() {
               </View>
             )}
 
+            {/* 회원이 거절하며 남긴 이유 (파트너만 봄) · 제안할 때 남긴 한마디 */}
+            {item.status === 'rejected' && !!item.reject_reason && (
+              <Text style={styles.rejectReason}>거절 이유: {item.reject_reason}</Text>
+            )}
+            {!!item.partner_note && <Text style={styles.partnerNoteLine}>💬 {item.partner_note}</Text>}
+
             {!noShowReporter(item) && item.meeting_status === 'completed' && (item.settlement_completed || (item.after_care_hopeful_1 && item.after_care_hopeful_2)) && (
               <View style={styles.statusMessage}>
                 <Text style={styles.statusMessageText}>
@@ -1541,7 +1567,10 @@ const styles = StyleSheet.create({
   pairHint: { color: '#322F38', fontWeight: '700' },
   memberRowBusy: { opacity: 0.5 },
   outcomeText: { fontSize: 13, color: '#322F38', fontWeight: '600', marginTop: 6 },
+  rejectReason: { fontSize: 13, color: '#65626B', backgroundColor: '#F7F5FA', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, marginTop: 8 },
+  partnerNoteLine: { fontSize: 12, color: '#87848D', marginTop: 6 },
   proposeBar: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12, borderTopWidth: 1, borderTopColor: '#ECEAF1', backgroundColor: '#fff' },
+  proposeNote: { marginTop: 8, borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, paddingHorizontal: 12, height: 42, fontSize: 13, color: '#322F38' },
   proposeBarNames: { fontSize: 13, color: '#65626B', textAlign: 'center' },
   noShowBtn: { marginTop: 12, backgroundColor: '#5B21FF', borderRadius: 10, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
   noShowBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },

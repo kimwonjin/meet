@@ -49,6 +49,9 @@ const meetTime = (iso: string) => {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}시${d.getMinutes() ? ` ${d.getMinutes()}분` : ''}`;
 };
 
+// 소개를 거절할 때 고를 수 있는 이유 (선택, 파트너에게만)
+const REJECT_REASONS = ['나이가 맞지 않아요', '사는 곳이 멀어요', '사진이 끌리지 않아요', '직업·생활이 맞지 않을 것 같아요', '지금은 만날 여유가 없어요', '기타'];
+
 // 만남 전 안전 수칙 (다가오는 소개팅 카드에서 펼쳐 본다)
 const SAFETY_TIPS = [
   '처음 만남은 사람이 많은 카페·식당에서 낮이나 이른 저녁에',
@@ -80,6 +83,9 @@ export default function HomeScreen() {
   const homeParams = useLocalSearchParams<{ safety?: string }>();
   const [safetyCheck, setSafetyCheck] = useState<any | null>(null);
   const [reportFor, setReportFor] = useState<{ id: string; name: string } | null>(null);
+  // 소개 거절 시트 (이유는 선택, 파트너에게만 전달)
+  const [rejectTarget, setRejectTarget] = useState<string | null>(null);
+  const [rejectReasons, setRejectReasons] = useState<string[]>([]);
   const [showSafetyTips, setShowSafetyTips] = useState(false);
   useEffect(() => {
     const id = homeParams.safety;
@@ -308,6 +314,7 @@ export default function HomeScreen() {
             meeting_scheduled_at: r.meeting_scheduled_at,
             meeting_completed_at: r.meeting_completed_at,
             closed_reason: r.closed_reason,
+            partner_note: r.partner_note,
             available_dates_1: r.available_dates_1,
             available_dates_2: r.available_dates_2,
             settlement_completed: r.settlement_completed,
@@ -536,7 +543,7 @@ export default function HomeScreen() {
     }
   }
 
-  async function handleRejectMatch(matchId: string) {
+  async function handleRejectMatch(matchId: string, reason?: string) {
     setProcessingId(matchId);
     try {
       const match = receivedMatches.find((m) => m.id === matchId);
@@ -556,12 +563,15 @@ export default function HomeScreen() {
         return;
       }
 
+      // 거절 이유는 파트너만 본다 (SQL 전이면 칸이 없어 알림에만 담긴다)
+      if (reason) await supabase.from('match_requests').update({ reject_reason: reason }).eq('id', matchId);
+      const reasonText = reason ? ` · 이유: ${reason}` : '';
       if (match?.connector_1_id) {
         await createNotification({
           userId: match.connector_1_id,
           type: 'match_rejected',
           title: '회원이 매칭을 거절했습니다',
-          body: `${user?.name}님이 매칭 제안을 거절했습니다`,
+          body: `${user?.name}님이 매칭 제안을 거절했습니다${reasonText}`,
           route: '/matching',
         });
       }
@@ -570,7 +580,7 @@ export default function HomeScreen() {
           userId: match.connector_2_id,
           type: 'match_rejected',
           title: '회원이 매칭을 거절했습니다',
-          body: `${user?.name}님이 매칭 제안을 거절했습니다`,
+          body: `${user?.name}님이 매칭 제안을 거절했습니다${reasonText}`,
           route: '/matching',
         });
       }
@@ -1029,6 +1039,13 @@ export default function HomeScreen() {
               <Text style={styles.partnerProfileLink}>프로필 보기 ›</Text>
             </TouchableOpacity>
           )}
+          {/* 파트너가 제안하며 남긴 한마디 */}
+          {!!item.partner_note && (
+            <View style={styles.noteBox}>
+              <Text style={styles.noteLabel}>💬 파트너 한마디</Text>
+              <Text style={styles.noteText}>{item.partner_note}</Text>
+            </View>
+          )}
 
           {/* Timeline */}
           <View style={styles.timeline}>
@@ -1113,7 +1130,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 style={[styles.rejectBtn, processingId === item.id && styles.buttonDisabled]}
                 onPress={async () => {
-                  if (await confirm({ title: '매칭을 거절할까요?', message: '거절하면 되돌릴 수 없습니다.', confirmText: '거절', destructive: true })) handleRejectMatch(item.id);
+                  setRejectReasons([]); setRejectTarget(item.id);
                 }}
                 disabled={processingId !== null}
               >
@@ -1546,7 +1563,7 @@ export default function HomeScreen() {
                   style={[styles.rejectBtn, processingId === sheetProfile.id && styles.buttonDisabled]}
                   onPress={async () => {
                     const id = sheetProfile.id;
-                    if (await confirm({ title: '매칭을 거절할까요?', message: '거절하면 되돌릴 수 없습니다.', confirmText: '거절', destructive: true })) { setMatchSheet(null); handleRejectMatch(id); }
+                    setMatchSheet(null); setRejectReasons([]); setRejectTarget(id);
                   }}
                   disabled={processingId !== null}
                 >
@@ -1569,6 +1586,30 @@ export default function HomeScreen() {
         </TouchableOpacity>
         <TouchableOpacity style={styles.safetyBad} onPress={() => { const p = safetyCheck?.partner; setSafetyCheck(null); if (p) setReportFor({ id: p.id, name: p.name }); }} accessibilityLabel="불편한 일이 있었어요">
           <Text style={styles.safetyBadText}>불편한 일이 있었어요</Text>
+        </TouchableOpacity>
+      </BottomSheet>
+      {/* 소개 거절: 되돌릴 수 없어 한 번 더 묻고, 이유는 골라도 되고 안 골라도 된다 */}
+      <BottomSheet visible={!!rejectTarget} onClose={() => setRejectTarget(null)} title="이번 소개를 거절할까요?">
+        <Text style={styles.rejectLead}>거절하면 되돌릴 수 없어요. 이용권은 차감되지 않아요</Text>
+        <Text style={styles.rejectAsk}>이유를 고르면 파트너가 다음 소개에 참고해요 (선택)</Text>
+        <View style={styles.rejectChips}>
+          {REJECT_REASONS.map((r) => {
+            const on = rejectReasons.includes(r);
+            return (
+              <TouchableOpacity key={r} style={[styles.rejectChip, on && styles.rejectChipOn]} onPress={() => setRejectReasons(on ? rejectReasons.filter((x) => x !== r) : [...rejectReasons, r])} aria-selected={on} accessibilityLabel={`거절 이유 ${r}`}>
+                <Text style={[styles.rejectChipT, on && styles.rejectChipTOn]}>{r}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <Text style={styles.rejectNote}>상대에게는 거절한 사람과 이유를 알리지 않아요</Text>
+        <TouchableOpacity
+          style={[styles.rejectConfirm, processingId !== null && styles.buttonDisabled]}
+          disabled={processingId !== null}
+          onPress={() => { const id = rejectTarget; setRejectTarget(null); if (id) handleRejectMatch(id, rejectReasons.join(', ') || undefined); }}
+          accessibilityLabel="거절하기"
+        >
+          <Text style={styles.rejectConfirmT}>거절하기</Text>
         </TouchableOpacity>
       </BottomSheet>
       {reportFor && <SafetyActions key={reportFor.id} targetId={reportFor.id} targetName={reportFor.name} context="match" variant="none" openReport onClose={() => setReportFor(null)} />}
@@ -1724,6 +1765,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#5B21FF',
   },
+  noteBox: { backgroundColor: '#F7F4FF', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginTop: 10 },
+  noteLabel: { fontSize: 12, color: '#5B21FF', fontWeight: '700', marginBottom: 2 },
+  noteText: { fontSize: 13, color: '#434049', lineHeight: 19 },
+  rejectLead: { fontSize: 14, color: '#434049', lineHeight: 21, marginBottom: 14 },
+  rejectAsk: { fontSize: 13, color: '#65626B', fontWeight: '600', marginBottom: 8 },
+  rejectChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  rejectChip: { borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  rejectChipOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
+  rejectChipT: { fontSize: 13, color: '#54515A' },
+  rejectChipTOn: { color: '#5B21FF', fontWeight: '600' },
+  rejectNote: { fontSize: 12, color: '#98959E', marginTop: 12, marginBottom: 16 },
+  rejectConfirm: { height: 50, borderRadius: 12, backgroundColor: '#E5484D', alignItems: 'center', justifyContent: 'center' },
+  rejectConfirmT: { fontSize: 15, fontWeight: '700', color: '#fff' },
   tipsToggle: { marginTop: 10, paddingVertical: 4 },
   tipsToggleText: { fontSize: 13, color: '#54515A', fontWeight: '600' },
   tipsBox: { backgroundColor: '#fff', borderRadius: 10, padding: 10, marginTop: 4, gap: 4 },
