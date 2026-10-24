@@ -4,6 +4,7 @@ import ProtectedPhoto from './ProtectedPhoto';
 import { shownPhotos } from '@/lib/photos';
 import { fetchVerifiedIds } from '@/lib/memberNotes';
 import { fetchPrefs, Prefs, prefsSummary } from '@/lib/preferences';
+import { supabase } from '@/lib/supabase';
 
 export type MemberProfile = {
   id?: string;
@@ -53,6 +54,16 @@ export default function MemberProfileView({ member, showBirthDate = false, verif
     return () => { alive = false; };
   }, [member.id, showBirthDate]);
   const prefsText = prefsSummary(prefs);
+  // 회사: 파트너가 볼 때만 (add_company_and_avoid.sql 전이면 없음)
+  const [company, setCompany] = useState<string | null>(null);
+  useEffect(() => {
+    setCompany(null);
+    if (!showBirthDate || !member.id) return;
+    let alive = true;
+    supabase.from('users').select('company').eq('id', member.id).maybeSingle()
+      .then(({ data, error }) => { if (alive && !error) setCompany((data as any)?.company || null); });
+    return () => { alive = false; };
+  }, [member.id, showBirthDate]);
   const [mainIdx, setMainIdx] = useState(0);
   useEffect(() => setMainIdx(0), [member.photo_urls]);
   const main = photos[mainIdx];
@@ -63,6 +74,7 @@ export default function MemberProfileView({ member, showBirthDate = false, verif
   const facts: [string, string, string | null | undefined][] = [
     ['📏', '키', member.height ? `${member.height}cm` : null],
     ['🎓', '학력', member.education],
+    ...(company ? ([['🏢', '회사', company]] as [string, string, string][]) : []),
     ...(showBirthDate ? ([['🎂', '생년월일', member.birth_date]] as [string, string, string | undefined][]) : []),
     ['🧍', '체형', member.body_type],
   ];

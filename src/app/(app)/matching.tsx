@@ -28,6 +28,7 @@ import BottomSheet from '@/components/BottomSheet';
 import { Avatar } from '@/components/ProfilePhoto';
 import AlliancesPanel from '@/components/AlliancesPanel';
 import { fetchPausedIds } from '@/lib/pause';
+import { fetchAvoidPairs } from '@/lib/avoid';
 import { fetchPrefs, mutualFit, Prefs } from '@/lib/preferences';
 import { AFTER_CARE_DAYS, afterCareDeadline, afterCareOutcome, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline, proposalDeadline } from '@/lib/afterCare';
 
@@ -302,7 +303,9 @@ export default function MatchingScreen() {
         supabase.from('payments').select('hopeful_id, connector_id, sessions_remaining').eq('status', 'paid').in('hopeful_id', ids),
       ]);
       const { data: blocks } = await supabase.from('user_blocks').select('blocker_id, blocked_id').in('blocker_id', ids).in('blocked_id', ids);
-      setBlockedPairs(new Set((blocks || []).map((x: any) => [x.blocker_id, x.blocked_id].sort().join('|'))));
+      // 차단한 사이 + '아는 사람 피하기'(같은 회사·등록한 번호)는 같은 '매칭 불가'로 막는다 (누가 피했는지는 알리지 않음)
+      const avoid = await fetchAvoidPairs(ids);
+      setBlockedPairs(new Set([...(blocks || []).map((x: any) => [x.blocker_id, x.blocked_id].sort().join('|')), ...avoid]));
       // 만남중 회원은 따로 막으므로, 남은 이용권은 담당 파트너에게 산 이용권의 남은 횟수로 충분하다
       if (!pay.error) {
         const partnerOf: Record<string, string> = {};
@@ -430,7 +433,12 @@ export default function MatchingScreen() {
     try {
       const [a, b] = selectedForMatch;
       // 화면을 연 사이에 회원이 '잠시 쉬기'를 켰을 수 있다
-      const pausedNow = await fetchPausedIds([a.id, b.id]);
+      const [pausedNow, avoidNow] = await Promise.all([fetchPausedIds([a.id, b.id]), fetchAvoidPairs([a.id, b.id])]);
+      if (avoidNow.size) {
+        setBlockedPairs((prev) => new Set([...prev, ...avoidNow]));
+        toast.show(BLOCK_MESSAGE['매칭 불가'], 'info');
+        return;
+      }
       if (pausedNow.size) {
         setPausedIds((prev) => new Set([...prev, ...pausedNow]));
         toast.show(BLOCK_MESSAGE['쉬는 중'], 'info');

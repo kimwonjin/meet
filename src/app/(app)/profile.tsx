@@ -3,6 +3,7 @@ import { PushMenuRow } from '@/components/PushSettings';
 import { PauseMenuRow } from '@/components/PauseSettings';
 import { PrefsMenuRow } from '@/components/PrefsSettings';
 import { FeedbackMenuRow } from '@/components/FeedbackSettings';
+import { AvoidMenuRow } from '@/components/AvoidSettings';
 import PartnerReportSheet from '@/components/PartnerReport';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BusinessSettingsSheet from '@/components/BusinessSettingsSheet';
@@ -122,7 +123,10 @@ export default function ProfileScreen() {
     smoking: '',
     drinking: '',
     body_type: '',
+    company: '',
   });
+  // 회사 칸 (add_company_and_avoid.sql 실행 전에는 없음 → 입력 칸을 숨긴다)
+  const [companyAvailable, setCompanyAvailable] = useState(false);
   // 단계를 넘길 때마다 기기에 저장 (닫지 않고 앱을 나가도 이어서 하도록)
   useEffect(() => {
     if (wizardStep === null || !user) return;
@@ -424,7 +428,12 @@ export default function ProfileScreen() {
       smoking: data.smoking ?? '',
       drinking: data.drinking ?? '',
       body_type: data.body_type ?? '',
+      company: '',
     });
+    // 회사는 따로 읽는다 (칸이 없는 DB에서도 프로필은 열리게)
+    const { data: comp, error: compErr } = await supabase.from('users').select('company').eq('id', user!.id).maybeSingle();
+    setCompanyAvailable(!compErr);
+    if (!compErr) setProfileData((prev) => ({ ...prev, company: (comp as any)?.company ?? '' }));
     setProfileLoaded(true);
     // 아직 아무것도 채우지 않았으면 한 질문씩 안내한다 (이미 채운 사람은 한 화면에서 고친다)
     const firstFill = !data.location && !data.job && !data.bio && !(data.photo_urls ?? []).some(Boolean);
@@ -467,6 +476,7 @@ export default function ProfileScreen() {
         .eq('id', user!.id);
 
       if (error) throw error;
+      if (companyAvailable) await supabase.from('users').update({ company: (profileData.company || '').trim() || null }).eq('id', user!.id);
 
       toast.show('프로필이 저장되었습니다', 'success');
       wizardDraftRef.current = null;
@@ -956,6 +966,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           <PrefsMenuRow styles={styles} />
+          <AvoidMenuRow styles={styles} />
           <PauseMenuRow styles={styles} />
           <PushMenuRow styles={styles} />
           <FeedbackMenuRow styles={styles} />
@@ -1222,6 +1233,13 @@ export default function ProfileScreen() {
               <>
                 <Text style={styles.formLabel}>직업</Text>
                 <TextInput style={[styles.formInput, { marginBottom: 16 }]} placeholder="개발자" placeholderTextColor="#DCD9E2" value={profileData.job} onChangeText={(t) => set({ job: t })} />
+                {companyAvailable && (
+                  <>
+                    <Text style={styles.formLabel}>회사 (선택)</Text>
+                    <TextInput style={[styles.formInput, { marginBottom: 4 }]} placeholder="예: 두두전자" placeholderTextColor="#DCD9E2" value={profileData.company ?? ''} onChangeText={(t) => set({ company: t.slice(0, 40) })} accessibilityLabel="회사" />
+                    <Text style={[styles.formHint, { marginBottom: 16 }]}>파트너에게만 보여요. 같은 회사 사람을 소개받지 않게 할 때 써요</Text>
+                  </>
+                )}
                 <Text style={styles.formLabel}>학력</Text>
                 {chips(educations, profileData.education, (v) => set({ education: v }))}
               </>
@@ -1305,6 +1323,21 @@ export default function ProfileScreen() {
             onChangeText={(text) => setProfileData({...profileData, job: text})}
           />
         </View>
+
+        {companyAvailable && (
+          <View style={styles.profileFormSection}>
+            <Text style={styles.formLabel}>회사 (선택)</Text>
+            <TextInput
+              style={styles.formInput}
+              placeholder="예: 두두전자"
+              placeholderTextColor="#DCD9E2"
+              value={profileData.company ?? ''}
+              onChangeText={(text) => setProfileData({ ...profileData, company: text.slice(0, 40) })}
+              accessibilityLabel="회사"
+            />
+            <Text style={styles.formHint}>파트너에게만 보여요. 같은 회사 사람을 소개받지 않게 할 때 써요</Text>
+          </View>
+        )}
 
         <View style={styles.profileFormSection}>
           <Text style={styles.formLabel}>학력</Text>
