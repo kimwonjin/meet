@@ -6,6 +6,7 @@
 // - 정산금: 그 달에 생긴 내 정산금 (출금 여부와 관계없이)
 // - 새 회원: 그 달에 가입 신청해서 승인된 내 회원
 // - 만남까지 간 비율: 그 달 제안 중 결과가 나온 제안에서 만남까지 간 비율
+// - 거절 이유: 그 달 제안 중 회원이 거절하며 고른 이유별 건수 · 소감: 그 달 만남에서 내 회원이 남긴 한 줄 (SQL 전이면 숨김)
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BottomSheet from './BottomSheet';
@@ -25,6 +26,17 @@ const shift = (y: number, m: number, by: number) => {
 };
 const won = (n: number) => (n >= 10000 ? `${Math.round(n / 1000) / 10}만원` : `${n.toLocaleString()}원`);
 
+// 거절 이유별 건수 (많은 순). '기타'로 시작하는 이유는 하나로 묶는다
+function countReasons(rows: any[]) {
+  const c = new Map<string, number>();
+  for (const r of rows) {
+    if (r.status !== 'rejected' || !r.reject_reason) continue;
+    const k = String(r.reject_reason).startsWith('기타') ? '기타' : String(r.reject_reason);
+    c.set(k, (c.get(k) || 0) + 1);
+  }
+  return [...c.entries()].sort((a, b) => b[1] - a[1]);
+}
+
 export function computeMonth(data: Data, y: number, m: number) {
   const key = `${y}-${m}`;
   const proposed = data.matches.filter((r) => monthKey(r.created_at) === key);
@@ -42,6 +54,8 @@ export function computeMonth(data: Data, y: number, m: number) {
     newMembers,
     rate: decided.length ? Math.round((reached.length / decided.length) * 100) : null,
     pending: proposed.length - decided.length,
+    reasons: countReasons(proposed),
+    impressions: met.flatMap((r) => (r.mine || []) as string[]),
   };
 }
 
@@ -69,6 +83,21 @@ export default function PartnerReportSheet({ visible, onClose }: { visible: bool
       // 내 회원끼리 매칭은 두 조회에 모두 나오므로 한 번만 센다
       const byId = new Map<string, any>();
       for (const r of [...(a.data || []), ...(b.data || [])]) byId.set(r.id, r);
+      // 거절 이유·소감 칸 (SQL 실행 전이면 건너뛴다). 소감은 내 회원 것만 모은다
+      const extra = 'id, connector_1_id, connector_2_id, reject_reason, impression_1, impression_2';
+      const [ea, eb] = await Promise.all([
+        supabase.from('match_requests').select(extra).eq('connector_1_id', user.id),
+        supabase.from('match_requests').select(extra).eq('connector_2_id', user.id),
+      ]);
+      if (!alive) return;
+      if (!ea.error && !eb.error) {
+        for (const e of [...(ea.data || []), ...(eb.data || [])] as any[]) {
+          const r = byId.get(e.id);
+          if (!r) continue;
+          r.reject_reason = e.reject_reason;
+          r.mine = [e.connector_1_id === user.id && e.impression_1, e.connector_2_id === user.id && e.impression_2].filter(Boolean);
+        }
+      }
       setData({ matches: [...byId.values()], settlements: s.data || [], members: h.data || [] });
     })().catch(() => alive && setError(true));
     return () => { alive = false; };
@@ -124,6 +153,25 @@ export default function PartnerReportSheet({ visible, onClose }: { visible: bool
               </View>
             ))}
           </View>
+          {cur.reasons.length > 0 && (
+            <View style={s.box}>
+              <Text style={s.boxTitle}>거절 이유 · {cur.reasons.reduce((n, [, c]) => n + c, 0)}건</Text>
+              {cur.reasons.map(([k, c]) => (
+                <View key={k} style={s.reasonRow}>
+                  <Text style={s.reasonT} numberOfLines={1}>{k}</Text>
+                  <Text style={s.reasonN}>{c}건</Text>
+                </View>
+              ))}
+              <Text style={s.boxSub}>다음 소개를 고를 때 참고해 보세요</Text>
+            </View>
+          )}
+          {cur.impressions.length > 0 && (
+            <View style={s.box}>
+              <Text style={s.boxTitle}>내 회원들의 만남 소감 · {cur.impressions.length}개</Text>
+              {cur.impressions.slice(0, 5).map((t, i) => <Text key={i} style={s.impT} numberOfLines={2}>“{t}”</Text>)}
+              {cur.impressions.length > 5 && <Text style={s.boxSub}>전체는 매칭 › 매칭내역에서 볼 수 있어요</Text>}
+            </View>
+          )}
           <Text style={s.note}>정산금은 그 달에 생긴 금액이에요. 출금은 마이 › 계좌 정보에서 신청할 수 있어요</Text>
         </View>
       )}
@@ -142,6 +190,13 @@ const s = StyleSheet.create({
   tileLabel: { fontSize: 12, color: '#87848D' },
   tileValue: { fontSize: 22, fontWeight: '800', color: '#322F38', marginTop: 4 },
   tileSub: { fontSize: 11, color: '#98959E', marginTop: 4, lineHeight: 15 },
+  box: { backgroundColor: '#F8F7FA', borderRadius: 14, padding: 14, gap: 6 },
+  boxTitle: { fontSize: 14, fontWeight: '700', color: '#322F38', marginBottom: 2 },
+  boxSub: { fontSize: 12, color: '#98959E', marginTop: 2 },
+  reasonRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
+  reasonT: { flex: 1, fontSize: 13, color: '#434049' },
+  reasonN: { fontSize: 13, fontWeight: '700', color: '#322F38' },
+  impT: { fontSize: 13, color: '#434049', lineHeight: 19 },
   note: { fontSize: 12, color: '#98959E', lineHeight: 18 },
   empty: { fontSize: 14, color: '#87848D', textAlign: 'center', marginVertical: 40 },
 });

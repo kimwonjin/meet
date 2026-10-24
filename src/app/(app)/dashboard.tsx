@@ -30,7 +30,7 @@ function ranges(p: Period) {
 
 const won = (n: number) => (n >= 10000 ? `${Math.round(n / 1000) / 10}만원` : `${n.toLocaleString()}원`);
 
-type Stat = { label: string; cur: number; prev: number; fmt?: (n: number) => string };
+type Stat = { label: string; cur: number; prev: number; fmt?: (n: number) => string; bad?: boolean };
 type Idle = { id: string; name: string; days: number };
 
 // 개수 세기 (행을 가져오지 않음)
@@ -38,9 +38,22 @@ async function count(table: string, apply: (q: any) => any) {
   const { count: n, error } = await apply(supabase.from(table).select('*', { count: 'exact', head: true }));
   return error ? 0 : n || 0;
 }
+// 칸이 없으면(SQL 실행 전) null
+async function countOrNull(table: string, apply: (q: any) => any) {
+  const { count: n, error } = await apply(supabase.from(table).select('*', { count: 'exact', head: true }));
+  return error ? null : n || 0;
+}
 async function sum(table: string, col: string, apply: (q: any) => any) {
   const { data, error } = await apply(supabase.from(table).select(`${col}, created_at`));
   return error ? [] : ((data || []) as any[]);
+}
+
+function summaryLine(stats: Stat[], label: string) {
+  const v = (l: string) => stats.find((x) => x.label === l);
+  const parts = [['새 회원', '명'], ['매칭 제안', '건'], ['만남 성사', '쌍'], ['커플', '쌍']]
+    .map(([l, u]) => { const x = v(l); return x ? `${l === '만남 성사' ? '만남' : l} ${x.cur}${u}${x.cur > x.prev ? '↑' : x.cur < x.prev ? '↓' : ''}` : null; })
+    .filter(Boolean);
+  return `${label === '오늘' ? '오늘' : `최근 ${label}`}: ${parts.join(' · ')}`;
 }
 
 export default function DashboardScreen() {
@@ -61,6 +74,14 @@ export default function DashboardScreen() {
     const pair = async (table: string, col: string, extra: (q: any) => any = (q) => q) =>
       Promise.all([count(table, (q) => within(col, start, end)(extra(q))), count(table, (q) => within(col, prevStart, start)(extra(q)))]);
 
+    const pairOrNull = async (table: string, col: string, extra: (q: any) => any = (q) => q) => {
+      const r = await Promise.all([countOrNull(table, (q) => within(col, start, end)(extra(q))), countOrNull(table, (q) => within(col, prevStart, start)(extra(q)))]);
+      return r[0] === null || r[1] === null ? null : (r as [number, number]);
+    };
+    const [couples, leaves] = await Promise.all([
+      pairOrNull('match_requests', 'couple_at'),
+      pair('users', 'withdrawn_at', (q) => q.in('role', ['hopeful', 'connector'])),
+    ]);
     const [signups, partnerApps, proposals, meetings, charges, fees] = await Promise.all([
       pair('users', 'created_at', (q) => q.eq('role', 'hopeful')),
       pair('connectors', 'created_at'),
@@ -80,6 +101,8 @@ export default function DashboardScreen() {
       { label: '파트너 신청', cur: partnerApps[0], prev: partnerApps[1], fmt: (n) => `${n}명` },
       { label: '매칭 제안', cur: proposals[0], prev: proposals[1], fmt: (n) => `${n}건` },
       { label: '만남 성사', cur: meetings[0], prev: meetings[1], fmt: (n) => `${n}쌍` },
+      ...(couples ? [{ label: '커플', cur: couples[0], prev: couples[1], fmt: (n: number) => `${n}쌍` }] : []),
+      { label: '탈퇴', cur: leaves[0], prev: leaves[1], fmt: (n) => `${n}명`, bad: true },
       { label: '충전 금액', cur: chargeCur, prev: chargePrev, fmt: won },
       { label: '수수료 수익', cur: feeCur, prev: feePrev, fmt: won },
     ]);
@@ -204,11 +227,13 @@ export default function DashboardScreen() {
         <ActivityIndicator color="#5B21FF" style={{ marginVertical: 40 }} />
       ) : (
         <View style={s.grid}>
+          {/* 한 줄 요약: 이 기간의 핵심 결과 */}
+          <Text style={s.summary} accessibilityLabel="기간 요약">{summaryLine(stats, PERIODS.find((p) => p[0] === period)![1])}</Text>
           {stats.map((st) => (
             <View key={st.label} style={s.tile} accessibilityLabel={`${st.label} ${(st.fmt || String)(st.cur)}`}>
               <Text style={s.tileLabel}>{st.label}</Text>
               <Text style={s.tileValue}>{(st.fmt || String)(st.cur)}</Text>
-              <Text style={[s.tileSub, st.cur > st.prev && s.tileUp]}>{delta(st)}</Text>
+              <Text style={[s.tileSub, st.cur > st.prev && !st.bad && s.tileUp]}>{delta(st)}</Text>
             </View>
           ))}
         </View>
@@ -271,6 +296,7 @@ const s = StyleSheet.create({
   periodChipOn: { borderColor: '#5B21FF', backgroundColor: '#F5F1FF' },
   periodText: { fontSize: 13, color: '#65626B', fontWeight: '600' },
   periodTextOn: { color: '#5B21FF' },
+  summary: { width: '100%', fontSize: 14, fontWeight: '700', color: '#322F38', marginBottom: 2 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginHorizontal: 20 },
   tile: { width: '48%', flexGrow: 1, backgroundColor: '#F8F7FA', borderRadius: 14, padding: 14 },
   tileLabel: { fontSize: 12, color: '#87848D' },
