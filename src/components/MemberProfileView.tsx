@@ -5,6 +5,7 @@ import { shownPhotos } from '@/lib/photos';
 import { fetchVerifiedIds } from '@/lib/memberNotes';
 import { fetchPrefs, Prefs, prefsSummary } from '@/lib/preferences';
 import { findContact } from '@/lib/contactGuard';
+import { fetchDistricts, placeLabel } from '@/lib/regions';
 import { supabase } from '@/lib/supabase';
 
 export type MemberProfile = {
@@ -74,12 +75,21 @@ export default function MemberProfileView({ member, showBirthDate = false, verif
       });
     return () => { alive = false; };
   }, [member.id, showBirthDate]);
+  // 서울·경기 회원의 구·시 (칸이 없으면 지역만)
+  const [district, setDistrict] = useState<string | null>(null);
+  useEffect(() => {
+    setDistrict(null);
+    if (!member.id) return;
+    let alive = true;
+    fetchDistricts([member.id]).then((m) => { if (alive) setDistrict(m.get(member.id!) || null); });
+    return () => { alive = false; };
+  }, [member.id]);
   const [mainIdx, setMainIdx] = useState(0);
   useEffect(() => setMainIdx(0), [member.photo_urls]);
   const main = photos[mainIdx];
 
   const genderLabel = member.gender === 'M' ? '남성' : member.gender === 'F' ? '여성' : null;
-  const summary = [genderLabel, member.age && `${member.age}세`, member.location].filter(Boolean).join(' · ');
+  const summary = [genderLabel, member.age && `${member.age}세`, placeLabel(member.location, district)].filter(Boolean).join(' · ');
 
   const facts: [string, string, string | null | undefined][] = [
     ['📏', '키', member.height ? `${member.height}cm` : null],

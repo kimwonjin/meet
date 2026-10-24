@@ -30,6 +30,7 @@ import ConsentChecklist, { ConsentItem } from '@/components/ConsentChecklist';
 import { recordConsents, TermsDocKey } from '@/lib/terms';
 import { CONTACT_HIT_LABEL, ContactHit, findContactIn } from '@/lib/contactGuard';
 import { EXTRA_CONDITIONS, JOB_CATEGORIES, toggleCondition } from '@/lib/memberDetails';
+import { DISTRICTS } from '@/lib/regions';
 import { getPendingRefund, getRefundable, Refundable, requestRefund, withdrawAccount } from '@/lib/refunds';
 import { afterWithdraw, prepareWithdraw } from '@/lib/withdrawal';
 import { createNotification } from '@/lib/notifications';
@@ -128,10 +129,13 @@ export default function ProfileScreen() {
     body_type: '',
     company: '',
     job_category: '',
+    district: '',
     extra_conditions: [] as string[],
   });
   // 회사·직업 분류·해당 조건 칸 (add_company_and_avoid.sql 실행 전에는 없음 → 입력 칸·단계를 숨긴다)
   const [companyAvailable, setCompanyAvailable] = useState(false);
+  // 구·시 칸 (add_district.sql 전에는 없음)
+  const [districtAvailable, setDistrictAvailable] = useState(false);
   // 처음 프로필 채우기 단계 수: 직업 분류·해당 조건 단계가 더해진다
   const profileSteps = PROFILE_STEPS_BASE + (companyAvailable ? 2 : 0);
   // 프로필에 연락처가 들어가 저장을 막은 칸 (약관: 만남일 전 연락처 노출 금지)
@@ -446,12 +450,16 @@ export default function ProfileScreen() {
       body_type: data.body_type ?? '',
       company: '',
       job_category: '',
+      district: '',
       extra_conditions: [],
     });
     // 회사·직업 분류·해당 조건은 따로 읽는다 (칸이 없는 DB에서도 프로필은 열리게)
     const { data: comp, error: compErr } = await supabase.from('users').select('company, job_category, extra_conditions').eq('id', user!.id).maybeSingle();
     setCompanyAvailable(!compErr);
     if (!compErr) setProfileData((prev) => ({ ...prev, company: (comp as any)?.company ?? '', job_category: (comp as any)?.job_category ?? '', extra_conditions: (comp as any)?.extra_conditions ?? [] }));
+    const { data: dist, error: distErr } = await supabase.from('users').select('district').eq('id', user!.id).maybeSingle();
+    setDistrictAvailable(!distErr);
+    if (!distErr) setProfileData((prev) => ({ ...prev, district: (dist as any)?.district ?? '' }));
     setProfileLoaded(true);
     // 아직 아무것도 채우지 않았으면 한 질문씩 안내한다 (이미 채운 사람은 한 화면에서 고친다)
     const firstFill = !data.location && !data.job && !data.bio && !(data.photo_urls ?? []).some(Boolean);
@@ -501,6 +509,10 @@ export default function ProfileScreen() {
         .eq('id', user!.id);
 
       if (error) throw error;
+      if (districtAvailable) {
+        // 서울·경기가 아니면 구·시는 비운다
+        await supabase.from('users').update({ district: DISTRICTS[profileData.location] ? profileData.district || null : null }).eq('id', user!.id);
+      }
       if (companyAvailable) {
         const { error: extraErr } = await supabase.from('users').update({
           company: (profileData.company || '').trim() || null,
@@ -1291,7 +1303,18 @@ export default function ProfileScreen() {
           );
           const steps = [
             { title: '사진을 올려 주세요', sub: '사진이 있으면 파트너가 소개하기 훨씬 쉬워요. 나중에 올려도 돼요.', body: user && <PhotoEditor userId={user.id} photos={photoUrls} onChange={setPhotoUrls} /> },
-            { title: '어디에 사세요?', sub: '가까운 분 위주로 소개해 드려요.', body: chips(locations, profileData.location, (v) => pickAndNext({ location: v })) },
+            { title: '어디에 사세요?', sub: '가까운 분 위주로 소개해 드려요.', body: (
+              <>
+                {/* 서울·경기는 구·시까지 고르면 다음으로 (그 밖의 지역은 바로 다음) */}
+                {chips(locations, profileData.location, (v) => (districtAvailable && DISTRICTS[v] ? set({ location: v, district: v === profileData.location ? profileData.district : '' }) : pickAndNext({ location: v, district: '' })))}
+                {districtAvailable && !!DISTRICTS[profileData.location] && (
+                  <>
+                    <Text style={[styles.formLabel, { marginTop: 18 }]}>{profileData.location === '서울' ? '어느 구에 사세요?' : '어느 시·군에 사세요?'}</Text>
+                    {chips(DISTRICTS[profileData.location], profileData.district || '', (v) => pickAndNext({ district: v }))}
+                  </>
+                )}
+              </>
+            ) },
             { title: '키와 체형을 알려 주세요', body: (
               <>
                 <Text style={styles.formLabel}>키 (cm)</Text>
@@ -1365,12 +1388,24 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 key={loc}
                 style={[styles.optionBtn, profileData.location === loc && styles.optionBtnSelected]}
-                onPress={() => setProfileData({...profileData, location: loc})}
+                onPress={() => setProfileData({ ...profileData, location: loc, district: loc === profileData.location ? profileData.district : '' })}
               >
                 <Text style={[styles.optionBtnText, profileData.location === loc && styles.optionBtnTextSelected]}>{loc}</Text>
               </TouchableOpacity>
             ))}
           </View>
+          {districtAvailable && !!DISTRICTS[profileData.location] && (
+            <>
+              <Text style={[styles.formLabel, { marginTop: 14 }]}>{profileData.location === '서울' ? '구' : '시·군'} (선택)</Text>
+              <View style={styles.buttonGroup}>
+                {DISTRICTS[profileData.location].map((d) => (
+                  <TouchableOpacity key={d} style={[styles.optionBtn, profileData.district === d && styles.optionBtnSelected]} onPress={() => setProfileData({ ...profileData, district: profileData.district === d ? '' : d })}>
+                    <Text style={[styles.optionBtnText, profileData.district === d && styles.optionBtnTextSelected]}>{d}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
         </View>
 
         <View style={styles.profileFormSection}>

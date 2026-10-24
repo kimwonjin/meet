@@ -33,6 +33,7 @@ import { fetchAvoidPairs } from '@/lib/avoid';
 import { fetchPrefs, mutualFit, Prefs, prefsSummary } from '@/lib/preferences';
 import { findContact } from '@/lib/contactGuard';
 import { setCouple } from '@/lib/couples';
+import { fetchDistricts, placeLabel } from '@/lib/regions';
 import { fetchMemberDetails, MemberDetail } from '@/lib/memberDetails';
 import { AFTER_CARE_DAYS, afterCareDeadline, afterCareOutcome, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline, proposalDeadline } from '@/lib/afterCare';
 
@@ -43,8 +44,8 @@ const MEMBER_FIELDS = 'id, name, gender, age, birth_date, location, photo_urls, 
 // 이용 정지된 회원, 파트너로 바꿔 활동 중인 사람은 매칭 후보에서 뺀다 (파트너 화면에서는 제안을 볼 수 없다)
 const active = (users: any[] | null) => ((users || []) as any[]).filter((u) => !u.suspended_at && u.role !== 'connector' && u.role !== 'operator') as Member[];
 
-function memberSummary(m: Member) {
-  return [m.gender === 'M' ? '남' : m.gender === 'F' ? '여' : null, m.age && `${m.age}세`, m.location].filter(Boolean).join(' · ');
+function memberSummary(m: Member, district?: string) {
+  return [m.gender === 'M' ? '남' : m.gender === 'F' ? '여' : null, m.age && `${m.age}세`, placeLabel(m.location, district)].filter(Boolean).join(' · ');
 }
 
 export default function MatchingScreen() {
@@ -66,6 +67,7 @@ export default function MatchingScreen() {
   const [allyIncoming, setAllyIncoming] = useState(0);
   // 회원 후보 필터 (회원 탭과 같은 필터)
   const [detailsMap, setDetailsMap] = useState<Map<string, MemberDetail>>(new Map());
+  const [districtMap, setDistrictMap] = useState<Map<string, string>>(new Map());
   const memberFilter = useMemberFilter(detailsMap);
   // 회원별 최근 매칭 제안 날짜 · 진행 중 여부 (오래 쉰 회원을 먼저 찾기 위해)
   const [lastMatch, setLastMatch] = useState<Record<string, { at: string; active: boolean }>>({});
@@ -136,6 +138,7 @@ export default function MatchingScreen() {
     fetchPausedIds(candidateKey.split(',')).then(setPausedIds).catch(() => {});
     fetchPrefs(candidateKey.split(',')).then(setPrefsMap).catch(() => {});
     fetchMemberDetails(candidateKey.split(',')).then(setDetailsMap).catch(() => {});
+    fetchDistricts(candidateKey.split(',')).then(setDistrictMap).catch(() => {});
   }, [candidateKey]);
   // 프로필을 크게 보고 있는 후보 회원
   const [previewMember, setPreviewMember] = useState<{ member: Member; connectorId: string } | null>(null);
@@ -943,7 +946,7 @@ export default function MatchingScreen() {
           const busy = !!block;
           const hint = busy ? null : pairHint(m.id);
           const fit = busy ? null : prefFit(m.id);
-          const summary = memberSummary(m);
+          const summary = memberSummary(m, districtMap.get(m.id));
           return (
             <View key={m.id} style={[styles.memberRow, isSelected && styles.memberRowSelected, busy && styles.memberRowBusy]}>
               <TouchableOpacity onPress={() => setPreviewMember({ member: m, connectorId })} accessibilityLabel={`${m.name} 프로필 보기`}>
@@ -989,7 +992,7 @@ export default function MatchingScreen() {
     const fit = a.gender !== b.gender ? mutualFit(a, prefsMap.get(a.id), b, prefsMap.get(b.id)) : null;
     const rows: [string, (m: any) => string][] = [
       ['나이', (m) => (m.age ? `${m.age}세` : '')],
-      ['지역', (m) => m.location || ''],
+      ['지역', (m) => placeLabel(m.location, districtMap.get(m.id))],
       ['키', (m) => (m.height ? `${m.height}cm` : '')],
       ['직업', (m) => m.job || ''],
       ['직업 분류', (m) => detailsMap.get(m.id)?.jobCategory || ''],
