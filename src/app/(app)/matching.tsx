@@ -183,6 +183,13 @@ export default function MatchingScreen() {
 
         // 내가 담당하는 매칭만 (내 회원이 다른 파트너의 매칭에 들어 있어도 그 매칭은 그 파트너가 관리한다)
         matchData = [...(myProposals || [])];
+        // 최근 30일 안에 회원이 거절한 소개 (매칭내역 아래에 짧게, 거절 이유를 보려고)
+        const { data: rejectedRecent } = await supabase
+          .from('match_requests')
+          .select('*')
+          .or(`connector_1_id.eq.${user.id},connector_2_id.eq.${user.id}`)
+          .eq('status', 'rejected')
+          .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString());
 
         // 애프터 응답 기한이 지난 매칭은 자동으로 마무리하고 다시 불러온다
         // 답이 없어 멈춘 제안(7일)도 함께 정리한다
@@ -195,6 +202,8 @@ export default function MatchingScreen() {
         const autoDone = await Promise.all(stuck.map((m: any) => completeMeeting(m.id, [m.hopeful_1_id, m.hopeful_2_id]).catch(() => false)));
         if ((expired.some(Boolean) || autoDone.some(Boolean)) && !retried) return fetchMatches(true);
 
+        // 거절된 소개는 정리(만료) 대상이 아니므로 여기서 더한다
+        matchData = [...matchData, ...((rejectedRecent || []) as any[]).filter((r) => !matchData.some((m) => m.id === r.id))];
         // 최신 매칭이 위로 오도록 정렬
         matchData.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
@@ -246,6 +255,14 @@ export default function MatchingScreen() {
             closed_reason: m.closed_reason,
             available_dates_1: m.available_dates_1,
             available_dates_2: m.available_dates_2,
+            hopeful_1_id: m.hopeful_1_id,
+            hopeful_2_id: m.hopeful_2_id,
+            // 거절 이유·한마디·소감·커플 (SQL 전이면 칸이 없다. 커플은 칸이 있을 때만 버튼을 보인다)
+            reject_reason: m.reject_reason,
+            partner_note: m.partner_note,
+            impression_1: m.impression_1,
+            impression_2: m.impression_2,
+            ...('couple_at' in m ? { couple_at: m.couple_at } : {}),
           };
         });
 
@@ -915,9 +932,9 @@ export default function MatchingScreen() {
   const needsMyConsent = (m: any) =>
     m.connector_1_id !== m.connector_2_id &&
     ((m.connector_1_id === user?.id && !m.connector_1_consented) || (m.connector_2_id === user?.id && !m.connector_2_consented));
-  const activeMatches = matchRequests.filter((m) => !m.settlement_completed);
+  const activeMatches = matchRequests.filter((m) => !m.settlement_completed && m.status !== 'rejected');
   const historyMatches = matchRequests
-    .filter((m) => m.settlement_completed)
+    .filter((m) => m.settlement_completed || m.status === 'rejected')
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const sortedMatches = [...activeMatches].sort((a, b) => {
     const pa = needsMyConsent(a) ? 1 : 0, pb = needsMyConsent(b) ? 1 : 0;
@@ -1116,6 +1133,20 @@ export default function MatchingScreen() {
   historyOrderRef.current = historyList.map((m) => m.id);
 
   function renderMatchCard(item: any) {
+    // 회원이 거절한 소개: 이름·날짜·거절 이유만 짧게
+    if (item.status === 'rejected') {
+      return (
+        <View style={[styles.matchCard, styles.rejectedCard]} accessibilityLabel={`거절된 소개 ${item.hopeful_1?.name} ${item.hopeful_2?.name}`}>
+          <View style={styles.rejectedTop}>
+            <Text style={styles.rejectedNames} numberOfLines={1}>{item.hopeful_1?.name || '회원'} ↔ {item.hopeful_2?.name || '회원'}</Text>
+            <Text style={styles.rejectedDate}>{new Date(item.created_at).toLocaleDateString('ko-KR')}</Text>
+          </View>
+          <Text style={styles.rejectedState}>{item.closed_reason ? '마무리된 소개' : '회원이 거절했어요'}</Text>
+          {!!item.reject_reason && <Text style={styles.rejectReason}>거절 이유: {item.reject_reason}</Text>}
+          {!!item.partner_note && <Text style={styles.partnerNoteLine}>💬 {item.partner_note}</Text>}
+        </View>
+      );
+    }
     const crossConnector = item.connector_1_id !== item.connector_2_id;
     const consentDone = !crossConnector || (item.connector_1_consented && item.connector_2_consented);
     // 일정·진행 상태는 한 사람만 관리한다: 동맹 매칭은 제안한 연결자
@@ -1425,9 +1456,6 @@ export default function MatchingScreen() {
             )}
 
             {/* 회원이 거절하며 남긴 이유 (파트너만 봄) · 제안할 때 남긴 한마디 */}
-            {item.status === 'rejected' && !!item.reject_reason && (
-              <Text style={styles.rejectReason}>거절 이유: {item.reject_reason}</Text>
-            )}
             {!!item.partner_note && <Text style={styles.partnerNoteLine}>💬 {item.partner_note}</Text>}
             {/* 만남 후 회원이 남긴 한 줄 소감: 담당 파트너만 내 회원 것을 본다 */}
             {([[1, item.impression_1], [2, item.impression_2]] as [1 | 2, string | null][])
@@ -1667,6 +1695,11 @@ const styles = StyleSheet.create({
   coupleDone: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
   coupleUndo: { fontSize: 12, color: '#98959E', textDecorationLine: 'underline' },
   impressionLine: { fontSize: 13, color: '#434049', lineHeight: 19, marginTop: 8 },
+  rejectedCard: { paddingVertical: 14 },
+  rejectedTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  rejectedNames: { flex: 1, fontSize: 15, fontWeight: '700', color: '#54515A' },
+  rejectedDate: { fontSize: 12, color: '#98959E' },
+  rejectedState: { fontSize: 13, color: '#87848D', marginTop: 4 },
   rejectReason: { fontSize: 13, color: '#65626B', backgroundColor: '#F7F5FA', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, marginTop: 8 },
   partnerNoteLine: { fontSize: 12, color: '#87848D', marginTop: 6 },
   proposeBar: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12, borderTopWidth: 1, borderTopColor: '#ECEAF1', backgroundColor: '#fff' },

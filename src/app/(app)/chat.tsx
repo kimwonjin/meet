@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
   operatorNoticeTitle: { fontSize: 14, fontWeight: '700', color: '#18151E' },
   operatorNoticeBody: { fontSize: 13, color: '#65626B', marginTop: 4, lineHeight: 19 },
   chatImage: { width: 200, height: 260, borderRadius: 14, backgroundColor: '#F1EFF4' },
-  photoBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
+  photoBtn: { width: 32, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   photoBtnT: { fontSize: 20 },
   imageViewer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.9)', alignItems: 'center', justifyContent: 'center', zIndex: 20 },
   imageViewerImg: { width: '100%', height: '80%' },
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   phraseEmpty: { fontSize: 13, color: '#98959E', textAlign: 'center', paddingVertical: 10 },
   phraseAdd: { paddingVertical: 10, alignItems: 'center' },
   phraseAddT: { fontSize: 13, color: '#5B21FF', fontWeight: '600' },
-  phraseBtn: { borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 18, paddingHorizontal: 10, height: 36, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
+  phraseBtn: { borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 18, paddingHorizontal: 10, height: 36, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   phraseBtnOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
   phraseBtnT: { fontSize: 13, color: '#54515A', fontWeight: '600' },
   withdrawnNote: {
@@ -698,7 +698,10 @@ const styles = StyleSheet.create({
     borderTopColor: '#EFEDF2',
   },
   messageInput: {
+    // 웹에서는 입력칸 기본 너비 때문에 줄어들지 않아 전송 버튼이 밀려난다 → 0에서 늘어나게
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
     borderWidth: 1,
     borderColor: '#DCD9E2',
     borderRadius: 20,
@@ -707,6 +710,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   sendBtn: {
+    flexShrink: 0,
     backgroundColor: '#5B21FF',
     borderRadius: 20,
     paddingHorizontal: 16,

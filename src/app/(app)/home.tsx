@@ -1641,6 +1641,13 @@ export default function HomeScreen() {
               </TouchableOpacity>
             )}
             {sheetProfile.partner && <MemberProfileView member={sheetProfile.partner} />}
+            {/* 파트너가 제안하며 남긴 한마디: 답하기 전에 보이게 프로필 바로 아래에 */}
+            {!!sheetProfile.partner_note && (
+              <View style={styles.noteBox}>
+                <Text style={styles.noteLabel}>💬 파트너 한마디</Text>
+                <Text style={styles.noteText}>{sheetProfile.partner_note}</Text>
+              </View>
+            )}
             {/* 아직 답하지 않은 소개: 프로필을 보고 바로 답한다 */}
             {!(sheetProfile.isHopeful1 ? sheetProfile.hopeful_1_approved : sheetProfile.hopeful_2_approved) && (
               <View style={[styles.requestActions, { marginTop: 16 }]}>
