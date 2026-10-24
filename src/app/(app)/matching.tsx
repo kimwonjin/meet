@@ -53,6 +53,8 @@ export default function MatchingScreen() {
   const toast = useToast();
   const confirm = useConfirm();
   const [matchRequests, setMatchRequests] = useState<any[]>([]);
+  // 매칭이 생기거나 취소·완료되면 후보의 '만남중'·이용권을 다시 계산한다 (거절된 소개도 목록에 남아 개수만으로는 모른다)
+  const matchStateKey = matchRequests.map((m) => `${m.id}:${m.status}:${m.settlement_completed ? 1 : 0}`).join(',');
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   // 일정 선택 시트를 연 매칭 id
@@ -376,7 +378,7 @@ export default function MatchingScreen() {
       setPairHistory(pairs);
     })();
   // 15초마다 목록을 다시 받아도 회원 구성이 그대로면 다시 조회하지 않는다
-  }, [ownMembers.map((m) => m.id).join(','), allyMembersForRest.join(','), matchRequests.length]);
+  }, [ownMembers.map((m) => m.id).join(','), allyMembersForRest.join(','), matchStateKey]);
 
   // 회원 탭에서 골라 온 회원이 만남중이거나 이용권이 없으면 선택을 풀고 알려준다
   useEffect(() => {
