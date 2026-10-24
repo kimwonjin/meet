@@ -124,9 +124,13 @@ export default function ProfileScreen() {
     drinking: '',
     body_type: '',
     company: '',
+    job_category: '',
+    extra_conditions: [] as string[],
   });
-  // 회사 칸 (add_company_and_avoid.sql 실행 전에는 없음 → 입력 칸을 숨긴다)
+  // 회사·직업 분류·해당 조건 칸 (add_company_and_avoid.sql 실행 전에는 없음 → 입력 칸·단계를 숨긴다)
   const [companyAvailable, setCompanyAvailable] = useState(false);
+  // 처음 프로필 채우기 단계 수: 직업 분류·해당 조건 단계가 더해진다
+  const profileSteps = PROFILE_STEPS_BASE + (companyAvailable ? 2 : 0);
   // 단계를 넘길 때마다 기기에 저장 (닫지 않고 앱을 나가도 이어서 하도록)
   useEffect(() => {
     if (wizardStep === null || !user) return;
@@ -429,11 +433,13 @@ export default function ProfileScreen() {
       drinking: data.drinking ?? '',
       body_type: data.body_type ?? '',
       company: '',
+      job_category: '',
+      extra_conditions: [],
     });
-    // 회사는 따로 읽는다 (칸이 없는 DB에서도 프로필은 열리게)
-    const { data: comp, error: compErr } = await supabase.from('users').select('company').eq('id', user!.id).maybeSingle();
+    // 회사·직업 분류·해당 조건은 따로 읽는다 (칸이 없는 DB에서도 프로필은 열리게)
+    const { data: comp, error: compErr } = await supabase.from('users').select('company, job_category, extra_conditions').eq('id', user!.id).maybeSingle();
     setCompanyAvailable(!compErr);
-    if (!compErr) setProfileData((prev) => ({ ...prev, company: (comp as any)?.company ?? '' }));
+    if (!compErr) setProfileData((prev) => ({ ...prev, company: (comp as any)?.company ?? '', job_category: (comp as any)?.job_category ?? '', extra_conditions: (comp as any)?.extra_conditions ?? [] }));
     setProfileLoaded(true);
     // 아직 아무것도 채우지 않았으면 한 질문씩 안내한다 (이미 채운 사람은 한 화면에서 고친다)
     const firstFill = !data.location && !data.job && !data.bio && !(data.photo_urls ?? []).some(Boolean);
@@ -476,7 +482,13 @@ export default function ProfileScreen() {
         .eq('id', user!.id);
 
       if (error) throw error;
-      if (companyAvailable) await supabase.from('users').update({ company: (profileData.company || '').trim() || null }).eq('id', user!.id);
+      if (companyAvailable) {
+        await supabase.from('users').update({
+          company: (profileData.company || '').trim() || null,
+          job_category: profileData.job_category || null,
+          extra_conditions: (profileData.extra_conditions || []).length ? profileData.extra_conditions : null,
+        }).eq('id', user!.id);
+      }
 
       toast.show('프로필이 저장되었습니다', 'success');
       wizardDraftRef.current = null;
@@ -1180,7 +1192,7 @@ export default function ProfileScreen() {
           setShowProfileModal(false);
           setWizardStep(null);
         }}
-        title={wizardStep !== null ? `프로필 채우기 ${wizardStep + 1}/${PROFILE_STEPS}` : '내 프로필'}
+        title={wizardStep !== null ? `프로필 채우기 ${wizardStep + 1}/${profileSteps}` : '내 프로필'}
         footer={wizardStep !== null ? (
           <View style={styles.wizardFooter}>
             {wizardStep > 0 && (
@@ -1191,10 +1203,10 @@ export default function ProfileScreen() {
             <TouchableOpacity
               style={[styles.wizardNext, (loading || !profileLoaded) && styles.storeSaveBtnDisabled]}
               disabled={loading || !profileLoaded}
-              onPress={() => (wizardStep < PROFILE_STEPS - 1 ? setWizardStep(wizardStep + 1) : handleProfileSave().then((ok) => { if (ok) setWizardStep(null); }))}
-              accessibilityLabel={wizardStep < PROFILE_STEPS - 1 ? '다음' : '저장하기'}
+              onPress={() => (wizardStep < profileSteps - 1 ? setWizardStep(wizardStep + 1) : handleProfileSave().then((ok) => { if (ok) setWizardStep(null); }))}
+              accessibilityLabel={wizardStep < profileSteps - 1 ? '다음' : '저장하기'}
             >
-              <Text style={styles.wizardNextText}>{loading ? '저장 중...' : wizardStep < PROFILE_STEPS - 1 ? '다음' : '저장하기'}</Text>
+              <Text style={styles.wizardNextText}>{loading ? '저장 중...' : wizardStep < profileSteps - 1 ? '다음' : '저장하기'}</Text>
             </TouchableOpacity>
           </View>
         ) : undefined}
@@ -1206,7 +1218,7 @@ export default function ProfileScreen() {
             setProfileData({ ...profileData, ...patch });
             // 두 번 눌러도 한 칸만 넘어가도록 '지금 단계에서 다음 단계로'만 바꾼다
             const from = wizardStep;
-            setTimeout(() => setWizardStep((s) => (s === from && s < PROFILE_STEPS - 1 ? s + 1 : s)), 250);
+            setTimeout(() => setWizardStep((s) => (s === from && s < profileSteps - 1 ? s + 1 : s)), 250);
           };
           const chips = (options: string[], value: string, onPick: (v: string) => void) => (
             <View style={styles.buttonGroup}>
@@ -1218,6 +1230,15 @@ export default function ProfileScreen() {
             </View>
           );
           const set = (patch: Partial<typeof profileData>) => setProfileData({ ...profileData, ...patch });
+          const multiChips = (options: string[], values: string[], onPick: (v: string) => void) => (
+            <View style={styles.buttonGroup}>
+              {options.map((o) => (
+                <TouchableOpacity key={o} style={[styles.optionBtn, values.includes(o) && styles.optionBtnSelected]} onPress={() => onPick(o)} aria-selected={values.includes(o)}>
+                  <Text style={[styles.optionBtnText, values.includes(o) && styles.optionBtnTextSelected]}>{o}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          );
           const steps = [
             { title: '사진을 올려 주세요', sub: '사진이 있으면 파트너가 소개하기 훨씬 쉬워요. 나중에 올려도 돼요.', body: user && <PhotoEditor userId={user.id} photos={photoUrls} onChange={setPhotoUrls} /> },
             { title: '어디에 사세요?', sub: '가까운 분 위주로 소개해 드려요.', body: chips(locations, profileData.location, (v) => pickAndNext({ location: v })) },
@@ -1229,6 +1250,10 @@ export default function ProfileScreen() {
                 {chips(bodyTypes, profileData.body_type, (v) => set({ body_type: v }))}
               </>
             ) },
+            ...(companyAvailable ? [
+              { title: '어떤 일을 하세요?', sub: '파트너에게만 보여요.', body: chips(JOB_CATEGORIES, profileData.job_category || '', (v) => pickAndNext({ job_category: v })) },
+              { title: '해당하는 조건이 있나요?', sub: '여러 개 고를 수 있어요. 없으면 그냥 다음을 눌러 주세요. 파트너에게만 보여요.', body: multiChips(EXTRA_CONDITIONS, profileData.extra_conditions || [], (v) => set({ extra_conditions: toggleCondition(profileData.extra_conditions || [], v) })) },
+            ] : []),
             { title: '하시는 일과 학력은요?', body: (
               <>
                 <Text style={styles.formLabel}>직업</Text>
@@ -1324,6 +1349,34 @@ export default function ProfileScreen() {
           />
         </View>
 
+        {companyAvailable && (
+          <View style={styles.profileFormSection}>
+            <Text style={styles.formLabel}>직업 분류</Text>
+            <View style={styles.buttonGroup}>
+              {JOB_CATEGORIES.map((o) => (
+                <TouchableOpacity key={o} style={[styles.optionBtn, profileData.job_category === o && styles.optionBtnSelected]} onPress={() => setProfileData({ ...profileData, job_category: profileData.job_category === o ? '' : o })}>
+                  <Text style={[styles.optionBtnText, profileData.job_category === o && styles.optionBtnTextSelected]}>{o}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+        {companyAvailable && (
+          <View style={styles.profileFormSection}>
+            <Text style={styles.formLabel}>해당하는 조건 (선택 · 여러 개)</Text>
+            <View style={styles.buttonGroup}>
+              {EXTRA_CONDITIONS.map((o) => {
+                const on = (profileData.extra_conditions || []).includes(o);
+                return (
+                  <TouchableOpacity key={o} style={[styles.optionBtn, on && styles.optionBtnSelected]} onPress={() => setProfileData({ ...profileData, extra_conditions: toggleCondition(profileData.extra_conditions || [], o) })} aria-selected={on}>
+                    <Text style={[styles.optionBtnText, on && styles.optionBtnTextSelected]}>{o}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <Text style={styles.formHint}>직업 분류와 조건은 파트너에게만 보여요</Text>
+          </View>
+        )}
         {companyAvailable && (
           <View style={styles.profileFormSection}>
             <Text style={styles.formLabel}>회사 (선택)</Text>
@@ -2099,7 +2152,15 @@ function moneyFit(n: number) {
   return { fontSize: len <= 6 ? 18 : len <= 9 ? 15 : 13 };
 }
 
-const PROFILE_STEPS = 7;
+const PROFILE_STEPS_BASE = 7;
+// 직업 분류(하나)·해당 조건(여러 개, '해당 없음'은 혼자만). 파트너에게만 보인다
+export const JOB_CATEGORIES = ['대기업 정규직', '공기업·공무원', '중견·중소기업', '사업가·기업 대표', '의사', '회계사·세무사·노무사·변호사', '금융직', '교사·교육직', '이외 전문직', '해당하는 직업 없음'];
+export const EXTRA_CONDITIONS = ['연봉 1억 이상', '개인 자산 10억 이상', '전문직 (의사·변호사·금융직 등)', '가족 자산 50억 이상', '연 매출 50억 이상 대표', '해당 없음'];
+function toggleCondition(list: string[], v: string) {
+  if (v === '해당 없음') return list.includes(v) ? [] : [v];
+  const rest = list.filter((x) => x !== '해당 없음');
+  return rest.includes(v) ? rest.filter((x) => x !== v) : [...rest, v];
+}
 
 const styles = StyleSheet.create({
   wizardFooter: { flexDirection: 'row', gap: 8 },

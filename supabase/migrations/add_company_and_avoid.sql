@@ -1,11 +1,14 @@
 -- 회사 + 아는 사람 피하기
 -- 1) users.company: 회사명 (파트너에게만 보임), users.avoid_same_company: 같은 회사 사람은 소개받지 않기
+--    users.job_category: 직업 분류, users.extra_conditions: 해당하는 조건 (둘 다 파트너에게만 보임)
 -- 2) avoid_contacts: 피하고 싶은 사람의 전화번호 (되돌릴 수 없는 값으로만 저장 → 원래 번호는 남지 않음)
 -- 3) fn_avoid_pairs(회원들): 서로 소개하면 안 되는 두 사람 목록 (누가 누구를 피하는지는 알려주지 않는다)
 -- 실행 전에는 앱이 회사 칸·피하기 메뉴만 보여주지 않고 나머지는 그대로 동작한다
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS company TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avoid_same_company BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS job_category TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS extra_conditions TEXT[] NOT NULL DEFAULT '{}';
 
 CREATE TABLE IF NOT EXISTS avoid_contacts (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -55,13 +55,22 @@ export default function MemberProfileView({ member, showBirthDate = false, verif
   }, [member.id, showBirthDate]);
   const prefsText = prefsSummary(prefs);
   // 회사: 파트너가 볼 때만 (add_company_and_avoid.sql 전이면 없음)
+  // 직업 분류·해당 조건도 회원이 직접 고른 값으로 파트너에게만 보여준다
   const [company, setCompany] = useState<string | null>(null);
+  const [jobCat, setJobCat] = useState<string | null>(null);
+  const [conds, setConds] = useState<string[]>([]);
   useEffect(() => {
-    setCompany(null);
+    setCompany(null); setJobCat(null); setConds([]);
     if (!showBirthDate || !member.id) return;
     let alive = true;
-    supabase.from('users').select('company').eq('id', member.id).maybeSingle()
-      .then(({ data, error }) => { if (alive && !error) setCompany((data as any)?.company || null); });
+    supabase.from('users').select('company, job_category, extra_conditions').eq('id', member.id).maybeSingle()
+      .then(({ data, error }) => {
+        if (!alive || error) return;
+        const d = data as any;
+        setCompany(d?.company || null);
+        setJobCat(d?.job_category || null);
+        setConds(((d?.extra_conditions || []) as string[]).filter((c) => c !== '해당 없음'));
+      });
     return () => { alive = false; };
   }, [member.id, showBirthDate]);
   const [mainIdx, setMainIdx] = useState(0);
@@ -75,6 +84,8 @@ export default function MemberProfileView({ member, showBirthDate = false, verif
     ['📏', '키', member.height ? `${member.height}cm` : null],
     ['🎓', '학력', member.education],
     ...(company ? ([['🏢', '회사', company]] as [string, string, string][]) : []),
+    ...(jobCat ? ([['💼', '직업 분류', jobCat]] as [string, string, string][]) : []),
+    ...(conds.length ? ([['⭐', '본인 선택 조건', conds.join(', ')]] as [string, string, string][]) : []),
     ...(showBirthDate ? ([['🎂', '생년월일', member.birth_date]] as [string, string, string | undefined][]) : []),
     ['🧍', '체형', member.body_type],
   ];
