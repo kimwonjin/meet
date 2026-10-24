@@ -976,6 +976,7 @@ export default function ProfileScreen() {
           <>
           {/* 메뉴는 하는 일에 따라 묶는다: 내 정보 · 소개 설정 · 설정 */}
           <Text style={styles.menuGroup}>내 정보</Text>
+          <View style={styles.menuCard}><View style={styles.menuCardInner}>
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowProfileModal(true)}>
             <Text style={styles.menuIcon}>📋</Text>
             <View style={styles.menuContent}>
@@ -994,11 +995,15 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          </View></View>
           <Text style={styles.menuGroup}>소개 설정</Text>
+          <View style={styles.menuCard}><View style={styles.menuCardInner}>
           <PrefsMenuRow styles={styles} />
           <AvoidMenuRow styles={styles} />
           <PauseMenuRow styles={styles} />
+          </View></View>
           <Text style={styles.menuGroup}>설정</Text>
+          <View style={styles.menuCard}><View style={styles.menuCardInner}>
           <PushMenuRow styles={styles} />
           <FeedbackMenuRow styles={styles} />
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowConnectorModal(true)}>
@@ -1010,6 +1015,7 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          </View></View>
           <TouchableOpacity style={styles.logoutMenuItem} onPress={handleLogout}>
             <Text style={styles.logoutIcon}>🚪</Text>
             <Text style={styles.logoutText}>로그아웃</Text>
@@ -1020,6 +1026,7 @@ export default function ProfileScreen() {
           <>
           {/* 메뉴는 하는 일에 따라 묶는다: 회원 모으기 · 수익·정산 · 활동·평판 · 설정 */}
           <Text style={styles.menuGroup}>회원 모으기</Text>
+          <View style={styles.menuCard}><View style={styles.menuCardInner}>
           {/* 새 기능: 회원을 늘리는 가장 빠른 방법이라 맨 위에 강조해서 둔다 */}
           <TouchableOpacity style={[styles.menuItem, styles.inviteItem]} onPress={() => setShowInvite(true)}>
             <Text style={styles.menuIcon}>📣</Text>
@@ -1042,7 +1049,9 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          </View></View>
           <Text style={styles.menuGroup}>수익·정산</Text>
+          <View style={styles.menuCard}><View style={styles.menuCardInner}>
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowSettlementsModal(true)}>
             <Text style={styles.menuIcon}>💰</Text>
             <View style={styles.menuContent}>
@@ -1070,7 +1079,9 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          </View></View>
           <Text style={styles.menuGroup}>활동·평판</Text>
+          <View style={styles.menuCard}><View style={styles.menuCardInner}>
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
@@ -1105,7 +1116,9 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          </View></View>
           <Text style={styles.menuGroup}>설정</Text>
+          <View style={styles.menuCard}><View style={styles.menuCardInner}>
           <PushMenuRow styles={styles} />
           <FeedbackMenuRow styles={styles} />
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowSwitchSheet(true)}>
@@ -1117,12 +1130,15 @@ export default function ProfileScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
 
+          </View></View>
           <TouchableOpacity style={styles.logoutMenuItem} onPress={handleLogout}>
             <Text style={styles.logoutIcon}>🚪</Text>
             <Text style={styles.logoutText}>로그아웃</Text>
           </TouchableOpacity>
           </>
         )}
+        {user?.role === 'operator' && <Text style={styles.menuGroup}>운영 설정</Text>}
+        <View style={user?.role === 'operator' ? styles.menuCard : undefined}><View style={user?.role === 'operator' ? styles.menuCardInner : undefined}>
         {user?.role === 'operator' && (
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowBusiness(true)}>
             <Text style={styles.menuIcon}>🏢</Text>
@@ -1144,6 +1160,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         )}
         {user?.role === 'operator' && <PushMenuRow styles={styles} />}
+        </View></View>
         {user?.role === 'operator' && (
           <TouchableOpacity style={styles.logoutMenuItem} onPress={handleLogout}>
             <Text style={styles.logoutIcon}>🚪</Text>
@@ -2329,22 +2346,20 @@ const styles = StyleSheet.create({
   newBadge: { backgroundColor: '#5B21FF', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   menuGroup: { fontSize: 13, fontWeight: '700', color: '#87848D', marginTop: 12, marginBottom: 8, marginLeft: 4 },
+  // 묶음 카드 안의 한 줄 (줄 사이는 얇은 선, 마지막 줄 선은 카드가 가린다)
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    marginBottom: 12,
-    backgroundColor: '#F9F7FC',
-    borderRadius: 14,
-    borderBottomWidth: 0,
-    borderBottomColor: 'transparent',
-    borderLeftWidth: 4,
-    borderLeftColor: '#5B21FF',
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFEDF2',
   },
+  menuCard: { backgroundColor: '#F9F7FC', borderRadius: 16, overflow: 'hidden', marginBottom: 8 },
+  menuCardInner: { marginBottom: -1 },
   menuIcon: {
-    fontSize: 24,
-    marginRight: 16,
+    fontSize: 22,
+    marginRight: 14,
   },
   menuContent: {
     flex: 1,
