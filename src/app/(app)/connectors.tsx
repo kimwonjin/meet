@@ -25,6 +25,7 @@ import PartnerMemberNote from '@/components/PartnerMemberNote';
 import ProfileFillRequest from '@/components/ProfileFillRequest';
 import { fetchVerifiedIds } from '@/lib/memberNotes';
 import { fetchPausedIds } from '@/lib/pause';
+import { publicText } from '@/lib/contactGuard';
 
 interface Connector {
   id: string;
@@ -959,8 +960,8 @@ export default function ConnectorsScreen() {
                       <Text style={styles.modalSectionTitle}>파트너 소개</Text>
                       {selectedConnector.career || partnerIntro(selectedConnector) ? (
                         <>
-                          {!!selectedConnector.career && <Text style={styles.careerText}>경력 · {selectedConnector.career}</Text>}
-                          {!!partnerIntro(selectedConnector) && <Text style={styles.bioText}>{partnerIntro(selectedConnector)}</Text>}
+                          {!!selectedConnector.career && <Text style={styles.careerText}>경력 · {publicText(selectedConnector.career)}</Text>}
+                          {!!partnerIntro(selectedConnector) && <Text style={styles.bioText}>{publicText(partnerIntro(selectedConnector))}</Text>}
                         </>
                       ) : (
                         <Text style={styles.bioText}>아직 소개를 작성하지 않았어요. 궁금한 점은 채팅으로 물어보세요.</Text>

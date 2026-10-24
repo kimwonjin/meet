@@ -135,6 +135,8 @@ export default function ProfileScreen() {
   const profileSteps = PROFILE_STEPS_BASE + (companyAvailable ? 2 : 0);
   // 프로필에 연락처가 들어가 저장을 막은 칸 (약관: 만남일 전 연락처 노출 금지)
   const [contactErr, setContactErr] = useState<{ field: string; hit: ContactHit } | null>(null);
+  // 칸을 고치면 경고를 지운다 (다시 저장할 때 다시 검사)
+  useEffect(() => { setContactErr(null); }, [profileData.bio, profileData.job, profileData.company]);
   const contactWarn = (field: string) => contactErr?.field === field ? (
     <Text style={[styles.formHint, { color: '#E5484D', marginTop: 6 }]} accessibilityLiveRegion="polite">
       {CONTACT_HIT_LABEL[contactErr.hit]}는 적을 수 없어요. 연락처는 만남 날짜가 정해지면 자동으로 전달돼요

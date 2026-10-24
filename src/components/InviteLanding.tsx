@@ -12,6 +12,7 @@ import { savePendingInvite, trackInvite } from '@/lib/invite';
 import { getJoinState, JoinState, requestJoin } from '@/lib/join';
 import { adsAllowed, useBusiness } from '@/lib/business';
 import { fetchConnectorReviews, formatStars, Review } from '@/lib/reviews';
+import { publicText } from '@/lib/contactGuard';
 
 // 공개 소개에 보여도 되는 항목만 읽는다 (회원 정보·연락처·계좌는 읽지 않는다)
 type Partner = {
@@ -182,8 +183,8 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
                     <Text style={styles.cardMeta}>{partner.name} 파트너{partner.verified ? ' · ✓ 인증' : ''}</Text>
                   </View>
                 </View>
-                {!!partner.career && <Text style={styles.career}>경력 · {partner.career}</Text>}
-                {!!partnerIntro(partner) && <Text style={styles.intro}>{partnerIntro(partner)}</Text>}
+                {!!partner.career && <Text style={styles.career}>경력 · {publicText(partner.career)}</Text>}
+                {!!partnerIntro(partner) && <Text style={styles.intro}>{publicText(partnerIntro(partner))}</Text>}
                 <View style={styles.facts}>
                   {!!formatRegions(partner.main_region) && (
                     <View style={styles.fact}>

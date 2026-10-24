@@ -343,6 +343,6 @@ export async function recordConsents(userId: string, docs: string[]) {
   const { error } = await supabase
     .from('user_consents')
     .insert(docs.map((doc) => ({ user_id: userId, doc, version: TERMS_VERSION })));
-  if (error) console.error('recordConsents error:', error);
+  if (error) console.warn('recordConsents error:', error);
   return { error };
 }

@@ -16,12 +16,15 @@ export const CONTACT_HIT_LABEL: Record<ContactHit, string> = {
 
 // 아이디를 알려 주는 말 (뒤에 영문 아이디가 오거나 '아이디·추가·검색' 등이 붙을 때만)
 const HANDLE = '((\\s*[:：]\\s*|\\s+)@?[a-z][a-z0-9._]{2,}|\\s*(아이디|id\\b|추가|검색|디엠|dm\\b|팔로우|친추|ㄱ))';
-const MESSENGER = new RegExp(`(카톡|카카오톡|카카오\\s*아이디|kakao\\s*(talk|id)|katalk|라인|line|텔레그램|telegram|위챗|wechat)${HANDLE}`);
+const MESSENGER = new RegExp(`(카톡|카카오톡|kakao\\s*talk|katalk|라인|line|텔레그램|telegram|위챗|wechat)${HANDLE}|카카오\\s*아이디|kakao\\s*id\\b`);
 const SNS = new RegExp(`(인스타그램|인스타|instagram|insta|페북|페이스북|facebook|트위터|twitter|틱톡|tiktok|스레드|threads)${HANDLE}`);
 
 function hasPhone(t: string) {
   // 숫자 사이에 띄어쓰기·하이픈·점이 있어도 찾는다
-  if (/01[016789]\d{7,8}/.test(t.replace(/[\s\-.·_/()]/g, ''))) return true;
+  const compact = t.replace(/[\s\-.·_/()+]/g, '');
+  if (/01[016789]\d{7,8}/.test(compact)) return true;
+  // 국가번호로 쓴 번호 (+82 10-1234-5678)
+  if (/821[016789]\d{7,8}/.test(compact)) return true;
   // '공일공 일이삼사…'처럼 한글로 쓴 번호: 숫자 글자만으로 이어진 덩어리에서만 찾는다 (보통 문장 오인 방지)
   for (const run of t.match(/[공영일이삼사오육륙칠팔구0-9][공영일이삼사오육륙칠팔구0-9\s\-.]{8,}/g) || []) {
     const d = run.replace(/[\s\-.]/g, '').replace(/[^0-9]/g, (c) => KOR_DIGITS[c] || '');
@@ -32,7 +35,8 @@ function hasPhone(t: string) {
 
 // strict=false(회사·직업 칸)면 번호·이메일·링크만 본다 ('카카오' 같은 회사 이름 오인 방지)
 export function findContact(text: string | null | undefined, strict = true): ContactHit | null {
-  const t = (text || '').toLowerCase();
+  // 전각 영문·숫자·기호(０１０, ＫＡＫＡＯ, ＠)도 보통 문자로 바꿔서 본다 (한글 자모는 그대로)
+  const t = (text || '').replace(/[\uFF01-\uFF5E]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/\u3000/g, ' ').toLowerCase();
   if (!t.trim()) return null;
   if (hasPhone(t)) return 'phone';
   if (/[\w.+-]+@[\w-]+\.[a-z]{2,}/.test(t)) return 'email';
@@ -51,4 +55,11 @@ export function findContactIn(fields: Record<string, string | null | undefined>,
     if (hit) return { field, hit };
   }
   return null;
+}
+
+// 회원에게 보여 줄 파트너 글: 연락처가 들어 있으면 감춘다 (차단 전에 승인된 글)
+export const HIDDEN_CONTACT_TEXT = '연락처가 들어 있어 이 글은 가렸어요. 궁금한 점은 앱 채팅으로 물어보세요';
+export function publicText(text: string | null | undefined): string {
+  const t = (text || '').trim();
+  return t && findContact(t) ? HIDDEN_CONTACT_TEXT : t;
 }
