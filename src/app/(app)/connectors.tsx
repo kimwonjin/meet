@@ -14,6 +14,7 @@ import ReviewList from '@/components/ReviewList';
 import SafetyActions from '@/components/SafetyActions';
 import MemberProfileView from '@/components/MemberProfileView';
 import { useMemberFilter } from '@/components/MemberFilter';
+import { BulkMessageRow } from '@/components/BulkMessage';
 import PartnerComposition from '@/components/PartnerComposition';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
@@ -587,6 +588,14 @@ export default function ConnectorsScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* 내 회원에게 같은 안내를 한꺼번에 (회원 2명 이상일 때) */}
+        {tabStatus === 'approved' && (
+          <BulkMessageRow
+            style={styles.bulkRow}
+            members={tabMembers.filter((m: any) => !m.withdrawn_at && !m.suspended_at).map((m: any) => ({ id: m.id, name: m.business_name || m.name || '회원', sub: pausedIds.has(m.id) ? '쉬는 중' : m.location || '' }))}
+          />
+        )}
 
         {/* 매칭 탭과 같은 배치: 제목 줄 오른쪽에 필터, 아래 이름 검색 */}
         {tabMembers.length > 0 && (
@@ -1547,6 +1556,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#5B21FF',
   },
+  bulkRow: { marginHorizontal: 20, marginTop: 12 },
   sortRow: { flexDirection: 'row', gap: 14, marginTop: 10, paddingHorizontal: 2 },
   sortT: { fontSize: 13, color: '#87848D' },
   sortTOn: { color: '#322F38', fontWeight: '700' },
