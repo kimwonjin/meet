@@ -6,6 +6,7 @@ import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, 
 import { Redirect, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { partnerIntro } from '@/lib/format';
 import { reportDeadline } from '@/lib/reportDeadline';
+import { CONTACT_HIT_LABEL, findContact } from '@/lib/contactGuard';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -604,6 +605,7 @@ export default function SettlementsScreen() {
                               <Text style={styles.reviewLabel}>{k === 'career' ? '경력' : '파트너 소개'}</Text>
                               <Text style={styles.reviewOld} numberOfLines={3}>지금: {now || '(비어 있음)'}</Text>
                               <Text style={styles.reviewNew}>바뀔 글: {next || '(비움)'}</Text>
+                              {!!findContact(next) && <Text style={styles.reviewWarn}>⚠️ {CONTACT_HIT_LABEL[findContact(next)!]}가 들어 있어요. 반려해 주세요</Text>}
                             </View>
                           );
                         })}
@@ -928,6 +930,7 @@ const styles = StyleSheet.create({
   reviewOld: { fontSize: 13, color: '#98959E', lineHeight: 19 },
   reviewNew: { fontSize: 14, color: '#211E27', lineHeight: 20, marginTop: 4 },
   reasonInput: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, padding: 12, minHeight: 80, fontSize: 14, textAlignVertical: 'top', marginVertical: 12 },
+  reviewWarn: { fontSize: 12, color: '#E5484D', fontWeight: '700', marginTop: 6 },
   reportSoon: { borderWidth: 1.5, borderColor: '#F5A524' },
   reportOver: { borderWidth: 1.5, borderColor: '#E5484D' },
   reportDeadline: { fontSize: 12, color: '#87848D', marginTop: -2, marginBottom: 8 },

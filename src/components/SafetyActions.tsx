@@ -10,15 +10,19 @@ interface Props {
   targetId: string;
   targetName: string;
   context: ReportContext;
-  // 'links': 프로필 아래 작은 글씨 링크 / 'menu': 채팅 헤더의 ⋯ 버튼
-  variant?: 'links' | 'menu';
+  // 'links': 프로필 아래 작은 글씨 링크 / 'menu': 채팅 헤더의 ⋯ 버튼 / 'none': 버튼 없이 openReport로만 연다
+  variant?: 'links' | 'menu' | 'none';
+  // true가 되면 신고 시트를 바로 연다 (예: 만남 다음 날 '불편한 일이 있었어요')
+  openReport?: boolean;
+  // 신고 시트를 닫거나 신고를 마쳤을 때
+  onClose?: () => void;
   // 차단을 마친 뒤 (예: 채팅 입력창 잠그기)
   onBlocked?: () => void;
 }
 
 // 프로필·채팅 아래에 두는 작은 '신고하기 · 차단하기' 링크.
 // 자주 쓰는 기능이 아니므로 눈에 띄지 않게 회색 글씨로 두고, 누르면 바텀시트가 열린다.
-export default function SafetyActions({ targetId, targetName, context, variant = 'links', onBlocked }: Props) {
+export default function SafetyActions({ targetId, targetName, context, variant = 'links', onBlocked, openReport, onClose }: Props) {
   const { user } = useAuth();
   const toast = useToast();
   const [mode, setMode] = useState<'menu' | 'report' | 'block' | null>(null);
@@ -33,6 +37,7 @@ export default function SafetyActions({ targetId, targetName, context, variant =
     supabase.from('hopeful_requests').select('id').eq('hopeful_id', user.id).eq('connector_id', targetId).in('status', ['approved', 'pending'])
       .then(({ data }) => { setIsMyPartner(!!data?.length); setAlsoLeave(true); });
   }, [mode, targetId, user?.id]);
+  useEffect(() => { if (openReport) setMode('report'); }, [openReport]);
 
   if (!user || user.id === targetId) return null;
 
@@ -41,6 +46,7 @@ export default function SafetyActions({ targetId, targetName, context, variant =
     setMode(null);
     setReason(null);
     setDetail('');
+    onClose?.();
   }
 
   async function submitReport() {
@@ -56,6 +62,7 @@ export default function SafetyActions({ targetId, targetName, context, variant =
     setMode(null);
     setReason(null);
     setDetail('');
+    onClose?.();
   }
 
   async function submitBlock() {
@@ -84,7 +91,7 @@ export default function SafetyActions({ targetId, targetName, context, variant =
 
   return (
     <>
-      {variant === 'menu' ? (
+      {variant === 'none' ? null : variant === 'menu' ? (
         <TouchableOpacity onPress={() => setMode('menu')} style={styles.menuBtn} accessibilityLabel="신고·차단 메뉴">
           <Text style={styles.menuBtnText}>⋯</Text>
         </TouchableOpacity>

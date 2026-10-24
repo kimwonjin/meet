@@ -554,6 +554,12 @@ export default function ProfileScreen() {
       toast.show(`'${banned}' 같은 표현은 쓸 수 없어요 (과장 광고 방지). 다른 표현으로 바꿔주세요`, 'error');
       return;
     }
+    // 연락처를 적으면 회원이 서비스 밖에서 직접 거래할 수 있어 막는다 (파트너 약관 제3조·제6조)
+    const contact = textChanged && !resubmitRejected ? findContactIn({ career: text.career, intro: text.intro }) : null;
+    if (contact) {
+      toast.show(`소개 글에 ${CONTACT_HIT_LABEL[contact.hit]}는 적을 수 없어요. 회원과는 앱 채팅으로 이야기해 주세요`, 'error');
+      return;
+    }
 
     setLoading(true);
     try {

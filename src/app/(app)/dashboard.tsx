@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
+import { UserLookupRow } from '@/components/UserLookup';
 import { reportDeadline } from '@/lib/reportDeadline';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -173,6 +174,7 @@ export default function DashboardScreen() {
         <Text style={s.noticeBtnT}>📢 전체 공지 보내기</Text>
         <Text style={s.noticeBtnSub}>회원·파트너에게 알림으로 ›</Text>
       </TouchableOpacity>
+      <UserLookupRow style={s.lookupRow} />
 
       {/* 지금 처리할 일 */}
       <Text style={s.h2}>지금 처리할 일 {todo ? <Text style={todoTotal ? s.h2Count : s.h2Zero}>{todoTotal ? `${todoTotal}건` : '없어요'}</Text> : null}</Text>
@@ -249,6 +251,7 @@ const s = StyleSheet.create({
   totalBox: { flex: 1, backgroundColor: '#5B21FF', borderRadius: 16, padding: 16 },
   totalLabel: { fontSize: 12, color: 'rgba(255,255,255,0.85)' },
   totalValue: { fontSize: 24, fontWeight: '800', color: '#fff', marginTop: 4 },
+  lookupRow: { marginHorizontal: 20, marginTop: 10 },
   noticeBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginTop: 12, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: '#E4D9FF', backgroundColor: '#F5F1FF' },
   noticeBtnT: { fontSize: 14, fontWeight: '700', color: '#322F38' },
   noticeBtnSub: { fontSize: 12, color: '#5B21FF', fontWeight: '600' },

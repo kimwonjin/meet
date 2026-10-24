@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   TextInput,
 } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -47,6 +47,14 @@ const meetTime = (iso: string) => {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}시${d.getMinutes() ? ` ${d.getMinutes()}분` : ''}`;
 };
 
+// 만남 전 안전 수칙 (다가오는 소개팅 카드에서 펼쳐 본다)
+const SAFETY_TIPS = [
+  '처음 만남은 사람이 많은 카페·식당에서 낮이나 이른 저녁에',
+  '만나는 곳과 시간을 가족이나 친구에게 알려 두기',
+  '돈을 빌려 달라거나 투자를 권하면 바로 거절하고 신고하기',
+  '불편하면 언제든 자리를 떠도 괜찮아요. 앱에서 신고·차단할 수 있어요',
+];
+
 export default function HomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
@@ -66,6 +74,18 @@ export default function HomeScreen() {
   const [inUseSessions, setInUseSessions] = useState(0);
   // 회원 홈 시트: 소개 카드 목록(ids), profileOf가 있으면 그 소개의 상대 프로필
   const [matchSheet, setMatchSheet] = useState<{ title: string; ids: string[]; profileOf?: string } | null>(null);
+  // 만남 다음 날 안전 확인 (알림의 ?safety=매칭id로 열림) · 상대 신고 시트
+  const homeParams = useLocalSearchParams<{ safety?: string }>();
+  const [safetyCheck, setSafetyCheck] = useState<any | null>(null);
+  const [reportFor, setReportFor] = useState<{ id: string; name: string } | null>(null);
+  const [showSafetyTips, setShowSafetyTips] = useState(false);
+  useEffect(() => {
+    const id = homeParams.safety;
+    if (!id || !receivedMatches.length) return;
+    const m = receivedMatches.find((x) => x.id === id);
+    router.setParams({ safety: undefined });
+    if (m?.partner) setSafetyCheck(m);
+  }, [homeParams.safety, receivedMatches]);
   const [freeSessions, setFreeSessions] = useState(0);
   const [partnerNames, setPartnerNames] = useState<Record<string, string>>({});
   // 내 파트너 가입 상태: 승인된 파트너 수 · 신청(대기 포함) 수
@@ -1118,6 +1138,15 @@ export default function HomeScreen() {
               <View style={styles.meetingBox}>
                 <Text style={styles.meetingDate}>📅 {formatMeetingDate(item.meeting_scheduled_at)}</Text>
                 <Text style={styles.meetingHint}>상대 연락처를 채팅으로 보내드렸어요. 시간과 장소는 서로 연락해 정해주세요.</Text>
+                {/* 안전 수칙은 접어 두고 필요할 때 펼친다 */}
+                <TouchableOpacity onPress={() => setShowSafetyTips(!showSafetyTips)} accessibilityLabel={showSafetyTips ? '안전하게 만나는 법 접기' : '안전하게 만나는 법 보기'} style={styles.tipsToggle}>
+                  <Text style={styles.tipsToggleText}>🛡️ 안전하게 만나는 법 {showSafetyTips ? '▴' : '▾'}</Text>
+                </TouchableOpacity>
+                {showSafetyTips && (
+                  <View style={styles.tipsBox}>
+                    {SAFETY_TIPS.map((t) => <Text key={t} style={styles.tipsLine}>· {t}</Text>)}
+                  </View>
+                )}
                 <TouchableOpacity
                   style={styles.openChatBtn}
                   // 연락처가 온 담당 파트너와의 대화방을 바로 연다
@@ -1188,6 +1217,11 @@ export default function HomeScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
+              {item.partner && (
+                <TouchableOpacity style={styles.changeLink} onPress={() => { setMatchSheet(null); setReportFor({ id: item.partner.id, name: item.partner.name }); }} accessibilityLabel="만남 중 불편한 일 알려 주기">
+                  <Text style={styles.changeLinkText}>만남 중 불편한 일이 있었나요? 알려 주기</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -1501,6 +1535,18 @@ export default function HomeScreen() {
           sheetItems.map((item) => <View key={item.id}>{renderMatchCard(item)}</View>)
         )}
       </BottomSheet>
+
+      {/* 만남 다음 날 안전 확인 (알림에서 열림) */}
+      <BottomSheet visible={!!safetyCheck} onClose={() => setSafetyCheck(null)} title="만남은 괜찮으셨나요?">
+        <Text style={styles.safetyLead}>{safetyCheck?.partner?.name}님과의 만남 중 불편한 일이 있었다면 알려 주세요. 알려 준 사실은 상대에게 알리지 않아요</Text>
+        <TouchableOpacity style={styles.safetyOk} onPress={() => { setSafetyCheck(null); toast.show('다행이에요. 좋은 인연을 응원할게요', 'success'); }} accessibilityLabel="괜찮았어요">
+          <Text style={styles.safetyOkText}>괜찮았어요</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.safetyBad} onPress={() => { const p = safetyCheck?.partner; setSafetyCheck(null); if (p) setReportFor({ id: p.id, name: p.name }); }} accessibilityLabel="불편한 일이 있었어요">
+          <Text style={styles.safetyBadText}>불편한 일이 있었어요</Text>
+        </TouchableOpacity>
+      </BottomSheet>
+      {reportFor && <SafetyActions key={reportFor.id} targetId={reportFor.id} targetName={reportFor.name} context="match" variant="none" openReport onClose={() => setReportFor(null)} />}
     </ScrollView>
   );
 }
@@ -1653,6 +1699,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#5B21FF',
   },
+  tipsToggle: { marginTop: 10, paddingVertical: 4 },
+  tipsToggleText: { fontSize: 13, color: '#54515A', fontWeight: '600' },
+  tipsBox: { backgroundColor: '#fff', borderRadius: 10, padding: 10, marginTop: 4, gap: 4 },
+  tipsLine: { fontSize: 12, color: '#54515A', lineHeight: 18 },
+  safetyLead: { fontSize: 14, color: '#434049', lineHeight: 21, marginBottom: 16 },
+  safetyOk: { height: 50, borderRadius: 12, backgroundColor: '#5B21FF', alignItems: 'center', justifyContent: 'center' },
+  safetyOkText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  safetyBad: { alignSelf: 'center', paddingVertical: 14 },
+  safetyBadText: { fontSize: 14, color: '#E5484D', textDecorationLine: 'underline' },
   meetingHint: {
     fontSize: 12,
     color: '#65626B',
