@@ -3,6 +3,7 @@ import { BackupMenuRow } from '@/components/BackupSettings';
 import { PushMenuRow } from '@/components/PushSettings';
 import { PauseMenuRow } from '@/components/PauseSettings';
 import { AwayMenuRow } from '@/components/AwaySettings';
+import { profileFill } from '@/lib/profileFill';
 import { PrefsMenuRow } from '@/components/PrefsSettings';
 import { FeedbackMenuRow } from '@/components/FeedbackSettings';
 import { AvoidMenuRow } from '@/components/AvoidSettings';
@@ -1386,15 +1387,7 @@ export default function ProfileScreen() {
       <BottomSheet visible={showProfileModal && profileLoaded && wizardStep === null} onClose={() => setShowProfileModal(false)} title="내 프로필 수정">
         {/* 상대 시점 미리보기 + 채운 정도 */}
         {(() => {
-          const items: [string, boolean][] = [
-            ['사진', photoUrls.some(Boolean)], ['지역', !!profileData.location], ['키', !!profileData.height], ['직업', !!profileData.job.trim()],
-            ['학력', !!profileData.education], ['자기소개', !!profileData.bio.trim()], ['종교', !!profileData.religion],
-            ['흡연·음주', !!profileData.smoking && !!profileData.drinking], ['체형', !!profileData.body_type],
-            ...(companyAvailable ? ([['직업 분류', !!profileData.job_category]] as [string, boolean][]) : []),
-          ];
-          const done = items.filter(([, v]) => v).length;
-          const pct = Math.round((done / items.length) * 100);
-          const missing = items.filter(([, v]) => !v).map(([k]) => k);
+          const { pct, missing } = profileFill({ ...profileData, photo_urls: photoUrls }, companyAvailable);
           return (
             <TouchableOpacity style={styles.previewRow} onPress={() => setShowPreview(true)} accessibilityLabel="상대에게 이렇게 보여요">
               <View style={{ flex: 1 }}>

@@ -45,3 +45,20 @@ export async function fetchWaitingMembers(partnerId: string): Promise<WaitingMem
     .filter((w) => w.days >= WAITING_DAYS)
     .sort((a, b) => b.days - a.days);
 }
+
+// 회원별 마지막 소개 시각 (회원 목록 '오래 기다린 순' 정렬용). 소개가 없으면 빠진다
+export async function fetchLastIntroAt(ids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const list = [...new Set(ids.filter(Boolean))];
+  if (!list.length) return out;
+  const [{ data: m1 }, { data: m2 }] = await Promise.all([
+    supabase.from('match_requests').select('hopeful_1_id, hopeful_2_id, created_at').in('hopeful_1_id', list),
+    supabase.from('match_requests').select('hopeful_1_id, hopeful_2_id, created_at').in('hopeful_2_id', list),
+  ]);
+  for (const m of [...(m1 || []), ...(m2 || [])] as any[]) {
+    for (const id of [m.hopeful_1_id, m.hopeful_2_id]) {
+      if (list.includes(id) && m.created_at && m.created_at > (out.get(id) || '')) out.set(id, m.created_at);
+    }
+  }
+  return out;
+}

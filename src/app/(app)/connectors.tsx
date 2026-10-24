@@ -27,6 +27,7 @@ import { fetchVerifiedIds } from '@/lib/memberNotes';
 import { fetchPausedIds } from '@/lib/pause';
 import { publicText } from '@/lib/contactGuard';
 import { fetchMyNotes } from '@/lib/memberNotes';
+import { daysSince, fetchLastIntroAt } from '@/lib/waiting';
 import { fetchCoupleCount } from '@/lib/couples';
 
 interface Connector {
@@ -90,6 +91,9 @@ export default function ConnectorsScreen() {
   const [search, setSearch] = useState('');
   // 파트너의 회원 탭 필터 (매칭 탭과 같은 필터)
   const memberFilter = useMemberFilter();
+  // 내 회원 정렬: 최근 가입 순(기본) · 오래 기다린 순 · 이용권 남은 순
+  const [memberSort, setMemberSort] = useState<'recent' | 'wait' | 'credit'>('recent');
+  const [lastIntro, setLastIntro] = useState<Map<string, string>>(new Map());
   // 내가 쓴 회원 메모 (회원 탭 검색창에서 메모 내용으로도 찾는다)
   const [myNotes, setMyNotes] = useState<Map<string, string>>(new Map());
   useEffect(() => {
@@ -147,6 +151,11 @@ export default function ConnectorsScreen() {
     fetchVerifiedIds(memberIdsKey.split(',')).then(setVerifiedIds).catch(() => {});
     fetchPausedIds(memberIdsKey.split(',')).then(setPausedIds).catch(() => {});
   }, [memberIdsKey]);
+  // '오래 기다린 순'을 고를 때만 마지막 소개 시각을 불러온다
+  useEffect(() => {
+    if (memberSort !== 'wait' || !allRequests.length) return;
+    fetchLastIntroAt(allRequests.filter((r: any) => r.request_status === 'approved').map((r: any) => r.id)).then(setLastIntro).catch(() => {});
+  }, [memberSort, memberIdsKey]);
 
   // 초대 링크로 들어온 회원: 초대한 파트너 정보를 바로 열어 준다
   const params = useLocalSearchParams<{ open?: string; tab?: string; buy?: string }>();
@@ -215,6 +224,7 @@ export default function ConnectorsScreen() {
             request_id: req.id,
             request_status: req.status,
             remaining_credit: remainingCredit,
+            joined_at: req.created_at,
           };
         });
         setAllRequests(requests);
@@ -540,7 +550,13 @@ export default function ConnectorsScreen() {
   // connector면 회원 관리 화면
   if (user?.role === 'connector') {
     const tabMembers = tabStatus === 'ally' ? allyMembers : allRequests.filter(r => r.request_status === tabStatus);
-    const displayRequests = tabMembers.filter((m: any) => memberFilter.passes(m, [], m.ally_connector_name, myNotes.get(m.id)));
+    const waitDays = (m: any) => daysSince(lastIntro.get(m.id) || m.joined_at);
+    const sortOn = tabStatus === 'approved' && tabMembers.length > 1;
+    const displayRequests = tabMembers
+      .filter((m: any) => memberFilter.passes(m, [], m.ally_connector_name, myNotes.get(m.id)))
+      .sort((a: any, b: any) => !sortOn || memberSort === 'recent' ? 0
+        : memberSort === 'wait' ? waitDays(b) - waitDays(a)
+        : (b.remaining_credit || 0) - (a.remaining_credit || 0));
     const emptyText = {
       approved: '승인한 회원이 없습니다',
       pending: '대기 중인 요청이 없습니다',
@@ -585,6 +601,15 @@ export default function ConnectorsScreen() {
               {memberFilter.renderToggle()}
             </View>
             {memberFilter.render(tabMembers, false, '🔍 이름·메모 내용으로 찾기')}
+            {sortOn && (
+              <View style={styles.sortRow}>
+                {([['recent', '최근 가입 순'], ['wait', '오래 기다린 순'], ['credit', '이용권 남은 순']] as const).map(([k, label]) => (
+                  <TouchableOpacity key={k} onPress={() => setMemberSort(k)} hitSlop={6} accessibilityLabel={`정렬 ${label}`}>
+                    <Text style={[styles.sortT, memberSort === k && styles.sortTOn]}>{memberSort === k ? '✓ ' : ''}{label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         )}
 
@@ -613,7 +638,8 @@ export default function ConnectorsScreen() {
                       <Text style={styles.desc}>
                         {tabStatus === 'ally'
                           ? [item.ally_connector_name + ' 소속', item.gender === 'M' ? '남' : item.gender === 'F' ? '여' : null, item.age && `${item.age}세`, item.location].filter(Boolean).join(' · ')
-                          : [item.gender === 'M' ? '남' : item.gender === 'F' ? '여' : null, item.age && `${item.age}세`, item.location].filter(Boolean).join(' · ')}
+                          : [item.gender === 'M' ? '남' : item.gender === 'F' ? '여' : null, item.age && `${item.age}세`, item.location,
+                              sortOn && memberSort === 'wait' && (lastIntro.has(item.id) ? `마지막 소개 ${waitDays(item)}일 전` : `가입 ${waitDays(item)}일째 소개 없음`)].filter(Boolean).join(' · ')}
                       </Text>
                     </View>
                     {tabStatus !== 'ally' && (
@@ -1521,6 +1547,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#5B21FF',
   },
+  sortRow: { flexDirection: 'row', gap: 14, marginTop: 10, paddingHorizontal: 2 },
+  sortT: { fontSize: 13, color: '#87848D' },
+  sortTOn: { color: '#322F38', fontWeight: '700' },
   filterWrap: {
     paddingHorizontal: 20,
     marginBottom: 8,

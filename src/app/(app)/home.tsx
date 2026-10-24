@@ -24,6 +24,7 @@ import { daysSince, fetchWaitingMembers, PENDING_JOIN_DAYS, WAITING_DAYS, Waitin
 import { PushPrompt } from '@/components/PushSettings';
 import { PauseBanner } from '@/components/PauseSettings';
 import { AwayBanner } from '@/components/AwaySettings';
+import { FILL_NUDGE_BELOW, profileFill } from '@/lib/profileFill';
 import { getPauseState } from '@/lib/pause';
 import { createNotification } from '@/lib/notifications';
 import { getOrCreateThread, sendMessage } from '@/lib/chat';
@@ -103,6 +104,8 @@ export default function HomeScreen() {
   const [myPartners, setMyPartners] = useState<{ approved: number; requested: number; pendingId?: string; pendingDays?: number; approvedId?: string; waitDays?: number; paused?: boolean }>({ approved: 0, requested: 0 });
   const [approvedMemberCount, setApprovedMemberCount] = useState(0);
   const [profileGaps, setProfileGaps] = useState<string[]>([]);
+  // 프로필 채우기 도우미: 채운 정도와 다음에 채울 것 하나
+  const [profileFillState, setProfileFillState] = useState<ReturnType<typeof profileFill> | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   // 파트너 '일정 전체' 시트 (앞으로 2주 + 완료 처리가 필요한 만남)
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -273,13 +276,11 @@ export default function HomeScreen() {
         );
       } else {
         // 프로필이 비어 있으면 파트너가 소개하기 어렵다 → 채울 항목을 알려준다
-        const { data: me } = await supabase.from('users').select('photo_urls, bio, job, height').eq('id', user!.id).maybeSingle();
-        setProfileGaps([
-          !(me?.photo_urls ?? []).some(Boolean) && '사진',
-          !me?.bio && '자기소개',
-          !me?.job && '직업',
-          !me?.height && '키',
-        ].filter(Boolean) as string[]);
+        let { data: me, error: meErr }: { data: any; error: any } = await supabase.from('users').select('photo_urls, bio, job, height, location, education, religion, smoking, drinking, body_type, job_category').eq('id', user!.id).maybeSingle();
+        if (meErr) ({ data: me } = await supabase.from('users').select('photo_urls, bio, job, height, location, education, religion, smoking, drinking, body_type').eq('id', user!.id).maybeSingle());
+        const fill = profileFill(me || {}, !meErr);
+        setProfileFillState(fill);
+        setProfileGaps(fill.missing.filter((k) => ['사진', '자기소개', '직업', '키'].includes(k)));
 
         // 회원: 받은 매칭 제안 조회
         const { data: reqData } = await supabase
@@ -1512,9 +1513,9 @@ export default function HomeScreen() {
       </TouchableOpacity>
 
       {/* 프로필이 비어 있으면 (보라 카드에서 안내하지 않을 때만) 한 줄로 */}
-      {!isNew && profileGaps.length > 0 && (
+      {!isNew && profileFillState?.next && (profileGaps.length > 0 || profileFillState.pct < FILL_NUDGE_BELOW) && (
         <TouchableOpacity style={styles.aWait} onPress={() => router.push({ pathname: '/profile', params: { open: 'profile' } })} accessibilityLabel="프로필 채우기">
-          <Text style={styles.aWaitT}>프로필을 채우면 소개받기 쉬워요 · {profileGaps.join(' · ')}</Text>
+          <Text style={styles.aWaitT}>프로필 {profileFillState.pct}% · {profileFillState.next.hint}</Text>
           <Text style={styles.aAct}>채우기 ›</Text>
         </TouchableOpacity>
       )}
