@@ -53,7 +53,6 @@ export function FeedbackMenuRow({ styles: m }: { styles: { menuItem: any; menuIc
         <Text style={m.menuIcon}>💬</Text>
         <View style={m.menuContent}>
           <Text style={m.menuTitle}>의견 보내기</Text>
-          <Text style={m.menuSub}>불편한 점이나 바라는 점을 알려 주세요</Text>
         </View>
         <Text style={m.arrow}>›</Text>
       </TouchableOpacity>

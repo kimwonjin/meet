@@ -25,6 +25,8 @@ export function usePushState() {
   return { state, refresh, setState };
 }
 
+// 마이 메뉴 줄 오른쪽에 짧게
+const SHORT_STATUS: Record<PushState, string> = { on: '켜짐', off: '꺼짐', 'needs-install': '홈 화면 추가 필요', inapp: '다른 브라우저에서', denied: '차단됨', unsupported: '', unavailable: '' };
 const STATUS: Record<PushState, string> = {
   on: '켜져 있어요',
   off: '꺼져 있어요',
@@ -221,7 +223,7 @@ export function PushMenuRow({ styles: m }: { styles: { menuItem: any; menuIcon: 
         <Text style={m.menuIcon}>🔔</Text>
         <View style={m.menuContent}>
           <Text style={m.menuTitle}>휴대폰 알림</Text>
-          <Text style={[m.menuSub, state === 'on' && { color: '#5B21FF' }]}>{STATUS[state]}</Text>
+          <Text style={[m.menuSub, state === 'on' && { color: '#5B21FF' }]} numberOfLines={1}>{SHORT_STATUS[state]}</Text>
         </View>
         <Text style={m.arrow}>›</Text>
       </TouchableOpacity>

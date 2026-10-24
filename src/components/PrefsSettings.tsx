@@ -50,7 +50,7 @@ export function PrefsMenuRow({ styles: m }: { styles: { menuItem: any; menuIcon:
         <Text style={m.menuIcon}>💝</Text>
         <View style={m.menuContent}>
           <Text style={m.menuTitle}>원하는 상대</Text>
-          <Text style={m.menuSub} numberOfLines={1}>{summary || '알려 주면 더 잘 맞는 분을 소개받아요'}</Text>
+          <Text style={m.menuSub} numberOfLines={1}>{summary || '상관없어요'}</Text>
         </View>
         <Text style={m.arrow}>›</Text>
       </TouchableOpacity>

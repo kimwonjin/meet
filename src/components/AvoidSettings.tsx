@@ -87,7 +87,7 @@ export function AvoidMenuRow({ styles: m }: { styles: { menuItem: any; menuIcon:
         <Text style={m.menuIcon}>🛡️</Text>
         <View style={m.menuContent}>
           <Text style={m.menuTitle}>아는 사람 피하기</Text>
-          <Text style={[m.menuSub, !!sub && { color: '#5B21FF' }]}>{sub ? `켜짐 · ${sub}` : '같은 회사·지인과 소개되지 않게'}</Text>
+          <Text style={[m.menuSub, !!sub && { color: '#5B21FF' }]} numberOfLines={1}>{sub ? `켜짐 · ${sub}` : ''}</Text>
         </View>
         <Text style={m.arrow}>›</Text>
       </TouchableOpacity>
