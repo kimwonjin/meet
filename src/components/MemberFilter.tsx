@@ -27,11 +27,11 @@ export function useMemberFilter(details?: Map<string, MemberDetail>, districts?:
   const active = !!query.trim() || gender !== 'all' || ages.length > 0 || regions.length > 0 || jobCats.length > 0 || conds.length > 0 || dists.length > 0;
   const chipCount = (gender !== 'all' ? 1 : 0) + ages.length + regions.length + jobCats.length + conds.length + dists.length;
 
-  // partnerName: 동맹 회원이면 소속 파트너 이름도 같이 찾는다
-  function passes(m: FilterableMember, keepIds: string[] = [], partnerName?: string) {
+  // partnerName: 동맹 회원이면 소속 파트너 이름도 같이 찾는다 / note: 내가 쓴 메모 내용으로도 찾는다
+  function passes(m: FilterableMember, keepIds: string[] = [], partnerName?: string, note?: string) {
     if (keepIds.includes(m.id)) return true;
     const q = query.trim();
-    if (q && !(m.name || '').includes(q) && !(partnerName || '').includes(q)) return false;
+    if (q && !(m.name || '').includes(q) && !(partnerName || '').includes(q) && !(note || '').includes(q)) return false;
     if (gender !== 'all' && m.gender !== gender) return false;
     if (ages.length) {
       if (!m.age) return false;
@@ -75,7 +75,7 @@ export function useMemberFilter(details?: Map<string, MemberDetail>, districts?:
 
   // candidates: 지역 버튼을 만들 기준 회원들 (있는 지역만 보여준다)
   // withToggle=false: 필터 버튼은 renderToggle()로 다른 곳에 따로 놓는다
-  function render(candidates: FilterableMember[], withToggle = true) {
+  function render(candidates: FilterableMember[], withToggle = true, placeholder = '🔍 회원·파트너 이름으로 찾기') {
     // 동맹 관리 필터와 같은 모양: 고정된 8개 지역 + 회원 지역 중 목록에 없는 값
     const extra = [...new Set(candidates.map((m) => m.location).filter((l) => l && !REGIONS.includes(l)) as string[])].sort();
     const regionOptions = [...REGIONS, ...extra];
@@ -90,7 +90,7 @@ export function useMemberFilter(details?: Map<string, MemberDetail>, districts?:
         <View style={styles.topRow}>
           <TextInput
             style={styles.search}
-            placeholder="🔍 회원·파트너 이름으로 찾기"
+            placeholder={placeholder}
             placeholderTextColor="#A9A6AF"
             value={query}
             onChangeText={setQuery}

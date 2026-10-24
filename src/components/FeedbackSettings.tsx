@@ -121,6 +121,17 @@ export function FeedbackInbox() {
   return (
     <View>
       <Text style={s.h2}>받은 의견 <Text style={open.length ? s.h2Count : s.h2Zero}>{open.length ? `${open.length}건` : '없어요'}</Text></Text>
+      {/* 최근 탈퇴 이유 모아 보기 (탈퇴 시 고른 이유) */}
+      {(() => {
+        const counts = new Map<string, number>();
+        for (const r of rows.filter((x) => x.screen === 'withdraw')) {
+          const m = String(r.message || '').match(/^\[탈퇴\] ([^·]*)/);
+          for (const reason of (m?.[1] || '').split(',').map((t: string) => t.trim()).filter((t: string) => t && t !== '이유 없음')) counts.set(reason, (counts.get(reason) || 0) + 1);
+        }
+        if (!counts.size) return null;
+        const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · ');
+        return <Text style={s.withdrawSum}>최근 탈퇴 이유: {top}</Text>;
+      })()}
       <View style={s.card}>
         {list.length === 0 ? <Text style={s.empty}>처리할 의견이 없어요</Text> : list.map((r) => (
           <View key={r.id} style={[s.item, r.status === 'done' && { opacity: 0.55 }]}>
@@ -149,6 +160,7 @@ export function FeedbackInbox() {
 }
 
 const s = StyleSheet.create({
+  withdrawSum: { fontSize: 12, color: '#65626B', marginHorizontal: 20, marginBottom: 8, lineHeight: 18 },
   lead: { fontSize: 13, color: '#65626B', lineHeight: 19 },
   input: { minHeight: 120, borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 10, padding: 12, fontSize: 14, color: '#322F38', textAlignVertical: 'top' },
   row: { flexDirection: 'row' },

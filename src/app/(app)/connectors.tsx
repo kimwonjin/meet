@@ -26,6 +26,7 @@ import ProfileFillRequest from '@/components/ProfileFillRequest';
 import { fetchVerifiedIds } from '@/lib/memberNotes';
 import { fetchPausedIds } from '@/lib/pause';
 import { publicText } from '@/lib/contactGuard';
+import { fetchMyNotes } from '@/lib/memberNotes';
 import { fetchCoupleCount } from '@/lib/couples';
 
 interface Connector {
@@ -89,6 +90,12 @@ export default function ConnectorsScreen() {
   const [search, setSearch] = useState('');
   // 파트너의 회원 탭 필터 (매칭 탭과 같은 필터)
   const memberFilter = useMemberFilter();
+  // 내가 쓴 회원 메모 (회원 탭 검색창에서 메모 내용으로도 찾는다)
+  const [myNotes, setMyNotes] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    if (user?.role !== 'connector') return;
+    fetchMyNotes(user.id).then(setMyNotes).catch(() => {});
+  }, [user?.id, selectedConnector?.id]);
   // 회원이 보는 파트너 정보 (회원 구성·실적)
   const [overview, setOverview] = useState<any | null>(null);
   // 고른 파트너의 커플 성사 수 (SQL 전이면 null → 줄을 숨김)
@@ -533,7 +540,7 @@ export default function ConnectorsScreen() {
   // connector면 회원 관리 화면
   if (user?.role === 'connector') {
     const tabMembers = tabStatus === 'ally' ? allyMembers : allRequests.filter(r => r.request_status === tabStatus);
-    const displayRequests = tabMembers.filter((m: any) => memberFilter.passes(m, [], m.ally_connector_name));
+    const displayRequests = tabMembers.filter((m: any) => memberFilter.passes(m, [], m.ally_connector_name, myNotes.get(m.id)));
     const emptyText = {
       approved: '승인한 회원이 없습니다',
       pending: '대기 중인 요청이 없습니다',
@@ -577,7 +584,7 @@ export default function ConnectorsScreen() {
               ) : <View style={{ flex: 1 }} />}
               {memberFilter.renderToggle()}
             </View>
-            {memberFilter.render(tabMembers, false)}
+            {memberFilter.render(tabMembers, false, '🔍 이름·메모 내용으로 찾기')}
           </View>
         )}
 

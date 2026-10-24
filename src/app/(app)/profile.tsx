@@ -31,6 +31,7 @@ import { recordConsents, TermsDocKey } from '@/lib/terms';
 import { CONTACT_HIT_LABEL, ContactHit, findContactIn } from '@/lib/contactGuard';
 import { EXTRA_CONDITIONS, JOB_CATEGORIES, toggleCondition } from '@/lib/memberDetails';
 import { DISTRICTS } from '@/lib/regions';
+import { saveWithdrawReason, WITHDRAW_REASONS } from '@/lib/feedback';
 import MemberProfileView from '@/components/MemberProfileView';
 import { getPendingRefund, getRefundable, Refundable, requestRefund, withdrawAccount } from '@/lib/refunds';
 import { afterWithdraw, prepareWithdraw } from '@/lib/withdrawal';
@@ -684,21 +685,21 @@ export default function ProfileScreen() {
     }
   }
 
+  // 탈퇴 시트: 이유(선택)를 고르고 한 번 더 누르면 탈퇴
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawReasons, setWithdrawReasons] = useState<string[]>([]);
+  const [withdrawMemo, setWithdrawMemo] = useState('');
+
   async function handleWithdraw() {
     if (!user) return;
-    const ok = await confirm({
-      title: '정말 탈퇴할까요?',
-      message: '프로필, 사진, 파트너 연결 정보가 삭제되고 되돌릴 수 없어요. 결제·정산 기록은 법에 따라 5년간 보관됩니다.',
-      confirmText: '탈퇴',
-      destructive: true,
-    });
-    if (!ok) return;
+    setWithdrawOpen(false);
     setWithdrawing(true);
     try {
       // 탈퇴하면 연결 정보가 지워지므로, 정리할 것(사진·동맹·알림 받은 사람)을 먼저 모아 둔다
       const prep = await prepareWithdraw(user).catch(() => null);
       const result = await withdrawAccount(user.id);
       if (result.ok) {
+        await saveWithdrawReason(user, withdrawReasons, withdrawMemo);
         if (prep) await afterWithdraw(prep).catch(() => {});
         // 파트너 신청·활동과 초대 링크도 닫는다 (탈퇴한 사람이 승인되거나 초대장이 열리지 않게). 실패해도 탈퇴는 끝난 것
         await Promise.all([
@@ -1202,7 +1203,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           )}
           {user?.role !== 'operator' && (
-            <TouchableOpacity onPress={handleWithdraw} disabled={withdrawing} style={styles.policyLink}>
+            <TouchableOpacity onPress={() => { setWithdrawReasons([]); setWithdrawMemo(''); setWithdrawOpen(true); }} disabled={withdrawing} style={styles.policyLink} accessibilityLabel="회원 탈퇴">
               <Text style={styles.policyLinkText}>{withdrawing ? '처리 중...' : '회원 탈퇴'}</Text>
             </TouchableOpacity>
           )}
@@ -1610,6 +1611,35 @@ export default function ProfileScreen() {
           <Text style={styles.profileSaveBtnText}>{loading ? '저장 중...' : !profileLoaded ? '불러오는 중...' : '저장하기'}</Text>
         </TouchableOpacity>
       </BottomSheet>
+      {/* 탈퇴: 되돌릴 수 없어 시트에서 한 번 더 확인. 이유는 선택 (서비스 개선에만 씀) */}
+      <BottomSheet visible={withdrawOpen} onClose={() => setWithdrawOpen(false)} title="정말 탈퇴할까요?">
+        <Text style={styles.wdLead}>프로필, 사진, 파트너 연결 정보가 삭제되고 되돌릴 수 없어요. 결제·정산 기록은 법에 따라 5년간 보관됩니다.</Text>
+        <Text style={styles.wdAsk}>떠나시는 이유를 알려 주시면 더 나은 서비스를 만드는 데 쓸게요 (선택)</Text>
+        <View style={styles.buttonGroup}>
+          {WITHDRAW_REASONS.map((r) => {
+            const on = withdrawReasons.includes(r);
+            return (
+              <TouchableOpacity key={r} style={[styles.optionBtn, on && styles.optionBtnSelected]} onPress={() => setWithdrawReasons(on ? withdrawReasons.filter((x) => x !== r) : [...withdrawReasons, r])} aria-selected={on} accessibilityLabel={`탈퇴 이유 ${r}`}>
+                <Text style={[styles.optionBtnText, on && styles.optionBtnTextSelected]}>{r}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <TextInput style={[styles.formInput, { marginTop: 10 }]} value={withdrawMemo} onChangeText={(t) => setWithdrawMemo(t.slice(0, 300))} placeholder="더 하고 싶은 말 (선택)" placeholderTextColor="#BAB7C0" accessibilityLabel="탈퇴 메모" />
+        {/* 쉬고 싶은 회원에게는 탈퇴 대신 '잠시 쉬기'를 권한다 */}
+        {user?.role === 'hopeful' && withdrawReasons.includes('잠시 쉬고 싶어요') && (
+          <View style={styles.wdTip}>
+            <Text style={styles.wdTipT}>탈퇴하지 않고 새 소개만 멈출 수도 있어요. 정보와 이용권은 그대로 남아요</Text>
+            <TouchableOpacity onPress={() => { setWithdrawOpen(false); toast.show('마이 › 소개 설정 › 소개 잠시 쉬기에서 켤 수 있어요', 'info'); }} accessibilityLabel="탈퇴 대신 잠시 쉬기">
+              <Text style={styles.wdTipLink}>탈퇴 대신 잠시 쉬기 ›</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        <TouchableOpacity style={[styles.wdBtn, withdrawing && { opacity: 0.7 }]} onPress={handleWithdraw} disabled={withdrawing} accessibilityLabel="탈퇴하기">
+          {withdrawing ? <ActivityIndicator color="#fff" /> : <Text style={styles.wdBtnT}>탈퇴하기</Text>}
+        </TouchableOpacity>
+      </BottomSheet>
+
       {/* 미리보기: 소개받는 상대가 보는 그대로 (저장 전 내용도 반영) */}
       <BottomSheet visible={showPreview} onClose={() => setShowPreview(false)} title="상대에게 이렇게 보여요">
         {user && (
@@ -2418,6 +2448,13 @@ const styles = StyleSheet.create({
   inviteItem: { backgroundColor: '#F1ECFF' },
   newBadge: { backgroundColor: '#5B21FF', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  wdLead: { fontSize: 14, color: '#434049', lineHeight: 21, marginBottom: 14 },
+  wdAsk: { fontSize: 13, color: '#65626B', fontWeight: '600', marginBottom: 8 },
+  wdTip: { backgroundColor: '#F7F4FF', borderRadius: 12, padding: 12, marginTop: 12, gap: 6 },
+  wdTipT: { fontSize: 13, color: '#434049', lineHeight: 19 },
+  wdTipLink: { fontSize: 13, color: '#5B21FF', fontWeight: '700' },
+  wdBtn: { height: 50, borderRadius: 12, backgroundColor: '#E5484D', alignItems: 'center', justifyContent: 'center', marginTop: 16 },
+  wdBtnT: { fontSize: 15, fontWeight: '700', color: '#fff' },
   previewRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F4FF', borderRadius: 14, padding: 14, marginBottom: 18 },
   previewTitle: { fontSize: 15, fontWeight: '700', color: '#322F38' },
   previewSub: { fontSize: 12, color: '#65626B', marginTop: 3 },

@@ -15,7 +15,7 @@ export function getLastScreen() {
 
 const SCREEN_NAMES: Record<string, string> = {
   '/home': '홈', '/connectors': '회원·파트너', '/matching': '매칭', '/chat': '채팅', '/profile': '마이',
-  '/dashboard': '현황', '/settlements': '정산관리', '/alliances': '동맹',
+  '/dashboard': '현황', '/settlements': '정산관리', '/alliances': '동맹', withdraw: '탈퇴',
 };
 export const screenName = (path?: string | null) => (path ? SCREEN_NAMES[path] || path : '-');
 
@@ -60,4 +60,12 @@ export async function fetchFeedback(limit = 30) {
 export async function setFeedbackDone(id: string, done: boolean) {
   const { error } = await supabase.from('feedback').update({ status: done ? 'done' : 'open' }).eq('id', id);
   return !error;
+}
+
+// 탈퇴 이유 (선택). 의견 표에 '탈퇴' 화면으로 남긴다 (운영자 현황 '받은 의견'에서 모아 봄). 실패해도 탈퇴는 그대로
+export const WITHDRAW_REASONS = ['좋은 인연을 만났어요', '소개가 잘 오지 않아요', '맞는 분이 없었어요', '비용이 부담돼요', '사용하기 불편해요', '잠시 쉬고 싶어요', '기타'];
+export async function saveWithdrawReason(user: { id: string; role: string }, reasons: string[], memo: string) {
+  if (!reasons.length && !memo.trim()) return;
+  const message = `[탈퇴] ${reasons.join(', ') || '이유 없음'}${memo.trim() ? ` · ${memo.trim().slice(0, 300)}` : ''}`;
+  await supabase.from('feedback').insert({ user_id: user.id, role: user.role, screen: 'withdraw', message }).then(() => {}, () => {});
 }

@@ -53,3 +53,10 @@ export async function setIdentityChecked(connectorId: string, memberId: string, 
   if (error || !data?.length) return { ok: false as const };
   return { ok: true as const, at };
 }
+
+// 내가 쓴 회원 메모 전체 (회원 탭 검색에 쓴다). 칸이 없으면 빈 목록
+export async function fetchMyNotes(connectorId: string): Promise<Map<string, string>> {
+  const { data, error } = await supabase.from('member_notes').select('hopeful_id, note').eq('connector_id', connectorId);
+  if (error) return new Map();
+  return new Map(((data || []) as any[]).filter((r) => r.note).map((r) => [r.hopeful_id as string, r.note as string]));
+}
