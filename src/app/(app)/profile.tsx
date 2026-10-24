@@ -981,6 +981,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>📋</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>내 프로필</Text>
+              <Text style={styles.menuSub}>개인 정보 관리</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -989,6 +990,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>💳</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>이용권/결제</Text>
+              <Text style={styles.menuSub}>충전, 이용권, 환불</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -1008,7 +1010,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>💼</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>매칭 파트너</Text>
-              <Text style={styles.menuSub}>파트너로 활동하기</Text>
+              <Text style={styles.menuSub}>우리 모임 친구들을 소개해 주세요</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -1033,6 +1035,7 @@ export default function ProfileScreen() {
                 <Text style={styles.menuTitle}>광고하기</Text>
                 <View style={styles.newBadge}><Text style={styles.newBadgeText}>NEW</Text></View>
               </View>
+              <Text style={styles.menuSub}>초대 링크로 내 회원 모으기</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -1041,6 +1044,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>🏪</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>커리어 프로필</Text>
+              <Text style={styles.menuSub}>회원 정보, 가격, 소개 지역</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -1052,6 +1056,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>💰</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>정산</Text>
+              <Text style={styles.menuSub}>이용권 사용 및 지급 내역</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -1060,6 +1065,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>📊</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>월간 리포트</Text>
+              <Text style={styles.menuSub}>이번 달 소개·만남·정산을 한눈에</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -1068,6 +1074,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>🏦</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>계좌 정보</Text>
+              <Text style={styles.menuSub}>출금 계좌 관리</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -1086,6 +1093,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>💬</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>받은 후기</Text>
+              <Text style={styles.menuSub}>회원들이 남긴 별점과 한마디</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -1094,6 +1102,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>⭐</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>신뢰지표</Text>
+              <Text style={styles.menuSub}>등급 및 신뢰 점수</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -1102,6 +1111,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>🤝</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>동맹 관리</Text>
+              <Text style={styles.menuSub}>매칭 › 동맹으로 이동해요</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -1115,7 +1125,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>🔄</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>역할 전환</Text>
-              <Text style={styles.menuSub}>회원 화면</Text>
+              <Text style={styles.menuSub}>회원 화면으로 이동</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -1134,6 +1144,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>🏢</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>사업자 정보</Text>
+              <Text style={styles.menuSub}>화면 하단·약관 표시, 결혼중개업 신고번호</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -1143,6 +1154,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuIcon}>🔍</Text>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>워터마크 번호로 회원 찾기</Text>
+              <Text style={styles.menuSub}>캡처된 사진이 누구 화면인지 확인</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -2339,7 +2351,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#EFEDF2',
   },
@@ -2349,9 +2361,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     marginRight: 12,
   },
-  menuContent: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  menuTitle: { fontSize: 15, fontWeight: '600', color: '#322F38' },
-  menuSub: { fontSize: 13, color: '#98959E', flexShrink: 1, textAlign: 'right' },
+  menuContent: {
+    flex: 1,
+  },
+  menuTitle: { fontSize: 15, fontWeight: '700', color: '#322F38', marginBottom: 2 },
+  menuSub: { fontSize: 12, color: '#87848D' },
   arrow: { fontSize: 18, color: '#DCD9E2', fontWeight: '300', marginLeft: 8 },
   logoutMenuItem: {
     flexDirection: 'row',

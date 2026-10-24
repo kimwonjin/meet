@@ -71,7 +71,7 @@ export function PauseMenuRow({ styles: m }: { styles: { menuItem: any; menuIcon:
         <Text style={m.menuIcon}>{paused ? '⏸' : '🌿'}</Text>
         <View style={m.menuContent}>
           <Text style={m.menuTitle}>소개 잠시 쉬기</Text>
-          <Text style={[m.menuSub, paused && { color: '#5B21FF' }]} numberOfLines={1}>{paused ? '쉬는 중' : '소개받는 중'}</Text>
+          <Text style={[m.menuSub, paused && { color: '#5B21FF' }]}>{paused ? '쉬는 중 · 눌러서 다시 시작' : '소개받는 중'}</Text>
         </View>
         <Text style={m.arrow}>›</Text>
       </TouchableOpacity>
