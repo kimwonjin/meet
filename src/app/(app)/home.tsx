@@ -336,6 +336,7 @@ export default function HomeScreen() {
             review_skipped: !!(isHopeful1 ? r.review_skipped_1 : r.review_skipped_2),
             // 만남 후 한 줄 소감 (add_partner_away_and_impression.sql 실행 후)
             impression_available: 'impression_1' in r,
+            my_impression: (isHopeful1 ? r.impression_1 : r.impression_2) || '',
           };
         });
 
@@ -619,6 +620,20 @@ export default function HomeScreen() {
 
   // 만남 후 한 줄 소감 (담당 파트너만 봄). 애프터를 고를 때 함께 저장한다
   const [impressions, setImpressions] = useState<Record<string, string>>({});
+  // 남긴 소감 고치기 (애프터를 고른 뒤에도 언제든)
+  const [editImpression, setEditImpression] = useState<{ id: string; text: string } | null>(null);
+  const [savingImpression, setSavingImpression] = useState(false);
+  async function saveImpression(item: any) {
+    if (!editImpression || savingImpression) return;
+    const text = editImpression.text.trim();
+    setSavingImpression(true);
+    const { error } = await supabase.from('match_requests').update(item.isHopeful1 ? { impression_1: text || null } : { impression_2: text || null }).eq('id', item.id);
+    setSavingImpression(false);
+    if (error) { toast.show('저장하지 못했어요. 잠시 후 다시 시도해 주세요', 'error'); return; }
+    setReceivedMatches((prev: any[]) => prev.map((m) => (m.id === item.id ? { ...m, my_impression: text } : m)));
+    setEditImpression(null);
+    toast.show(text ? '✓ 소감을 고쳤어요' : '소감을 지웠어요', 'success');
+  }
   async function handleSubmitAfterCare(matchId: string, afterCareType: '신청' | '미신청' | '노쇼신고') {
     if (!user) return;
 
@@ -1382,6 +1397,37 @@ export default function HomeScreen() {
             </View>
           )}
 
+          {/* 한 줄 소감: 애프터를 고른 뒤에도 남기거나 고칠 수 있다 (담당 파트너만 봄) */}
+          {item.meeting_status === 'completed' && !!myAfterCare && myAfterCare !== '노쇼신고' && item.impression_available && (
+            editImpression && editImpression.id === item.id ? (
+              <View style={styles.impEditBox}>
+                <TextInput
+                  style={styles.impressionInput}
+                  value={editImpression.text}
+                  onChangeText={(t) => setEditImpression({ id: item.id, text: t.slice(0, 100) })}
+                  placeholder="파트너에게만 전할 한 줄 소감"
+                  placeholderTextColor="#BAB7C0"
+                  maxLength={100}
+                  autoFocus
+                  accessibilityLabel="한 줄 소감 고치기"
+                />
+                <View style={styles.impEditBtns}>
+                  <TouchableOpacity onPress={() => setEditImpression(null)} disabled={savingImpression} accessibilityLabel="소감 고치기 취소" hitSlop={8}>
+                    <Text style={styles.impCancel}>취소</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.impSave} onPress={() => saveImpression(item)} disabled={savingImpression} accessibilityLabel="소감 저장">
+                    {savingImpression ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.impSaveT}>저장</Text>}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.impRow} onPress={() => setEditImpression({ id: item.id, text: item.my_impression || '' })} accessibilityLabel={item.my_impression ? '소감 고치기' : '소감 남기기'}>
+                <Text style={styles.impText} numberOfLines={2}>{item.my_impression ? `🗒 파트너에게 남긴 소감: ${item.my_impression}` : '🗒 파트너에게 한 줄 소감 남기기 (선택)'}</Text>
+                <Text style={styles.impAct}>{item.my_impression ? '고치기' : '남기기'}</Text>
+              </TouchableOpacity>
+            )
+          )}
+
           {/* 파트너 후기: 내 애프터 의사를 낸 뒤 한 번 남길 수 있다 */}
           {item.meeting_status === 'completed' && !!myAfterCare && (
             reviewedMatchIds.includes(item.id) ? (
@@ -2037,6 +2083,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
   },
+  impRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F8F7FA', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginTop: 10 },
+  impText: { flex: 1, fontSize: 13, color: '#434049', lineHeight: 19 },
+  impAct: { fontSize: 13, color: '#5B21FF', fontWeight: '600' },
+  impEditBox: { marginTop: 10 },
+  impEditBtns: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 16 },
+  impCancel: { fontSize: 14, color: '#87848D' },
+  impSave: { backgroundColor: '#5B21FF', borderRadius: 10, paddingHorizontal: 18, height: 38, alignItems: 'center', justifyContent: 'center', minWidth: 64 },
+  impSaveT: { fontSize: 14, fontWeight: '700', color: '#fff' },
   impressionInput: { borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 10, paddingHorizontal: 12, height: 44, fontSize: 14, color: '#322F38', backgroundColor: '#fff', marginBottom: 10 },
   afterCareLabel: {
     fontSize: 12,
