@@ -4,6 +4,7 @@ import ProtectedPhoto from './ProtectedPhoto';
 import { shownPhotos } from '@/lib/photos';
 import { fetchVerifiedIds } from '@/lib/memberNotes';
 import { fetchPrefs, Prefs, prefsSummary } from '@/lib/preferences';
+import { fetchNextWish } from '@/lib/nextWish';
 import { findContact } from '@/lib/contactGuard';
 import { fetchDistricts, placeLabel } from '@/lib/regions';
 import { supabase } from '@/lib/supabase';
@@ -56,6 +57,15 @@ export default function MemberProfileView({ member, showBirthDate = false, verif
     return () => { alive = false; };
   }, [member.id, showBirthDate]);
   const prefsText = prefsSummary(prefs);
+  // 다음엔 이런 분이면 좋겠어요 (파트너가 볼 때만)
+  const [nextWish, setNextWish] = useState<string | null>(null);
+  useEffect(() => {
+    setNextWish(null);
+    if (!showBirthDate || !member.id) return;
+    let alive = true;
+    fetchNextWish(member.id).then((w) => { if (alive) setNextWish(w); }).catch(() => {});
+    return () => { alive = false; };
+  }, [member.id, showBirthDate]);
   // 회사: 파트너가 볼 때만 (add_company_and_avoid.sql 전이면 없음)
   // 직업 분류·해당 조건도 회원이 직접 고른 값으로 파트너에게만 보여준다
   const [company, setCompany] = useState<string | null>(null);
@@ -179,6 +189,15 @@ export default function MemberProfileView({ member, showBirthDate = false, verif
           <Text style={styles.sectionTitle}>원하는 상대</Text>
           <View style={styles.bioBox}>
             <Text style={styles.bioText}>{prefsText}</Text>
+          </View>
+        </>
+      )}
+
+      {!!nextWish && (
+        <>
+          <Text style={styles.sectionTitle}>다음엔 이런 분이면 좋겠어요</Text>
+          <View style={styles.bioBox}>
+            <Text style={styles.bioText}>{nextWish}</Text>
           </View>
         </>
       )}

@@ -59,9 +59,10 @@ export function suggestMeetArea(a: Place, b: Place): string | null {
   const ca = a.district ? CENTER[a.district] : undefined;
   const cb = b.district ? CENTER[b.district] : undefined;
   if (ca && cb) {
-    const mid: LatLng = [(ca[0] + cb[0]) / 2, (ca[1] + cb[1]) / 2];
+    // 한쪽만 멀어지지 않게: 둘 중 더 먼 사람의 거리가 가장 짧은 곳 + 두 사람 거리 합도 반영 (외곽보다 중심가)
+    const cost = (h: LatLng) => { const da = Math.sqrt(dist2(ca, h)), db = Math.sqrt(dist2(cb, h)); return Math.max(da, db) + (da + db) * 0.5; };
     let best = HUBS[0];
-    for (const h of HUBS) if (dist2(mid, h.at) < dist2(mid, best.at)) best = h;
+    for (const h of HUBS) if (cost(h.at) < cost(best.at)) best = h;
     return best.name;
   }
   // 구·시를 모르면: 같은 지역이면 그 지역 중심가, 아니면 추천하지 않는다

@@ -2,7 +2,9 @@
 // 파트너: 안내 문구 · 회원: 짧은 답장
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const key = (userId: string) => `dudu_quick_phrases_${userId}`;
+// 운영자와의 대화는 문의용 문구를 따로 둔다
+export type PhraseKind = 'normal' | 'operator';
+const key = (userId: string, kind: PhraseKind = 'normal') => `dudu_quick_phrases_${userId}${kind === 'operator' ? '_op' : ''}`;
 export const MAX_PHRASES = 20;
 
 export const defaultPhrases = (name: string) => [
@@ -23,14 +25,24 @@ export const memberPhrases = () => [
   '조금 더 생각해 보고 답드릴게요',
 ];
 
-export async function loadPhrases(userId: string, name: string, isPartner = true): Promise<string[]> {
+// 운영자에게 보내는 문의용 답장
+export const operatorPhrases = () => [
+  '문의드릴 게 있어요',
+  '확인 부탁드려요',
+  '결제·환불 관련 문의예요',
+  '불편한 일이 있어 알려드려요',
+  '해결됐어요. 감사합니다!',
+];
+
+export async function loadPhrases(userId: string, name: string, isPartner = true, kind: PhraseKind = 'normal'): Promise<string[]> {
   try {
-    const raw = await AsyncStorage.getItem(key(userId));
+    const raw = await AsyncStorage.getItem(key(userId, kind));
     if (raw) { const v = JSON.parse(raw); if (Array.isArray(v)) return v.filter((x) => typeof x === 'string'); }
   } catch { /* 처음이거나 읽지 못하면 기본 문구 */ }
+  if (kind === 'operator') return operatorPhrases();
   return isPartner ? defaultPhrases(name) : memberPhrases();
 }
 
-export async function savePhrases(userId: string, list: string[]) {
-  await AsyncStorage.setItem(key(userId), JSON.stringify(list.slice(0, MAX_PHRASES))).catch(() => {});
+export async function savePhrases(userId: string, list: string[], kind: PhraseKind = 'normal') {
+  await AsyncStorage.setItem(key(userId, kind), JSON.stringify(list.slice(0, MAX_PHRASES))).catch(() => {});
 }

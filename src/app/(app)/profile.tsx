@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BackupMenuRow } from '@/components/BackupSettings';
 import { PushMenuRow } from '@/components/PushSettings';
 import { PauseMenuRow } from '@/components/PauseSettings';
+import { setPaused } from '@/lib/pause';
 import { AwayMenuRow } from '@/components/AwaySettings';
 import { profileFill } from '@/lib/profileFill';
 import { PrefsMenuRow } from '@/components/PrefsSettings';
@@ -691,6 +692,17 @@ export default function ProfileScreen() {
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawReasons, setWithdrawReasons] = useState<string[]>([]);
   const [withdrawMemo, setWithdrawMemo] = useState('');
+  // 탈퇴 대신 바로 '잠시 쉬기' 켜기 (쉬기 칸이 없으면 켜는 곳을 알려 준다)
+  const [pausingInstead, setPausingInstead] = useState(false);
+  async function pauseInsteadOfWithdraw() {
+    if (!user || pausingInstead) return;
+    setPausingInstead(true);
+    const r = await setPaused(user, true).catch(() => ({ ok: false as const }));
+    setPausingInstead(false);
+    setWithdrawOpen(false);
+    if (r.ok) toast.show('탈퇴하지 않고 소개를 잠시 쉬어요. 마이에서 언제든 다시 시작할 수 있어요', 'success');
+    else toast.show('마이 › 소개 설정 › 소개 잠시 쉬기에서 켤 수 있어요', 'info');
+  }
 
   async function handleWithdraw() {
     if (!user) return;
@@ -1625,8 +1637,8 @@ export default function ProfileScreen() {
         {user?.role === 'hopeful' && withdrawReasons.includes('잠시 쉬고 싶어요') && (
           <View style={styles.wdTip}>
             <Text style={styles.wdTipT}>탈퇴하지 않고 새 소개만 멈출 수도 있어요. 정보와 이용권은 그대로 남아요</Text>
-            <TouchableOpacity onPress={() => { setWithdrawOpen(false); toast.show('마이 › 소개 설정 › 소개 잠시 쉬기에서 켤 수 있어요', 'info'); }} accessibilityLabel="탈퇴 대신 잠시 쉬기">
-              <Text style={styles.wdTipLink}>탈퇴 대신 잠시 쉬기 ›</Text>
+            <TouchableOpacity onPress={pauseInsteadOfWithdraw} disabled={pausingInstead} accessibilityLabel="탈퇴 대신 잠시 쉬기">
+              {pausingInstead ? <ActivityIndicator color="#5B21FF" size="small" style={{ alignSelf: 'flex-start' }} /> : <Text style={styles.wdTipLink}>탈퇴 대신 잠시 쉬기 ›</Text>}
             </TouchableOpacity>
           </View>
         )}

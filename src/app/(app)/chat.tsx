@@ -12,7 +12,7 @@ import { useFocusPolling } from '@/hooks/use-focus-polling';
 import SafetyActions from '@/components/SafetyActions';
 import { getBlockState } from '@/lib/safety';
 import { AwayChatNotice } from '@/components/AwaySettings';
-import { loadPhrases, MAX_PHRASES, savePhrases } from '@/lib/quickPhrases';
+import { loadPhrases, MAX_PHRASES, PhraseKind, savePhrases } from '@/lib/quickPhrases';
 import { makeImageContent, parseImage, previewText } from '@/lib/chatImage';
 import { pickAndUploadPhoto } from '@/lib/photos';
 import { fetchThreads, fetchMessages, sendMessage, markThreadRead, getOrCreateThread, findOperator } from '@/lib/chat';
@@ -49,11 +49,14 @@ export default function ChatScreen() {
   const [phrases, setPhrases] = useState<string[] | null>(null);
   const [phrasesOpen, setPhrasesOpen] = useState(false);
   const isPartner = user?.role === 'connector';
+  // 운영자와의 대화면 문의용 문구 (운영자 본인은 기존 문구)
+  const phraseKind: PhraseKind = !!operator && activeOther?.id === operator.id && user?.role !== 'operator' ? 'operator' : 'normal';
+  useEffect(() => { setPhrases(null); setPhrasesOpen(false); }, [phraseKind]);
   useEffect(() => {
     if (!user || !phrasesOpen || phrases) return;
-    loadPhrases(user.id, user.name, isPartner).then(setPhrases);
-  }, [phrasesOpen]);
-  function updatePhrases(next: string[]) { setPhrases(next); if (user) savePhrases(user.id, next); }
+    loadPhrases(user.id, user.name, isPartner, phraseKind).then(setPhrases);
+  }, [phrasesOpen, phrases]);
+  function updatePhrases(next: string[]) { setPhrases(next); if (user) savePhrases(user.id, next, phraseKind); }
   const [sending, setSending] = useState(false);
   const messageListRef = useRef<FlatList>(null);
 
@@ -446,8 +449,8 @@ export default function ChatScreen() {
             </View>
           )}
           <View style={styles.inputRow}>
-            <TouchableOpacity style={[styles.phraseBtn, phrasesOpen && styles.phraseBtnOn]} onPress={() => setPhrasesOpen(!phrasesOpen)} accessibilityLabel={isPartner ? (phrasesOpen ? '자주 쓰는 문구 닫기' : '자주 쓰는 문구') : (phrasesOpen ? '빠른 답장 닫기' : '빠른 답장')}>
-                <Text style={[styles.phraseBtnT, phrasesOpen && { color: '#5B21FF' }]}>{isPartner ? '문구' : '답장'}</Text>
+            <TouchableOpacity style={[styles.phraseBtn, phrasesOpen && styles.phraseBtnOn]} onPress={() => setPhrasesOpen(!phrasesOpen)} accessibilityLabel={isPartner && phraseKind === 'normal' ? (phrasesOpen ? '자주 쓰는 문구 닫기' : '자주 쓰는 문구') : (phrasesOpen ? '빠른 답장 닫기' : '빠른 답장')}>
+                <Text style={[styles.phraseBtnT, phrasesOpen && { color: '#5B21FF' }]}>{isPartner && phraseKind === 'normal' ? '문구' : '답장'}</Text>
               </TouchableOpacity>
             <TouchableOpacity style={styles.photoBtn} onPress={handleSendImage} disabled={sending} accessibilityLabel="사진 보내기">
               <Text style={styles.photoBtnT}>📷</Text>

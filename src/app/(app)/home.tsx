@@ -35,6 +35,7 @@ import AvailableDatesSheet from '@/components/AvailableDatesSheet';
 import { toDateKey } from '@/components/CalendarGrid';
 import { autoScheduleMatch, earliestCommonDate } from '@/lib/schedule';
 import { MEET_TIP, meetPlaceLine } from '@/lib/meetPlace';
+import { NEXT_WISH_MAX, nextWishAvailable, saveNextWish } from '@/lib/nextWish';
 import { afterCareDeadline, expireAfterCareIfDue, expireStaleProposalIfDue, formatDeadline, notifyAfterCareResult, proposalDeadline } from '@/lib/afterCare';
 import { Avatar } from '@/components/ProfilePhoto';
 import MemberProfileView from '@/components/MemberProfileView';
@@ -93,6 +94,10 @@ export default function HomeScreen() {
   // 소개 거절 시트 (이유는 선택, 파트너에게만 전달)
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [rejectReasons, setRejectReasons] = useState<string[]>([]);
+  // '다음엔 이런 분이면 좋겠어요' (거절·애프터 때 한 줄, 칸이 있을 때만)
+  const [wishOk, setWishOk] = useState(false);
+  const [nextWish, setNextWish] = useState('');
+  useEffect(() => { if (user?.role === 'hopeful') nextWishAvailable(user.id).then(setWishOk).catch(() => {}); }, [user?.id]);
   const [showSafetyTips, setShowSafetyTips] = useState(false);
   useEffect(() => {
     const id = homeParams.safety;
@@ -664,6 +669,7 @@ export default function HomeScreen() {
       }
 
       toast.show('의사를 전달했어요', 'success');
+      if (nextWish.trim()) { await saveNextWish(user.id, nextWish).catch(() => {}); setNextWish(''); }
       const impression = (impressions[matchId] || '').trim();
       if (impression && match?.impression_available) {
         await supabase.from('match_requests').update(isHopeful1 ? { impression_1: impression } : { impression_2: impression }).eq('id', matchId);
@@ -1221,7 +1227,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 style={[styles.rejectBtn, processingId === item.id && styles.buttonDisabled]}
                 onPress={async () => {
-                  setRejectReasons([]); setRejectTarget(item.id);
+                  setRejectReasons([]); setNextWish(''); setRejectTarget(item.id);
                 }}
                 disabled={processingId !== null}
               >
@@ -1332,6 +1338,16 @@ export default function HomeScreen() {
                   onChangeText={(t) => setImpressions((p) => ({ ...p, [item.id]: t.slice(0, 100) }))}
                   maxLength={100}
                   accessibilityLabel="한 줄 소감"
+                />
+              )}
+              {wishOk && (
+                <TextInput
+                  style={styles.impressionInput}
+                  placeholder="다음엔 이런 분이면 좋겠어요 (선택)"
+                  placeholderTextColor="#BAB7C0"
+                  value={nextWish}
+                  onChangeText={(t) => setNextWish(t.slice(0, NEXT_WISH_MAX))}
+                  accessibilityLabel="다음엔 이런 분이면 좋겠어요 (애프터)"
                 />
               )}
               <View style={styles.afterCareButtons}>
@@ -1708,7 +1724,7 @@ export default function HomeScreen() {
                   style={[styles.rejectBtn, processingId === sheetProfile.id && styles.buttonDisabled]}
                   onPress={async () => {
                     const id = sheetProfile.id;
-                    setMatchSheet(null); setRejectReasons([]); setRejectTarget(id);
+                    setMatchSheet(null); setRejectReasons([]); setNextWish(''); setRejectTarget(id);
                   }}
                   disabled={processingId !== null}
                 >
@@ -1747,11 +1763,21 @@ export default function HomeScreen() {
             );
           })}
         </View>
+        {wishOk && (
+          <TextInput
+            style={[styles.impressionInput, { marginTop: 12, marginBottom: 0 }]}
+            value={nextWish}
+            onChangeText={(t) => setNextWish(t.slice(0, NEXT_WISH_MAX))}
+            placeholder="다음엔 이런 분이면 좋겠어요 (선택)"
+            placeholderTextColor="#BAB7C0"
+            accessibilityLabel="다음엔 이런 분이면 좋겠어요"
+          />
+        )}
         <Text style={styles.rejectNote}>상대에게는 거절한 사람과 이유를 알리지 않아요</Text>
         <TouchableOpacity
           style={[styles.rejectConfirm, processingId !== null && styles.buttonDisabled]}
           disabled={processingId !== null}
-          onPress={() => { const id = rejectTarget; setRejectTarget(null); if (id) handleRejectMatch(id, rejectReasons.join(', ') || undefined); }}
+          onPress={() => { const id = rejectTarget; setRejectTarget(null); if (user && nextWish.trim()) saveNextWish(user.id, nextWish).catch(() => {}); if (id) handleRejectMatch(id, rejectReasons.join(', ') || undefined); }}
           accessibilityLabel="거절하기"
         >
           <Text style={styles.rejectConfirmT}>거절하기</Text>
