@@ -172,5 +172,5 @@ const styles = StyleSheet.create({
   chipTextOn: { color: '#5B21FF', fontWeight: '600' },
   divider: { width: 1, height: 18, backgroundColor: '#E4E1EA', marginHorizontal: 2 },
   reset: { alignSelf: 'flex-start', paddingVertical: 4 },
-  resetText: { fontSize: 12, color: '#98959E', textDecorationLine: 'underline' },
+  resetText: { fontSize: 12, color: '#736F7A', textDecorationLine: 'underline' },
 });

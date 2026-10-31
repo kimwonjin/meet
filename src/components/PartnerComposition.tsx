@@ -63,5 +63,5 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: 13, fontWeight: '600', color: '#322F38' },
   distBlock: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1EFF4' },
   distLabel: { fontSize: 13, fontWeight: '600', color: '#65626B', marginBottom: 6 },
-  distHint: { fontSize: 12, color: '#98959E', marginTop: 8, lineHeight: 18 },
+  distHint: { fontSize: 12, color: '#736F7A', marginTop: 8, lineHeight: 18 },
 });

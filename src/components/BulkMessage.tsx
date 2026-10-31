@@ -153,12 +153,12 @@ function BulkMessageSheet({ visible, onClose, members }: { visible: boolean; onC
 const s = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderRadius: 14, borderWidth: 1, borderColor: '#ECEAF1', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 12 },
   rowT: { fontSize: 14, fontWeight: '600', color: '#322F38' },
-  rowSub: { fontSize: 12, color: '#87848D' },
+  rowSub: { fontSize: 12, color: '#6E6A75' },
   btn: { backgroundColor: '#5B21FF', borderRadius: 12, height: 52, alignItems: 'center', justifyContent: 'center' },
   btnT: { color: '#fff', fontSize: 16, fontWeight: '700' },
   input: { borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 12, padding: 12, minHeight: 88, fontSize: 14, color: '#322F38', textAlignVertical: 'top' },
   textFoot: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
-  hint: { fontSize: 12, color: '#98959E' },
+  hint: { fontSize: 12, color: '#736F7A' },
   link: { fontSize: 13, color: '#5B21FF', fontWeight: '600' },
   phraseBox: { marginTop: 8, backgroundColor: '#FAF9FC', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 4 },
   phraseRow: { paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#F0EEF3' },
@@ -171,6 +171,6 @@ const s = StyleSheet.create({
   checkOn: { backgroundColor: '#5B21FF', borderColor: '#5B21FF' },
   checkT: { color: '#fff', fontSize: 13, fontWeight: '800' },
   memberName: { fontSize: 14, color: '#322F38', fontWeight: '600' },
-  memberSub: { flex: 1, fontSize: 12, color: '#98959E', textAlign: 'right' },
-  note: { fontSize: 12, color: '#98959E', lineHeight: 18 },
+  memberSub: { flex: 1, fontSize: 12, color: '#736F7A', textAlign: 'right' },
+  note: { fontSize: 12, color: '#736F7A', lineHeight: 18 },
 });

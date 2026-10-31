@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   exampleTitle: { fontSize: 13, color: '#5B21FF', fontWeight: '700' },
   exampleBody: { fontSize: 14, color: '#322F38', marginTop: 6, lineHeight: 22 },
   exampleStrong: { fontWeight: '800', color: '#18151E' },
-  exampleNote: { fontSize: 12, color: '#98959E', marginTop: 8 },
+  exampleNote: { fontSize: 12, color: '#736F7A', marginTop: 8 },
   faq: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1EFF4' },
   faqQ: { fontSize: 15, fontWeight: '700', color: '#18151E' },
   faqA: { fontSize: 14, color: '#65626B', marginTop: 4, lineHeight: 20 },

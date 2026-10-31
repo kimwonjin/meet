@@ -114,5 +114,5 @@ const styles = StyleSheet.create({
   checkMark: { color: '#fff', fontSize: 13, fontWeight: '700' },
   checkMarkSmall: { color: '#fff', fontSize: 11, fontWeight: '700' },
   viewBtn: { paddingHorizontal: 10, paddingVertical: 8 },
-  viewText: { fontSize: 13, color: '#87848D', textDecorationLine: 'underline' },
+  viewText: { fontSize: 13, color: '#6E6A75', textDecorationLine: 'underline' },
 });

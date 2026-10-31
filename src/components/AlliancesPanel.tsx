@@ -556,7 +556,7 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 14,
-    color: '#98959E',
+    color: '#736F7A',
   },
   searchWrap: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8 },
   listHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
@@ -573,24 +573,24 @@ const styles = StyleSheet.create({
   fChipText: { fontSize: 13, color: '#65626B' },
   fChipTextOn: { color: '#5B21FF', fontWeight: '600' },
   fDivider: { width: 1, height: 18, backgroundColor: '#E6E3EC', marginHorizontal: 2 },
-  fReset: { fontSize: 12, color: '#98959E', textDecorationLine: 'underline' },
+  fReset: { fontSize: 12, color: '#736F7A', textDecorationLine: 'underline' },
   fFoot: { fontSize: 12, color: '#8F8C95', textAlign: 'center', marginTop: 12 },
   fMatch: { color: '#5B21FF', fontWeight: '600' },
-  fitInfo: { fontSize: 13, color: '#98959E', fontWeight: '700' },
+  fitInfo: { fontSize: 13, color: '#736F7A', fontWeight: '700' },
   fLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   fitInfoLead: { fontSize: 14, color: '#322F38', lineHeight: 20 },
   fitInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F1EFF4' },
   fitInfoKey: { fontSize: 14, fontWeight: '700', color: '#322F38' },
-  fitInfoDesc: { fontSize: 12, color: '#87848D', marginTop: 2, lineHeight: 18 },
+  fitInfoDesc: { fontSize: 12, color: '#6E6A75', marginTop: 2, lineHeight: 18 },
   fitInfoPt: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
   fitInfoScale: { gap: 6, backgroundColor: '#F8F7FA', borderRadius: 10, padding: 12 },
-  fitInfoNote: { fontSize: 12, color: '#98959E', lineHeight: 18 },
+  fitInfoNote: { fontSize: 12, color: '#736F7A', lineHeight: 18 },
   fitRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   fitBadge: { fontSize: 11, fontWeight: '700', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, overflow: 'hidden' },
   fitGood: { color: '#5B21FF', backgroundColor: '#F1ECFF' },
   fitMid: { color: '#54515A', backgroundColor: '#F1EFF4' },
-  fitLow: { color: '#98959E', backgroundColor: '#F7F6F9' },
-  fitWhy: { flex: 1, fontSize: 11, color: '#87848D' },
+  fitLow: { color: '#736F7A', backgroundColor: '#F7F6F9' },
+  fitWhy: { flex: 1, fontSize: 11, color: '#6E6A75' },
   search: { borderWidth: 1, borderColor: '#E6E3EC', borderRadius: 12, paddingHorizontal: 14, minHeight: 46, fontSize: 16, color: '#18151E', backgroundColor: '#fff' },
   list: {
     paddingHorizontal: 20,
@@ -631,7 +631,7 @@ const styles = StyleSheet.create({
   },
   desc: {
     fontSize: 11,
-    color: '#98959E',
+    color: '#736F7A',
   },
   meta: {
     flexDirection: 'row',
@@ -749,7 +749,7 @@ const styles = StyleSheet.create({
   },
   matchDate: {
     fontSize: 11,
-    color: '#98959E',
+    color: '#736F7A',
   },
 });
 

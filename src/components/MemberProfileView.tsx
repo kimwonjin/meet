@@ -173,7 +173,7 @@ export default function MemberProfileView({ member, showBirthDate = false, verif
           <View style={styles.bioBox}>
             {/* 소개받는 상대에게는 연락처가 든 자기소개를 가린다 (파트너는 원문을 보고 고치도록 안내) */}
             {!showBirthDate && findContact(member.bio) ? (
-              <Text style={[styles.bioText, { color: '#87848D' }]}>연락처가 들어 있어 자기소개를 가렸어요</Text>
+              <Text style={[styles.bioText, { color: '#6E6A75' }]}>연락처가 들어 있어 자기소개를 가렸어요</Text>
             ) : (
               <Text style={styles.bioText}>{member.bio}</Text>
             )}
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 20, fontWeight: '700', color: '#211E27' },
   verified: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   verifiedText: { fontSize: 12, fontWeight: '700', color: '#5B21FF', backgroundColor: '#EDE4FF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' },
-  verifiedSub: { fontSize: 11, color: '#87848D' },
+  verifiedSub: { fontSize: 11, color: '#6E6A75' },
   summary: { fontSize: 14, color: '#5B21FF', fontWeight: '600', marginTop: 4 },
   jobLine: { fontSize: 13, color: '#65626B', marginTop: 6 },
   thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
@@ -253,13 +253,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
   },
-  tileLabel: { fontSize: 12, color: '#87848D' },
+  tileLabel: { fontSize: 12, color: '#6E6A75' },
   tileValue: { fontSize: 14, fontWeight: '600', color: '#211E27', marginTop: 4 },
-  empty: { fontSize: 13, color: '#98959E' },
+  empty: { fontSize: 13, color: '#736F7A' },
   bioBox: { borderLeftWidth: 3, borderLeftColor: '#5B21FF', backgroundColor: '#FAF8FD', borderRadius: 8, padding: 12 },
   bioText: { fontSize: 14, color: '#434049', lineHeight: 21 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { flexDirection: 'row', gap: 6, borderRadius: 16, backgroundColor: '#F3F1F6', paddingHorizontal: 12, paddingVertical: 7 },
-  chipLabel: { fontSize: 13, color: '#87848D' },
+  chipLabel: { fontSize: 13, color: '#6E6A75' },
   chipValue: { fontSize: 13, fontWeight: '600', color: '#322F38' },
 });

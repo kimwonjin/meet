@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   item: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1EFF4' },
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   stars: { color: '#5B21FF', fontSize: 13 },
-  meta: { color: '#98959E', fontSize: 12 },
+  meta: { color: '#736F7A', fontSize: 12 },
   content: { fontSize: 13, color: '#65626B', lineHeight: 20 },
   more: { paddingVertical: 12, alignItems: 'center' },
   moreText: { color: '#5B21FF', fontSize: 13, fontWeight: '600' },

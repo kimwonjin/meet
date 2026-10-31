@@ -73,9 +73,9 @@ export default function ProfileFillRequest({ member, partnerName }: { member: Me
 const s = StyleSheet.create({
   box: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16, padding: 12, borderRadius: 12, backgroundColor: '#F8F7FA' },
   title: { fontSize: 13, fontWeight: '700', color: '#322F38' },
-  sub: { fontSize: 12, color: '#87848D', marginTop: 2 },
+  sub: { fontSize: 12, color: '#6E6A75', marginTop: 2 },
   btn: { borderWidth: 1, borderColor: '#5B21FF', borderRadius: 999, paddingHorizontal: 14, height: 34, minWidth: 64, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
   btnOff: { borderColor: '#DCD9E2' },
   btnT: { fontSize: 13, fontWeight: '700', color: '#5B21FF' },
-  btnTOff: { color: '#98959E' },
+  btnTOff: { color: '#736F7A' },
 });

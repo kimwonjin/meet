@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 12, color: '#322F38' },
-  pct: { color: '#98959E' },
+  pct: { color: '#736F7A' },
   splitBar: { flexDirection: 'row', height: 28, borderRadius: 6, overflow: 'hidden', backgroundColor: '#F1EFF4' },
   splitSeg: { height: 28, justifyContent: 'center', paddingHorizontal: 8, minWidth: 0 },
   splitRight: { alignItems: 'flex-end' },

@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 12,
-    color: '#98959E',
+    color: '#736F7A',
     marginTop: 8,
   },
 });

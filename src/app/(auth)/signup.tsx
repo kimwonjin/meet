@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   roleOptOn: { borderColor: '#5B21FF', backgroundColor: '#F5F1FF' },
   roleOptT: { fontSize: 14, fontWeight: '700', color: '#65626B' },
   roleOptTOn: { color: '#5B21FF' },
-  roleOptS: { fontSize: 11, color: '#98959E', marginTop: 2 },
+  roleOptS: { fontSize: 11, color: '#736F7A', marginTop: 2 },
   roleOptSOn: { color: '#7B4DFF' },
   roleHint: { fontSize: 12, color: '#65626B', lineHeight: 18, backgroundColor: '#F8F7FA', borderRadius: 10, padding: 10 },
   pairRow: {
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#98959E',
+    color: '#736F7A',
     marginBottom: 30,
   },
   form: {
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#87848D',
+    color: '#6E6A75',
     marginBottom: 6,
   },
   input: {
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   },
   roleDesc: {
     fontSize: 13,
-    color: '#98959E',
+    color: '#736F7A',
   },
   genderRow: {
     flexDirection: 'row',
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
   genderText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#98959E',
+    color: '#736F7A',
   },
   genderTextActive: {
     color: '#5B21FF',
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   footerNote: {
     fontSize: 11,
-    color: '#98959E',
+    color: '#736F7A',
     textAlign: 'center',
     marginTop: 8,
   },

@@ -923,17 +923,17 @@ export default function SettlementsScreen() {
 const styles = StyleSheet.create({
   freeBox: { backgroundColor: '#F7F4FF', borderRadius: 12, padding: 14, marginBottom: 12 },
   freeTitle: { fontSize: 14, fontWeight: '700', color: '#322F38', marginBottom: 6 },
-  freeHint: { fontSize: 12, color: '#87848D', marginTop: 6, lineHeight: 17 },
+  freeHint: { fontSize: 12, color: '#6E6A75', marginTop: 6, lineHeight: 17 },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: '#322F38', marginBottom: 10, marginTop: 4 },
   reviewField: { marginTop: 10 },
-  reviewLabel: { fontSize: 12, color: '#87848D', marginBottom: 4 },
-  reviewOld: { fontSize: 13, color: '#98959E', lineHeight: 19 },
+  reviewLabel: { fontSize: 12, color: '#6E6A75', marginBottom: 4 },
+  reviewOld: { fontSize: 13, color: '#736F7A', lineHeight: 19 },
   reviewNew: { fontSize: 14, color: '#211E27', lineHeight: 20, marginTop: 4 },
   reasonInput: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, padding: 12, minHeight: 80, fontSize: 14, textAlignVertical: 'top', marginVertical: 12 },
   reviewWarn: { fontSize: 12, color: '#E5484D', fontWeight: '700', marginTop: 6 },
   reportSoon: { borderWidth: 1.5, borderColor: '#F5A524' },
   reportOver: { borderWidth: 1.5, borderColor: '#E5484D' },
-  reportDeadline: { fontSize: 12, color: '#87848D', marginTop: -2, marginBottom: 8 },
+  reportDeadline: { fontSize: 12, color: '#6E6A75', marginTop: -2, marginBottom: 8 },
   reportDeadlineOn: { color: '#E5484D', fontWeight: '700' },
   reportRepeat: { fontSize: 12, color: '#E53935', fontWeight: '600', marginTop: 8 },
   suspendRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
@@ -942,7 +942,7 @@ const styles = StyleSheet.create({
   suspendBtn: { borderWidth: 1, borderColor: '#E53935', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, alignSelf: 'flex-start' },
   suspendBtnText: { color: '#E53935', fontSize: 13, fontWeight: '600' },
   sheetText: { fontSize: 14, color: '#322F38', lineHeight: 21, marginBottom: 8 },
-  sheetSub: { fontSize: 13, color: '#87848D', lineHeight: 19, marginBottom: 8 },
+  sheetSub: { fontSize: 13, color: '#6E6A75', lineHeight: 19, marginBottom: 8 },
   suspendConfirm: { backgroundColor: '#E53935', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
   suspendConfirmText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   reportDetail: { fontSize: 13, color: '#434049', backgroundColor: '#F7F5FA', borderRadius: 8, padding: 10, marginTop: 8, lineHeight: 19 },
@@ -998,7 +998,7 @@ const styles = StyleSheet.create({
   segmentBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#98959E',
+    color: '#736F7A',
   },
   segmentBtnTextActive: {
     color: '#5B21FF',
@@ -1010,7 +1010,7 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 14,
-    color: '#98959E',
+    color: '#736F7A',
   },
   list: {
     paddingHorizontal: 20,
@@ -1057,7 +1057,7 @@ const styles = StyleSheet.create({
   },
   cardDate: {
     fontSize: 11,
-    color: '#98959E',
+    color: '#736F7A',
   },
   row: {
     flexDirection: 'row',

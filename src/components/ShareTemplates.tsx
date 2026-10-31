@@ -52,5 +52,5 @@ const styles = StyleSheet.create({
   copyBtn: { borderWidth: 1, borderColor: '#5B21FF', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
   copyText: { color: '#5B21FF', fontSize: 13, fontWeight: '600' },
   body: { fontSize: 13, color: '#434049', lineHeight: 19 },
-  empty: { fontSize: 13, color: '#98959E', textAlign: 'center', paddingVertical: 8 },
+  empty: { fontSize: 13, color: '#736F7A', textAlign: 'center', paddingVertical: 8 },
 });

@@ -1934,7 +1934,7 @@ export default function ProfileScreen() {
       <BottomSheet visible={showCreditsModal} onClose={() => setShowCreditsModal(false)} title="이용권/결제">
 
         {loadingCredits ? (
-          <Text style={{ color: '#98959E', paddingVertical: 20 }}>불러오는 중...</Text>
+          <Text style={{ color: '#736F7A', paddingVertical: 20 }}>불러오는 중...</Text>
         ) : (
           <>
             <View style={styles.walletBalanceBox}>
@@ -1975,7 +1975,7 @@ export default function ProfileScreen() {
             <View style={styles.modalSection}>
               <Text style={styles.modalSectionTitle}>이용권 현황</Text>
               {myConnectorCredits.length === 0 ? (
-                <Text style={{ color: '#98959E', paddingVertical: 12 }}>아직 구매한 이용권이 없습니다. 파트너 탭에서 가입이 승인된 파트너의 이용권을 구매해보세요.</Text>
+                <Text style={{ color: '#736F7A', paddingVertical: 12 }}>아직 구매한 이용권이 없습니다. 파트너 탭에서 가입이 승인된 파트너의 이용권을 구매해보세요.</Text>
               ) : (
                 myConnectorCredits.map((c) => (
                   <View key={c.connectorId} style={styles.creditCard}>
@@ -2054,9 +2054,9 @@ export default function ProfileScreen() {
       <BottomSheet visible={showSettlementsModal} onClose={() => setShowSettlementsModal(false)} title="정산관리">
 
         {loadingSettlements ? (
-          <Text style={{ color: '#98959E', paddingVertical: 20 }}>불러오는 중...</Text>
+          <Text style={{ color: '#736F7A', paddingVertical: 20 }}>불러오는 중...</Text>
         ) : mySettlements.length === 0 ? (
-          <Text style={{ color: '#98959E', paddingVertical: 20 }}>정산 내역이 없습니다</Text>
+          <Text style={{ color: '#736F7A', paddingVertical: 20 }}>정산 내역이 없습니다</Text>
         ) : (
           <>
             {(() => {
@@ -2144,7 +2144,7 @@ export default function ProfileScreen() {
         {loadingCreditScore ? (
           <ActivityIndicator size="large" color="#5B21FF" style={{ marginTop: 40 }} />
         ) : !creditScore ? (
-          <Text style={{ color: '#98959E', paddingVertical: 20 }}>신뢰지표를 불러오지 못했습니다</Text>
+          <Text style={{ color: '#736F7A', paddingVertical: 20 }}>신뢰지표를 불러오지 못했습니다</Text>
         ) : (creditScore.finished_count ?? creditScore.total_proposed) === 0 ? (
           <View style={styles.comingSoonContainer}>
             <Text style={styles.comingSoonIcon}>⭐</Text>
@@ -2325,9 +2325,9 @@ const PROFILE_STEPS_BASE = 7;
 const styles = StyleSheet.create({
   wizardFooter: { flexDirection: 'row', gap: 8 },
   applyCancel: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 16, marginTop: 4 },
-  applyCancelText: { fontSize: 13, color: '#87848D', textDecorationLine: 'underline' },
+  applyCancelText: { fontSize: 13, color: '#6E6A75', textDecorationLine: 'underline' },
   withdrawRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
-  withdrawKey: { fontSize: 13, color: '#87848D' },
+  withdrawKey: { fontSize: 13, color: '#6E6A75' },
   withdrawVal: { fontSize: 14, fontWeight: '600', color: '#211E27', flexShrink: 1, textAlign: 'right', marginLeft: 12 },
   allAmountBtn: { paddingHorizontal: 14, height: 44, borderRadius: 10, backgroundColor: '#F1ECFF', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   allAmountBtnText: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
@@ -2335,7 +2335,7 @@ const styles = StyleSheet.create({
   applyTimelineDot: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#DCD9E2', alignItems: 'center', justifyContent: 'center' },
   applyTimelineNum: { color: '#fff', fontSize: 12, fontWeight: '700' },
   applyTimelineTitle: { fontSize: 14, fontWeight: '700', color: '#211E27' },
-  applyTimelineDesc: { fontSize: 12, color: '#87848D', marginTop: 2 },
+  applyTimelineDesc: { fontSize: 12, color: '#6E6A75', marginTop: 2 },
   wizardPrev: { flex: 1, height: 52, borderRadius: 12, backgroundColor: '#F1EFF4', alignItems: 'center', justifyContent: 'center' },
   wizardPrevText: { fontSize: 15, fontWeight: '700', color: '#54515A' },
   wizardNext: { flex: 2.4, height: 52, borderRadius: 12, backgroundColor: '#5B21FF', alignItems: 'center', justifyContent: 'center' },
@@ -2344,7 +2344,7 @@ const styles = StyleSheet.create({
   wizardDot: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#EDEBF0' },
   wizardDotOn: { backgroundColor: '#5B21FF' },
   wizardTitle: { fontSize: 22, fontWeight: '700', color: '#211E27', lineHeight: 30 },
-  wizardSub: { fontSize: 14, color: '#87848D', marginTop: 6, lineHeight: 20 },
+  wizardSub: { fontSize: 14, color: '#6E6A75', marginTop: 6, lineHeight: 20 },
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -2405,7 +2405,7 @@ const styles = StyleSheet.create({
   },
   policyLinkText: {
     fontSize: 12,
-    color: '#98959E',
+    color: '#736F7A',
     textDecorationLine: 'underline',
   },
   scoreRow: {
@@ -2422,18 +2422,18 @@ const styles = StyleSheet.create({
   },
   scoreBasis: {
     fontSize: 12,
-    color: '#98959E',
+    color: '#736F7A',
     marginTop: 2,
   },
   scoreHint: {
     fontSize: 12,
-    color: '#98959E',
+    color: '#736F7A',
     marginTop: 10,
     lineHeight: 18,
   },
   grade: {
     fontSize: 1,
-    color: '#98959E',
+    color: '#736F7A',
     height: 0,
     overflow: 'hidden',
   },
@@ -2467,8 +2467,8 @@ const styles = StyleSheet.create({
   previewSub: { fontSize: 12, color: '#65626B', marginTop: 3 },
   previewBar: { height: 6, borderRadius: 3, backgroundColor: '#E6DEFF', marginTop: 8, overflow: 'hidden' },
   previewBarFill: { height: 6, borderRadius: 3, backgroundColor: '#5B21FF' },
-  previewNote: { fontSize: 12, color: '#98959E', lineHeight: 18, marginTop: 12 },
-  menuGroup: { fontSize: 13, fontWeight: '700', color: '#87848D', marginTop: 12, marginBottom: 8, marginLeft: 4 },
+  previewNote: { fontSize: 12, color: '#736F7A', lineHeight: 18, marginTop: 12 },
+  menuGroup: { fontSize: 13, fontWeight: '700', color: '#6E6A75', marginTop: 12, marginBottom: 8, marginLeft: 4 },
   // 묶음 카드 안의 한 줄 (줄 사이는 얇은 선, 마지막 줄 선은 카드가 가린다)
   menuItem: {
     flexDirection: 'row',
@@ -2488,7 +2488,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuTitle: { fontSize: 15, fontWeight: '700', color: '#322F38', marginBottom: 2 },
-  menuSub: { fontSize: 12, color: '#87848D' },
+  menuSub: { fontSize: 12, color: '#6E6A75' },
   arrow: { fontSize: 18, color: '#DCD9E2', fontWeight: '300', marginLeft: 8 },
   logoutMenuItem: {
     flexDirection: 'row',
@@ -2597,7 +2597,7 @@ const styles = StyleSheet.create({
   },
   modalCloseText: {
     fontSize: 24,
-    color: '#98959E',
+    color: '#736F7A',
   },
   gradeBox: {
     backgroundColor: '#F1ECFF',
@@ -2640,7 +2640,7 @@ const styles = StyleSheet.create({
   },
   comingSoonSub: {
     fontSize: 13,
-    color: '#98959E',
+    color: '#736F7A',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -2655,7 +2655,7 @@ const styles = StyleSheet.create({
   },
   formHint: {
     fontSize: 12,
-    color: '#98959E',
+    color: '#736F7A',
     marginTop: 6,
   },
   formLabel: {
@@ -2728,7 +2728,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 11,
-    color: '#98959E',
+    color: '#736F7A',
     marginBottom: 6,
     fontWeight: '500',
   },
@@ -2765,7 +2765,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   pendingBadgeText: {
-    color: '#87848D',
+    color: '#6E6A75',
     fontWeight: '600',
     fontSize: 12,
   },
@@ -2782,7 +2782,7 @@ const styles = StyleSheet.create({
   },
   creditFee: {
     fontSize: 12,
-    color: '#98959E',
+    color: '#736F7A',
   },
   creditRow: {
     flexDirection: 'row',
@@ -2799,7 +2799,7 @@ const styles = StyleSheet.create({
   },
   creditStatLabel: {
     fontSize: 11,
-    color: '#98959E',
+    color: '#736F7A',
     marginBottom: 4,
   },
   creditStatValue: {
@@ -2810,7 +2810,7 @@ const styles = StyleSheet.create({
   creditStatValueMuted: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#98959E',
+    color: '#736F7A',
   },
   infoRow: {
     flexDirection: 'row',
@@ -2845,12 +2845,12 @@ const styles = StyleSheet.create({
   },
   refundedNote: {
     fontSize: 12,
-    color: '#98959E',
+    color: '#736F7A',
     marginTop: 8,
   },
   refundHint: {
     fontSize: 12,
-    color: '#87848D',
+    color: '#6E6A75',
     lineHeight: 18,
     marginTop: 6,
   },
@@ -2881,7 +2881,7 @@ const styles = StyleSheet.create({
   payoutBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   chargeNotice: {
     fontSize: 11,
-    color: '#98959E',
+    color: '#736F7A',
     textAlign: 'center',
     marginTop: 10,
   },

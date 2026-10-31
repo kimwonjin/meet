@@ -95,7 +95,7 @@ export default function InviteSheet({ visible, onClose, partnerName }: { visible
 }
 
 const styles = StyleSheet.create({
-  toolsTitle: { fontSize: 13, fontWeight: '700', color: '#87848D', marginTop: 20, marginBottom: 8 },
+  toolsTitle: { fontSize: 13, fontWeight: '700', color: '#6E6A75', marginTop: 20, marginBottom: 8 },
   section: { fontSize: 15, fontWeight: '700', color: '#211E27', marginBottom: 8 },
   lead: { fontSize: 14, color: '#434049', lineHeight: 21, marginBottom: 14 },
   bold: { fontWeight: '700', color: '#5B21FF' },
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.6 },
   secondary: { alignItems: 'center', paddingVertical: 14 },
   secondaryText: { fontSize: 14, color: '#5B21FF', fontWeight: '600' },
-  help: { fontSize: 12, color: '#98959E', lineHeight: 18, textAlign: 'center' },
+  help: { fontSize: 12, color: '#736F7A', lineHeight: 18, textAlign: 'center' },
 });
 
 function ToolSection({ id, title, sub, openTool, setOpenTool, children }: {
@@ -132,7 +132,7 @@ const toolStyles = StyleSheet.create({
   wrap: { borderWidth: 1, borderColor: '#EDEBF0', borderRadius: 12, marginBottom: 10, overflow: 'hidden' },
   head: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 14 },
   title: { fontSize: 15, fontWeight: '600', color: '#211E27' },
-  sub: { fontSize: 12, color: '#98959E', marginTop: 2 },
-  arrow: { fontSize: 14, color: '#98959E' },
+  sub: { fontSize: 12, color: '#736F7A', marginTop: 2 },
+  arrow: { fontSize: 14, color: '#736F7A' },
   body: { paddingHorizontal: 14, paddingBottom: 16 },
 });

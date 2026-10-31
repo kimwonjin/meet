@@ -68,7 +68,7 @@ export default function ReviewSheet({ visible, partnerName, metName, onClose, on
 }
 
 const styles = StyleSheet.create({
-  about: { fontSize: 13, color: '#87848D', marginTop: 4, marginBottom: 12, lineHeight: 19 },
+  about: { fontSize: 13, color: '#6E6A75', marginTop: 4, marginBottom: 12, lineHeight: 19 },
   label: { fontSize: 15, fontWeight: '600', color: '#211E27' },
   stars: { flexDirection: 'row', justifyContent: 'center', gap: 4, marginBottom: 16 },
   starBtn: { padding: 6 },
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     color: '#211E27',
     textAlignVertical: 'top',
   },
-  hint: { fontSize: 12, color: '#98959E', marginTop: 8, marginBottom: 16 },
+  hint: { fontSize: 12, color: '#736F7A', marginTop: 8, marginBottom: 16 },
   submit: { backgroundColor: '#5B21FF', borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
   submitText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   disabled: { opacity: 0.5 },

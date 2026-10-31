@@ -145,7 +145,7 @@ const s = StyleSheet.create({
   lead: { fontSize: 13, color: '#65626B', lineHeight: 19 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   title: { fontSize: 14, fontWeight: '700', color: '#322F38' },
-  sub: { fontSize: 12, color: '#87848D', marginTop: 2 },
+  sub: { fontSize: 12, color: '#6E6A75', marginTop: 2 },
   link: { fontSize: 13, color: '#5B21FF', fontWeight: '600' },
   divider: { height: 1, backgroundColor: '#F1EFF4' },
   addRow: { flexDirection: 'row', gap: 8 },
@@ -157,6 +157,6 @@ const s = StyleSheet.create({
   list: { backgroundColor: '#F8F7FA', borderRadius: 12, paddingHorizontal: 12 },
   item: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#EFEDF2' },
   itemT: { fontSize: 14, color: '#322F38' },
-  remove: { fontSize: 13, color: '#98959E' },
-  note: { fontSize: 12, color: '#98959E', lineHeight: 18 },
+  remove: { fontSize: 13, color: '#736F7A' },
+  note: { fontSize: 12, color: '#736F7A', lineHeight: 18 },
 });

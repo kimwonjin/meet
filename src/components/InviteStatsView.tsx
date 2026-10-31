@@ -57,15 +57,15 @@ export default function InviteStatsView({ stats }: { stats: InviteStats }) {
 }
 
 const styles = StyleSheet.create({
-  empty: { fontSize: 13, color: '#87848D', lineHeight: 19 },
+  empty: { fontSize: 13, color: '#6E6A75', lineHeight: 19 },
   tiles: { flexDirection: 'row', gap: 6 },
   tile: { flex: 1, backgroundColor: '#F7F5FA', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   tileValue: { fontSize: 17, fontWeight: '700', color: '#211E27' },
-  tileLabel: { fontSize: 11, color: '#87848D', marginTop: 2 },
+  tileLabel: { fontSize: 11, color: '#6E6A75', marginTop: 2 },
   rates: { marginTop: 12, gap: 4 },
   rate: { fontSize: 13, color: '#54515A' },
   rateValue: { fontWeight: '700', color: '#5B21FF' },
-  chartTitle: { fontSize: 12, color: '#87848D', marginTop: 16, marginBottom: 6 },
+  chartTitle: { fontSize: 12, color: '#6E6A75', marginTop: 16, marginBottom: 6 },
   chart: { height: 56, flexDirection: 'row', alignItems: 'flex-end', gap: 2 },
   barSlot: { flex: 1, height: '100%', justifyContent: 'flex-end' },
   bar: { backgroundColor: '#5B21FF', borderRadius: 2 },

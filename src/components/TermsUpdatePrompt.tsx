@@ -85,5 +85,5 @@ const s = StyleSheet.create({
   link: { fontSize: 13, color: '#5B21FF', fontWeight: '600' },
   btn: { height: 52, borderRadius: 12, backgroundColor: '#5B21FF', alignItems: 'center', justifyContent: 'center' },
   btnT: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  note: { fontSize: 12, color: '#98959E', lineHeight: 18, textAlign: 'center' },
+  note: { fontSize: 12, color: '#736F7A', lineHeight: 18, textAlign: 'center' },
 });

@@ -77,10 +77,10 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: '#5B21FF', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 12 },
   primaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   disabled: { opacity: 0.5 },
-  empty: { fontSize: 13, color: '#87848D', marginTop: 16, textAlign: 'center' },
+  empty: { fontSize: 13, color: '#6E6A75', marginTop: 16, textAlign: 'center' },
   results: { marginTop: 16, gap: 8 },
   row: { backgroundColor: '#F7F5FA', borderRadius: 10, padding: 12 },
   name: { fontSize: 15, fontWeight: '700', color: '#211E27' },
-  role: { fontSize: 12, fontWeight: '400', color: '#87848D' },
+  role: { fontSize: 12, fontWeight: '400', color: '#6E6A75' },
   phone: { fontSize: 13, color: '#54515A', marginTop: 4 },
 });

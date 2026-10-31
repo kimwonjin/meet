@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: '#98959E',
+    color: '#736F7A',
   },
   recent: {
     marginTop: 40,
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   recentPhone: {
     fontSize: 12,
-    color: '#98959E',
+    color: '#736F7A',
   },
   recentRole: {
     fontSize: 12,

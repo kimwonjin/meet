@@ -1904,7 +1904,7 @@ const styles = StyleSheet.create({
   },
   requestDate: {
     fontSize: 12,
-    color: '#98959E',
+    color: '#736F7A',
   },
   partnerInfo: {
     flexDirection: 'row',
@@ -1954,7 +1954,7 @@ const styles = StyleSheet.create({
   rejectChipOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
   rejectChipT: { fontSize: 13, color: '#54515A' },
   rejectChipTOn: { color: '#5B21FF', fontWeight: '600' },
-  rejectNote: { fontSize: 12, color: '#98959E', marginTop: 12, marginBottom: 16 },
+  rejectNote: { fontSize: 12, color: '#736F7A', marginTop: 12, marginBottom: 16 },
   rejectConfirm: { height: 50, borderRadius: 12, backgroundColor: '#E5484D', alignItems: 'center', justifyContent: 'center' },
   rejectConfirmT: { fontSize: 15, fontWeight: '700', color: '#fff' },
   tipsToggle: { marginTop: 10, paddingVertical: 4 },
@@ -1967,7 +1967,7 @@ const styles = StyleSheet.create({
   safetyBad: { alignSelf: 'center', paddingVertical: 14 },
   safetyBadText: { fontSize: 14, color: '#E5484D', textDecorationLine: 'underline' },
   meetingPlace: { fontSize: 13, color: '#322F38', fontWeight: '600', lineHeight: 20, marginTop: 8 },
-  meetingPlaceSub: { fontSize: 12, color: '#87848D', fontWeight: '400' },
+  meetingPlaceSub: { fontSize: 12, color: '#6E6A75', fontWeight: '400' },
   meetingHint: {
     fontSize: 12,
     color: '#65626B',
@@ -2081,7 +2081,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   waitingSub: {
-    color: '#87848D',
+    color: '#6E6A75',
     fontSize: 11,
     marginTop: 4,
   },
@@ -2101,7 +2101,7 @@ const styles = StyleSheet.create({
   reviewDoneText: {
     marginTop: 10,
     fontSize: 13,
-    color: '#87848D',
+    color: '#6E6A75',
     textAlign: 'center',
   },
   afterCareSection: {
@@ -2114,7 +2114,7 @@ const styles = StyleSheet.create({
   impAct: { fontSize: 13, color: '#5B21FF', fontWeight: '600' },
   impEditBox: { marginTop: 10 },
   impEditBtns: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 16 },
-  impCancel: { fontSize: 14, color: '#87848D' },
+  impCancel: { fontSize: 14, color: '#6E6A75' },
   impSave: { backgroundColor: '#5B21FF', borderRadius: 10, paddingHorizontal: 18, height: 38, alignItems: 'center', justifyContent: 'center', minWidth: 64 },
   impSaveT: { fontSize: 14, fontWeight: '700', color: '#fff' },
   impressionInput: { borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 10, paddingHorizontal: 12, height: 44, fontSize: 14, color: '#322F38', backgroundColor: '#fff', marginBottom: 10 },
@@ -2126,7 +2126,7 @@ const styles = StyleSheet.create({
   },
   afterCareDeadline: {
     fontSize: 12,
-    color: '#87848D',
+    color: '#6E6A75',
     marginBottom: 8,
   },
   afterCareButtons: {

@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   },
   closeBtnText: {
     fontSize: 18,
-    color: '#98959E',
+    color: '#736F7A',
   },
   empty: {
     paddingVertical: 60,
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#98959E',
+    color: '#736F7A',
   },
   list: {
     paddingHorizontal: 20,

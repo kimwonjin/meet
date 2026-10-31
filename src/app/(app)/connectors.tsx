@@ -1163,9 +1163,9 @@ const styles = StyleSheet.create({
   freeChipTextOn: { color: '#5B21FF', fontWeight: '700' },
   freeBtn: { borderWidth: 1, borderColor: '#5B21FF', backgroundColor: '#fff', borderRadius: 12, minHeight: 48, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   freeBtnText: { fontSize: 15, fontWeight: '700', color: '#5B21FF' },
-  freeBtnSub: { fontSize: 12, color: '#87848D', marginTop: 8, textAlign: 'center' },
-  freeGiven: { fontSize: 13, color: '#87848D', textAlign: 'center', marginTop: 16 },
-  pausedTag: { fontSize: 12, fontWeight: '600', color: '#98959E' },
+  freeBtnSub: { fontSize: 12, color: '#6E6A75', marginTop: 8, textAlign: 'center' },
+  freeGiven: { fontSize: 13, color: '#6E6A75', textAlign: 'center', marginTop: 16 },
+  pausedTag: { fontSize: 12, fontWeight: '600', color: '#736F7A' },
   pausedNote: { fontSize: 13, color: '#65626B', backgroundColor: '#F8F7FA', borderRadius: 10, padding: 12, marginTop: 16, lineHeight: 19 },
   verifiedTag: { fontSize: 12, fontWeight: '700', color: '#5B21FF' },
   suspendedTag: { fontSize: 12, color: '#E53935', fontWeight: '600' },
@@ -1296,7 +1296,7 @@ const styles = StyleSheet.create({
   },
   desc: {
     fontSize: 11,
-    color: '#98959E',
+    color: '#736F7A',
   },
   pfTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   pfToggle: { borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, backgroundColor: '#fff' },
@@ -1313,7 +1313,7 @@ const styles = StyleSheet.create({
   pfReset: { alignSelf: 'flex-start', paddingVertical: 6 },
   pfResetText: { fontSize: 13, color: '#65626B', textDecorationLine: 'underline' },
   statsLine: { fontSize: 12, color: '#54515A', marginBottom: 6, lineHeight: 18 },
-  statsHint: { fontSize: 12, color: '#98959E', marginTop: 8, lineHeight: 18 },
+  statsHint: { fontSize: 12, color: '#736F7A', marginTop: 8, lineHeight: 18 },
   meta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1325,11 +1325,11 @@ const styles = StyleSheet.create({
     color: '#322F38',
   },
   rating: {
-    color: '#98959E',
+    color: '#736F7A',
   },
   partnerSub: {
     fontSize: 13,
-    color: '#87848D',
+    color: '#6E6A75',
     marginTop: 4,
   },
   careerText: {
@@ -1351,7 +1351,7 @@ const styles = StyleSheet.create({
   },
   distHint: {
     fontSize: 12,
-    color: '#98959E',
+    color: '#736F7A',
     marginTop: 8,
     lineHeight: 18,
   },
@@ -1377,7 +1377,7 @@ const styles = StyleSheet.create({
   },
   modalCloseText: {
     fontSize: 24,
-    color: '#98959E',
+    color: '#736F7A',
   },
   modalHeader: {
     alignItems: 'center',
@@ -1532,7 +1532,7 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#98959E',
+    color: '#736F7A',
   },
   activeTabText: {
     color: '#5B21FF',
@@ -1544,7 +1544,7 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 14,
-    color: '#98959E',
+    color: '#736F7A',
   },
   badgeText: {
     fontSize: 9,
@@ -1558,7 +1558,7 @@ const styles = StyleSheet.create({
   },
   bulkRow: { marginHorizontal: 20, marginTop: 12 },
   sortRow: { flexDirection: 'row', gap: 14, marginTop: 10, paddingHorizontal: 2 },
-  sortT: { fontSize: 13, color: '#87848D' },
+  sortT: { fontSize: 13, color: '#6E6A75' },
   sortTOn: { color: '#322F38', fontWeight: '700' },
   filterWrap: {
     paddingHorizontal: 20,
@@ -1586,7 +1586,7 @@ const styles = StyleSheet.create({
   subTabText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#98959E',
+    color: '#736F7A',
   },
   activeSubTabText: {
     color: '#5B21FF',
@@ -1630,7 +1630,7 @@ const styles = StyleSheet.create({
   },
   matchDate: {
     fontSize: 11,
-    color: '#98959E',
+    color: '#736F7A',
   },
   timeline: {
     flexDirection: 'row',

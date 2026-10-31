@@ -101,7 +101,7 @@ export default function NoticeComposer({ visible, onClose }: { visible: boolean;
 
 const s = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '700', color: '#322F38', marginTop: 6 },
-  opt: { fontSize: 11, fontWeight: '400', color: '#98959E' },
+  opt: { fontSize: 11, fontWeight: '400', color: '#736F7A' },
   row: { flexDirection: 'row', gap: 8 },
   chip: { paddingHorizontal: 16, height: 36, borderRadius: 999, borderWidth: 1, borderColor: '#DCD9E2', justifyContent: 'center' },
   chipOn: { borderColor: '#5B21FF', backgroundColor: '#F5F1FF' },
@@ -109,7 +109,7 @@ const s = StyleSheet.create({
   chipTOn: { color: '#5B21FF', fontWeight: '700' },
   input: { borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 10, paddingHorizontal: 12, height: 46, fontSize: 15, color: '#322F38' },
   multi: { height: 96, paddingTop: 12, textAlignVertical: 'top' },
-  note: { fontSize: 12, color: '#98959E', lineHeight: 18, marginTop: 6 },
+  note: { fontSize: 12, color: '#736F7A', lineHeight: 18, marginTop: 6 },
   btn: { backgroundColor: '#5B21FF', borderRadius: 12, height: 52, alignItems: 'center', justifyContent: 'center' },
   btnT: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

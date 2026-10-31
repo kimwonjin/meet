@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   field: { marginBottom: 12 },
   label: { fontSize: 13, fontWeight: '600', color: '#322F38', marginBottom: 6 },
   input: { borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, fontSize: 14, color: '#211E27' },
-  hint: { fontSize: 12, color: '#87848D', marginTop: 4, lineHeight: 17 },
+  hint: { fontSize: 12, color: '#6E6A75', marginTop: 4, lineHeight: 17 },
   primary: { backgroundColor: '#5B21FF', borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 8 },
   primaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   disabled: { opacity: 0.6 },

@@ -113,7 +113,7 @@ const s = StyleSheet.create({
   arrowOff: { color: '#DCD9E2' },
   item: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, backgroundColor: '#F8F7FA' },
   itemT: { fontSize: 15, fontWeight: '700', color: '#322F38' },
-  itemS: { fontSize: 12, color: '#87848D', marginTop: 2 },
+  itemS: { fontSize: 12, color: '#6E6A75', marginTop: 2 },
   itemGo: { fontSize: 13, fontWeight: '700', color: '#5B21FF' },
-  note: { fontSize: 12, color: '#98959E', lineHeight: 18, marginTop: 4 },
+  note: { fontSize: 12, color: '#736F7A', lineHeight: 18, marginTop: 4 },
 });

@@ -497,8 +497,8 @@ const styles = StyleSheet.create({
   phraseBox: { borderTopWidth: 1, borderTopColor: '#ECEAF1', backgroundColor: '#FAF9FC', paddingHorizontal: 12, paddingTop: 6, paddingBottom: 8 },
   phraseRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#F0EEF3' },
   phraseText: { fontSize: 13, color: '#322F38', lineHeight: 19 },
-  phraseDel: { fontSize: 12, color: '#98959E' },
-  phraseEmpty: { fontSize: 13, color: '#98959E', textAlign: 'center', paddingVertical: 10 },
+  phraseDel: { fontSize: 12, color: '#736F7A' },
+  phraseEmpty: { fontSize: 13, color: '#736F7A', textAlign: 'center', paddingVertical: 10 },
   phraseAdd: { paddingVertical: 10, alignItems: 'center' },
   phraseAddT: { fontSize: 13, color: '#5B21FF', fontWeight: '600' },
   phraseBtn: { borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 18, paddingHorizontal: 10, height: 36, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     fontSize: 13,
-    color: '#98959E',
+    color: '#736F7A',
     paddingVertical: 10,
   },
   container: {
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 14,
-    color: '#98959E',
+    color: '#736F7A',
   },
   threadRow: {
     flexDirection: 'row',
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
   },
   threadPreview: {
     fontSize: 12,
-    color: '#98959E',
+    color: '#736F7A',
   },
   unreadDot: {
     minWidth: 20,

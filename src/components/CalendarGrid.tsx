@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   },
   weekday: {
     fontSize: 12,
-    color: '#98959E',
+    color: '#736F7A',
     paddingVertical: 4,
   },
   sunday: {

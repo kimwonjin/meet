@@ -102,10 +102,10 @@ const s = StyleSheet.create({
   boxOn: { backgroundColor: '#5B21FF', borderColor: '#5B21FF' },
   boxMark: { color: '#fff', fontSize: 14, fontWeight: '800' },
   checkTitle: { fontSize: 14, fontWeight: '700', color: '#322F38' },
-  checkSub: { fontSize: 12, color: '#87848D', marginTop: 2, lineHeight: 17 },
+  checkSub: { fontSize: 12, color: '#6E6A75', marginTop: 2, lineHeight: 17 },
   noteHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   noteTitle: { fontSize: 14, fontWeight: '700', color: '#322F38' },
-  noteOnly: { fontSize: 11, fontWeight: '400', color: '#98959E' },
-  saveState: { fontSize: 11, color: '#98959E' },
+  noteOnly: { fontSize: 11, fontWeight: '400', color: '#736F7A' },
+  saveState: { fontSize: 11, color: '#736F7A' },
   input: { minHeight: 88, borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 10, padding: 12, fontSize: 14, color: '#322F38', textAlignVertical: 'top' },
 });

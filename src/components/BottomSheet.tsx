@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   },
   closeText: {
     fontSize: 20,
-    color: '#98959E',
+    color: '#736F7A',
   },
   body: {
     flexGrow: 0,

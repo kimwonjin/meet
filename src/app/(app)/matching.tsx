@@ -1686,7 +1686,7 @@ const BLOCK_MESSAGE: Record<BlockLabel, string> = {
 };
 
 const styles = StyleSheet.create({
-  fitLine: { fontSize: 12, color: '#98959E', marginTop: 3 },
+  fitLine: { fontSize: 12, color: '#736F7A', marginTop: 3 },
   fitLineOk: { color: '#5B21FF', fontWeight: '600' },
   pairHint: { color: '#322F38', fontWeight: '700' },
   memberRowBusy: { opacity: 0.5 },
@@ -1695,15 +1695,15 @@ const styles = StyleSheet.create({
   coupleBtnT: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
   coupleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
   coupleDone: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
-  coupleUndo: { fontSize: 12, color: '#98959E', textDecorationLine: 'underline' },
+  coupleUndo: { fontSize: 12, color: '#736F7A', textDecorationLine: 'underline' },
   impressionLine: { fontSize: 13, color: '#434049', lineHeight: 19, marginTop: 8 },
   rejectedCard: { paddingVertical: 14 },
   rejectedTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   rejectedNames: { flex: 1, fontSize: 15, fontWeight: '700', color: '#54515A' },
-  rejectedDate: { fontSize: 12, color: '#98959E' },
-  rejectedState: { fontSize: 13, color: '#87848D', marginTop: 4 },
+  rejectedDate: { fontSize: 12, color: '#736F7A' },
+  rejectedState: { fontSize: 13, color: '#6E6A75', marginTop: 4 },
   rejectReason: { fontSize: 13, color: '#65626B', backgroundColor: '#F7F5FA', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, marginTop: 8 },
-  partnerNoteLine: { fontSize: 12, color: '#87848D', marginTop: 6 },
+  partnerNoteLine: { fontSize: 12, color: '#6E6A75', marginTop: 6 },
   proposeBar: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12, borderTopWidth: 1, borderTopColor: '#ECEAF1', backgroundColor: '#fff' },
   proposeNote: { marginTop: 8, borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 10, paddingHorizontal: 12, height: 42, fontSize: 13, color: '#322F38' },
   proposeBarTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
@@ -1713,9 +1713,9 @@ const styles = StyleSheet.create({
   compareHead: { flexDirection: 'row', paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#ECEAF1' },
   compareName: { flex: 1, fontSize: 15, fontWeight: '700', color: '#322F38' },
   compareRow: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F1F6' },
-  compareKey: { width: 78, fontSize: 12, color: '#87848D' },
+  compareKey: { width: 78, fontSize: 12, color: '#6E6A75' },
   compareVal: { flex: 1, fontSize: 13, color: '#322F38', paddingRight: 6 },
-  compareNote: { fontSize: 12, color: '#98959E', marginTop: 12 },
+  compareNote: { fontSize: 12, color: '#736F7A', marginTop: 12 },
   proposeBarNames: { fontSize: 13, color: '#65626B', textAlign: 'center' },
   noShowBtn: { marginTop: 12, backgroundColor: '#5B21FF', borderRadius: 10, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
   noShowBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
@@ -1765,7 +1765,7 @@ const styles = StyleSheet.create({
   },
   emptyCreateText: {
     fontSize: 13,
-    color: '#98959E',
+    color: '#736F7A',
   },
   backLink: {
     fontSize: 13,
@@ -1804,7 +1804,7 @@ const styles = StyleSheet.create({
   viewBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#98959E',
+    color: '#736F7A',
   },
   viewBtnTextActive: {
     color: '#5B21FF',
@@ -1861,7 +1861,7 @@ const styles = StyleSheet.create({
   },
   memberRowSub: {
     fontSize: 13,
-    color: '#87848D',
+    color: '#6E6A75',
     marginTop: 2,
   },
   memberCheck: {
@@ -1890,7 +1890,7 @@ const styles = StyleSheet.create({
   },
   cancelLinkText: {
     fontSize: 13,
-    color: '#98959E',
+    color: '#736F7A',
     textDecorationLine: 'underline',
   },
   mutualText: {
@@ -1942,7 +1942,7 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 14,
-    color: '#98959E',
+    color: '#736F7A',
   },
   list: {
     paddingHorizontal: 20,
@@ -1976,7 +1976,7 @@ const styles = StyleSheet.create({
   consentHint: { fontSize: 12, color: '#8F8C95', textAlign: 'center', marginBottom: 8 },
   matchDate: {
     fontSize: 12,
-    color: '#98959E',
+    color: '#736F7A',
   },
   timeline: {
     flexDirection: 'row',
@@ -2052,12 +2052,12 @@ const styles = StyleSheet.create({
   },
   schedulerNote: {
     fontSize: 12,
-    color: '#87848D',
+    color: '#6E6A75',
     textAlign: 'center',
   },
   scheduleChangeText: {
     fontSize: 12,
-    color: '#87848D',
+    color: '#6E6A75',
     textDecorationLine: 'underline',
     paddingVertical: 6,
     paddingHorizontal: 4,
@@ -2106,7 +2106,7 @@ const styles = StyleSheet.create({
   },
   afterCareHint: {
     fontSize: 12,
-    color: '#87848D',
+    color: '#6E6A75',
     lineHeight: 17,
   },
   afterCareRow: {
@@ -2142,7 +2142,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   waitHint: {
-    color: '#87848D',
+    color: '#6E6A75',
     fontSize: 11,
     marginTop: 4,
   },

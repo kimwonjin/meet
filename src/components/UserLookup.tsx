@@ -13,7 +13,7 @@ const PARTNER_STATUS: Record<string, string> = { approved: '활동 중', pending
 const day = (s?: string | null) => (s ? new Date(s).toLocaleDateString('ko-KR') : '');
 
 function stateOf(u: FoundUser) {
-  if (u.withdrawn_at) return { label: '탈퇴', color: '#98959E' };
+  if (u.withdrawn_at) return { label: '탈퇴', color: '#736F7A' };
   if (u.suspended_at) return { label: '정지', color: '#E5484D' };
   return null;
 }
@@ -198,20 +198,20 @@ function Line({ k, v, red }: { k: string; v: string; red?: boolean }) {
 const s = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E4E1EA', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff' },
   rowT: { fontSize: 15, fontWeight: '700', color: '#322F38' },
-  rowSub: { fontSize: 13, color: '#87848D' },
+  rowSub: { fontSize: 13, color: '#6E6A75' },
   input: { borderWidth: 1, borderColor: '#DCD9E2', borderRadius: 10, paddingHorizontal: 12, height: 46, fontSize: 15, color: '#322F38', backgroundColor: '#fff' },
-  hint: { fontSize: 13, color: '#98959E', textAlign: 'center', marginVertical: 12 },
+  hint: { fontSize: 13, color: '#736F7A', textAlign: 'center', marginVertical: 12 },
   list: { borderWidth: 1, borderColor: '#EFEDF2', borderRadius: 12 },
   item: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F1F6' },
   itemT: { fontSize: 15, fontWeight: '700', color: '#322F38' },
-  itemRole: { fontSize: 12, fontWeight: '500', color: '#87848D' },
-  itemSub: { fontSize: 12, color: '#87848D', marginTop: 2 },
+  itemRole: { fontSize: 12, fontWeight: '500', color: '#6E6A75' },
+  itemSub: { fontSize: 12, color: '#6E6A75', marginTop: 2 },
   badge: { fontSize: 11, fontWeight: '700', borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
   arrow: { fontSize: 18, color: '#DCD9E2' },
   back: { fontSize: 14, color: '#5B21FF', fontWeight: '600' },
   box: { backgroundColor: '#F8F7FA', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 6 },
   line: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, gap: 12 },
-  lineK: { fontSize: 13, color: '#87848D' },
+  lineK: { fontSize: 13, color: '#6E6A75' },
   lineV: { flex: 1, textAlign: 'right', fontSize: 14, color: '#322F38', fontWeight: '600' },
   primary: { height: 50, borderRadius: 12, backgroundColor: '#5B21FF', alignItems: 'center', justifyContent: 'center' },
   primaryT: { fontSize: 15, fontWeight: '700', color: '#fff' },

@@ -54,6 +54,6 @@ const s = StyleSheet.create({
   title: { fontSize: 14, fontWeight: '700', color: '#322F38', lineHeight: 20 },
   body: { fontSize: 13, color: '#54515A', lineHeight: 19 },
   foot: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
-  when: { fontSize: 12, color: '#98959E' },
+  when: { fontSize: 12, color: '#736F7A' },
   ok: { fontSize: 13, fontWeight: '700', color: '#5B21FF' },
 });

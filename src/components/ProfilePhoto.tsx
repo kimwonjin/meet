@@ -63,6 +63,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 13,
-    color: '#98959E',
+    color: '#736F7A',
   },
 });
