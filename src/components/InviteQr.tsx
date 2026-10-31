@@ -1,3 +1,4 @@
+import { adFooter } from '@/lib/business';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -27,7 +28,18 @@ export default function InviteQr({ url, fileName }: { url: string; fileName: str
     setSaving(true);
     try {
       const QRCode = await loadQr();
-      const dataUrl: string = await QRCode.toDataURL(url, { width: 1024, margin: 2, color: { dark: '#1D1A26', light: '#FFFFFF' } });
+      const qrUrl: string = await QRCode.toDataURL(url, { width: 1024, margin: 2, color: { dark: '#1D1A26', light: '#FFFFFF' } });
+      // QR 아래에 상호·결혼중개업 신고번호를 넣어 저장한다 (광고에 신고번호 포함, 결혼중개업법 제12조 ③)
+      const img = document.createElement('img');
+      await new Promise((ok, fail) => { img.onload = ok; img.onerror = fail; img.src = qrUrl; });
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024; canvas.height = 1024 + 110;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, 1024, 1024);
+      ctx.fillStyle = '#322F38'; ctx.textAlign = 'center'; ctx.font = '600 34px sans-serif';
+      ctx.fillText(adFooter(), 512, 1024 + 62, 980);
+      const dataUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = dataUrl;
       a.download = `${fileName}.png`;
@@ -53,6 +65,7 @@ export default function InviteQr({ url, fileName }: { url: string; fileName: str
           <Text style={styles.fail}>QR을 만들지 못했어요</Text>
         )}
       </View>
+      <Text style={styles.adLine}>{adFooter()}</Text>
       <Text style={styles.help}>모임 공지·명함·전단에 넣으면, 휴대폰 카메라로 찍어서 바로 들어올 수 있어요.</Text>
       {Platform.OS === 'web' ? (
         <TouchableOpacity style={styles.btn} onPress={downloadPng} disabled={saving || !svg}>
@@ -66,6 +79,7 @@ export default function InviteQr({ url, fileName }: { url: string; fileName: str
 }
 
 const styles = StyleSheet.create({
+  adLine: { fontSize: 12, color: '#54515A', textAlign: 'center', marginTop: 6 },
   wrap: { alignItems: 'center', gap: 10 },
   box: { width: 200, height: 200, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#EDEBF0', padding: 10 },
   qr: { width: 180, height: 180 },

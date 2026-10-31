@@ -28,6 +28,9 @@ import { fetchVerifiedIds } from '@/lib/memberNotes';
 import { fetchPausedIds } from '@/lib/pause';
 import { publicText } from '@/lib/contactGuard';
 import { fetchMyNotes } from '@/lib/memberNotes';
+import { hasContract } from '@/lib/contract';
+import { recordConsents } from '@/lib/terms';
+import ContractSheet from '@/components/ContractSheet';
 import { daysSince, fetchLastIntroAt } from '@/lib/waiting';
 import { fetchCoupleCount } from '@/lib/couples';
 
@@ -406,7 +409,21 @@ export default function ConnectorsScreen() {
     fetchConnectors();
   }
 
+  // 첫 구매 전 결혼중개계약서 확인 (결혼중개업법 제10조)
+  const [contractOpen, setContractOpen] = useState(false);
   async function handlePurchase() {
+    if (!user || !selectedConnector || purchasingRef.current) return;
+    if (!(await hasContract(user.id))) { setContractOpen(true); return; }
+    await doPurchase();
+  }
+  async function agreeContractAndPurchase() {
+    if (!user) return;
+    await recordConsents(user.id, ['contract']);
+    setContractOpen(false);
+    await doPurchase();
+  }
+
+  async function doPurchase() {
     // 같은 화면에서 빠르게 두 번 눌러도 한 번만 결제되도록
     if (!user || !selectedConnector || purchasingRef.current) return;
     purchasingRef.current = true;
@@ -1141,6 +1158,13 @@ export default function ConnectorsScreen() {
             )}
             </View>
       </BottomSheet>
+      <ContractSheet
+        visible={contractOpen}
+        onClose={() => setContractOpen(false)}
+        info={{ partnerName: selectedConnector?.business_name || selectedConnector?.name, fee: selectedConnector?.fee_per_session ?? 0, count: selectedPackage }}
+        onAgree={agreeContractAndPurchase}
+        busy={purchasing}
+      />
     </View>
   );
 }

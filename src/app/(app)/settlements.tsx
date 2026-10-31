@@ -7,6 +7,7 @@ import { Redirect, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { partnerIntro } from '@/lib/format';
 import { reportDeadline } from '@/lib/reportDeadline';
 import { CONTACT_HIT_LABEL, findContact } from '@/lib/contactGuard';
+import { withholding, WITHHOLDING_LABEL } from '@/lib/tax';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -389,7 +390,8 @@ export default function SettlementsScreen() {
           : '이제 회원을 받고 매칭을 제안할 수 있어요',
         route: memberMatchActive ? '/profile' : '/home',
       });
-      toast.show('✓ 매칭 파트너를 승인했습니다', 'success');
+      // 파트너는 회사 결혼중개업의 종사자 → 구청 변경신고 필요 (현황 › 종사자 명단에서 확인)
+      toast.show('✓ 파트너를 승인했어요. 구청에 종사자 변경신고가 필요해요 (현황 › 종사자 명단)', 'success');
       await fetchPendingConnectors();
     } catch (error) {
       console.error(error);
@@ -689,6 +691,22 @@ export default function SettlementsScreen() {
                   <Text style={styles.rowLabel}>신청 금액</Text>
                   <Text style={styles.payoutValue}>{Number(item.amount).toLocaleString()}원</Text>
                 </View>
+                {/* 파트너 위탁 수수료는 원천징수 후 입금 (파트너 약관 제6조) */}
+                {(() => {
+                  const t = withholding(Number(item.amount));
+                  return (
+                    <>
+                      <View style={styles.row}>
+                        <Text style={styles.rowLabel}>{WITHHOLDING_LABEL}</Text>
+                        <Text style={styles.rowValue}>소득세 {t.income.toLocaleString()}원 · 지방소득세 {t.local.toLocaleString()}원</Text>
+                      </View>
+                      <View style={styles.row}>
+                        <Text style={styles.rowLabel}>입금할 금액</Text>
+                        <Text style={[styles.rowValue, { fontWeight: '700' }]}>{t.net.toLocaleString()}원</Text>
+                      </View>
+                    </>
+                  );
+                })()}
                 <View style={styles.row}>
                   <Text style={styles.rowLabel}>입금 계좌</Text>
                   <Text style={styles.rowValue}>{item.bank_name} {item.account_number} ({item.account_holder})</Text>

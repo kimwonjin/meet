@@ -1,3 +1,4 @@
+import { adFooter } from './business';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { Platform } from 'react-native';
@@ -12,7 +13,7 @@ export function inviteUrl(connectorId: string) {
 }
 
 export function inviteMessage(partnerName: string, connectorId: string, url?: string) {
-  return `${partnerName} 파트너가 두두인연에 초대했어요.\n아래 링크로 가입하면 저에게 바로 연결돼요.\n${url ?? inviteUrl(connectorId)}`;
+  return `${partnerName} 파트너가 두두인연에 초대했어요.\n아래 링크로 가입하면 저에게 바로 연결돼요.\n${url ?? inviteUrl(connectorId)}\n\n${adFooter()}`;
 }
 
 // 초대 링크로 들어왔다가 가입·로그인하는 동안 기억해 둔다 (30일)
@@ -149,7 +150,8 @@ export async function fetchShareTemplates(): Promise<ShareTemplate[]> {
 
 // {link} 자리에 링크를 넣는다. 자리가 없으면 끝에 붙인다.
 export function fillTemplate(body: string, link: string) {
-  return body.includes('{link}') ? body.split('{link}').join(link) : `${body}\n${link}`;
+  const text = body.includes('{link}') ? body.split('{link}').join(link) : `${body}\n${link}`;
+  return `${text}\n\n${adFooter()}`;
 }
 
 // 파트너 모집 페이지(/partner)에서 '파트너 신청하기'를 누르고 가입·로그인하는 동안 기억해 둔다

@@ -105,5 +105,12 @@ export function adsAllowed() {
   return !!BUSINESS.reportNumber;
 }
 
+// 홍보물(초대 문구·홍보 문구·QR)에 붙는 한 줄: 결혼중개업법 제12조 ③ (광고에 신고번호 포함)
+// 신고 전이면 서비스 이름과 상호만
+export function adFooter() {
+  const b = BUSINESS;
+  return ['두두인연', b.companyName, b.reportNumber && `국내결혼중개업 신고 ${b.reportNumber}`].filter(Boolean).join(' · ');
+}
+
 // 약관 문장에 넣을 값: 비어 있으면 [ ] 자리표시
 export const biz = (value: string, placeholder: string) => value || `[${placeholder}]`;

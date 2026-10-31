@@ -5,6 +5,9 @@ import { PauseMenuRow } from '@/components/PauseSettings';
 import { setPaused } from '@/lib/pause';
 import { AwayMenuRow } from '@/components/AwaySettings';
 import { profileFill } from '@/lib/profileFill';
+import { hasContract } from '@/lib/contract';
+import { withholding, WITHHOLDING_LABEL } from '@/lib/tax';
+import ContractSheet from '@/components/ContractSheet';
 import { PrefsMenuRow } from '@/components/PrefsSettings';
 import { FeedbackMenuRow } from '@/components/FeedbackSettings';
 import { AvoidMenuRow } from '@/components/AvoidSettings';
@@ -89,6 +92,9 @@ export default function ProfileScreen() {
   const applying = showConnectorModal && (connectorApplicationStatus === null || connectorApplicationStatus === 'rejected');
   const [showStoreModal, setShowStoreModal] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
+  // 결혼중개계약서: 동의한 적이 있으면 이용권/결제에서 다시 볼 수 있다
+  const [hasContractDoc, setHasContractDoc] = useState(false);
+  const [contractView, setContractView] = useState(false);
   // 환불
   const [refundable, setRefundable] = useState<Refundable | null>(null);
   const [pendingRefund, setPendingRefund] = useState<any | null>(null);
@@ -254,6 +260,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (showCreditsModal && user) {
+      hasContract(user.id).then(setHasContractDoc).catch(() => {});
       loadMyCredits();
     }
   }, [showCreditsModal]);
@@ -2049,7 +2056,14 @@ export default function ProfileScreen() {
             </View>
           </>
         )}
+        {/* 결혼중개계약서 다시 보기 (첫 구매 때 동의한 것) */}
+        {hasContractDoc && (
+          <TouchableOpacity onPress={() => setContractView(true)} style={{ alignSelf: 'center', paddingVertical: 14 }} accessibilityLabel="결혼중개계약서 보기">
+            <Text style={styles.policyLinkText}>결혼중개계약서 보기</Text>
+          </TouchableOpacity>
+        )}
       </BottomSheet>
+      <ContractSheet visible={contractView} onClose={() => setContractView(false)} info={{}} />
 
       <BottomSheet visible={showSettlementsModal} onClose={() => setShowSettlementsModal(false)} title="정산관리">
 
@@ -2277,6 +2291,19 @@ export default function ProfileScreen() {
                   <Text style={styles.allAmountBtnText}>전액</Text>
                 </TouchableOpacity>
               </View>
+              {/* 위탁 수수료는 원천징수 후 입금된다 (파트너 약관 제6조) */}
+              {(() => {
+                const amt = Number(String(withdrawAmount).replace(/[^0-9]/g, ''));
+                if (!amt) return <Text style={styles.taxHint}>입금할 때 {WITHHOLDING_LABEL}(소득세·지방소득세)을 떼고 보내드려요</Text>;
+                const t = withholding(amt);
+                return (
+                  <View style={styles.taxBox} accessibilityLabel="원천징수 계산">
+                    <Text style={styles.taxRow}>신청 금액 {t.gross.toLocaleString()}원</Text>
+                    <Text style={styles.taxRow}>{WITHHOLDING_LABEL} −{t.tax.toLocaleString()}원{t.tax === 0 ? ' (소액이라 떼지 않아요)' : ''}</Text>
+                    <Text style={styles.taxNet}>실제 입금 {t.net.toLocaleString()}원</Text>
+                  </View>
+                );
+              })()}
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalBtnConfirm, requestingWithdrawal && styles.modalBtnDisabled, { marginTop: 12 }]}
                 onPress={() => handleRequestWithdrawal()}
@@ -2455,6 +2482,10 @@ const styles = StyleSheet.create({
   inviteItem: { backgroundColor: '#F1ECFF' },
   newBadge: { backgroundColor: '#5B21FF', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  taxHint: { fontSize: 12, color: '#736F7A', marginTop: 8 },
+  taxBox: { backgroundColor: '#F8F7FA', borderRadius: 10, padding: 12, marginTop: 10, gap: 2 },
+  taxRow: { fontSize: 13, color: '#54515A' },
+  taxNet: { fontSize: 14, fontWeight: '700', color: '#322F38', marginTop: 2 },
   wdLead: { fontSize: 14, color: '#434049', lineHeight: 21, marginBottom: 14 },
   wdAsk: { fontSize: 13, color: '#65626B', fontWeight: '600', marginBottom: 8 },
   wdTip: { backgroundColor: '#F7F4FF', borderRadius: 12, padding: 12, marginTop: 12, gap: 6 },
