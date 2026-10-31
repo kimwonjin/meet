@@ -3,7 +3,7 @@
 WITH want(kind, name) AS (VALUES
   -- 칸 (표.칸)
   ('칸', 'users.photo_urls'), ('칸', 'users.withdrawn_at'), ('칸', 'users.suspended_at'), ('칸', 'users.paused_at'), ('칸', 'users.preferences'),
-  ('칸', 'users.company'), ('칸', 'users.job_category'), ('칸', 'users.extra_conditions'), ('칸', 'users.avoid_same_company'), ('칸', 'users.district'), ('칸', 'users.next_wish'),
+  ('칸', 'users.company'), ('칸', 'users.job_category'), ('칸', 'users.extra_conditions'), ('칸', 'users.avoid_same_company'), ('칸', 'users.district'), ('칸', 'users.next_wish'), ('칸', 'platform_settings.staff_reported'),
   ('칸', 'connectors.career'), ('칸', 'connectors.intro'), ('칸', 'connectors.pending_profile'), ('칸', 'connectors.profile_status'), ('칸', 'connectors.away_until'),
   ('칸', 'hopeful_requests.identity_checked_at'), ('칸', 'hopeful_requests.invite_code'),
   ('칸', 'match_requests.available_dates_1'), ('칸', 'match_requests.meeting_done_connector_1'), ('칸', 'match_requests.closed_reason'), ('칸', 'match_requests.consented_at'),

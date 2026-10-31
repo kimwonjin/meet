@@ -12,6 +12,7 @@ export function StaffRosterRow({ style }: { style?: any }) {
   const [staff, setStaff] = useState<Staff[] | null>(null);
   const [reported, setReported] = useState<Reported | null>(null);
   const [saving, setSaving] = useState(false);
+  const [where, setWhere] = useState<'server' | 'device' | null>(null);
   const load = useCallback(() => { Promise.all([fetchStaff(), getReported()]).then(([s, r]) => { setStaff(s); setReported(r); }).catch(() => setStaff([])); }, []);
   useFocusEffect(load);
   const d = staff ? diffStaff(staff, reported) : null;
@@ -19,7 +20,8 @@ export function StaffRosterRow({ style }: { style?: any }) {
   async function done() {
     if (!staff || saving) return;
     setSaving(true);
-    setReported(await markReported(staff));
+    const r = await markReported(staff);
+    setReported(r.reported); setWhere(r.where);
     setSaving(false);
     toast.show('✓ 지금 명단으로 변경신고를 마친 것으로 기록했어요', 'success');
   }
@@ -34,7 +36,7 @@ export function StaffRosterRow({ style }: { style?: any }) {
         {!staff || !d ? <ActivityIndicator color="#5B21FF" style={{ marginVertical: 24 }} /> : (
           <View style={{ gap: 14, paddingBottom: 8 }}>
             <Text style={s.lead}>활동 중인 파트너는 회사 결혼중개업의 종사자예요. 파트너가 새로 승인되거나 그만두면 구청에 <Text style={s.b}>변경신고</Text>를 해야 해요 (시행규칙 제3조, 안 하면 과태료).</Text>
-            <Text style={s.when}>마지막 변경신고: {reported ? new Date(reported.at).toLocaleDateString('ko-KR') : '기록 없음 (이 기기)'}</Text>
+            <Text style={s.when}>마지막 변경신고: {reported ? new Date(reported.at).toLocaleDateString('ko-KR') : '기록 없음'}</Text>
             {d.count > 0 && (
               <View style={s.dueBox}>
                 <Text style={s.dueT}>신고할 변경 {d.count}건</Text>
@@ -59,7 +61,7 @@ export function StaffRosterRow({ style }: { style?: any }) {
             <TouchableOpacity style={[s.btn, (saving || d.count === 0) && { opacity: 0.5 }]} onPress={done} disabled={saving || d.count === 0} accessibilityLabel="변경신고 했어요">
               {saving ? <ActivityIndicator color="#fff" /> : <Text style={s.btnT}>{d.count === 0 ? '신고할 변경이 없어요' : '구청에 변경신고 했어요'}</Text>}
             </TouchableOpacity>
-            <Text style={s.note}>신고 기록은 이 기기에만 남아요. 다른 기기에서 보면 처음 한 번은 모두 '새로'로 보일 수 있어요.</Text>
+            {where === 'device' && <Text style={s.note}>서버에 저장할 칸이 아직 없어 이 기기에만 기록했어요 (add_staff_reported.sql 실행 후 모든 기기에서 같게 보여요).</Text>}
           </View>
         )}
       </BottomSheet>

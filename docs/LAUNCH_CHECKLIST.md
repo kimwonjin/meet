@@ -4,7 +4,7 @@
 
 ## 0. SQL이 모두 들어갔는지 확인 (5분)
 - [ ] Supabase SQL Editor에서 `supabase/checks/verify_all.sql` 실행
-  - 맨 위 줄이 **모두 들어갔어요 (73개)** 면 통과
+  - 맨 위 줄이 **모두 들어갔어요 (74개)** 면 통과
   - '없음' 줄이 있으면 그 이름을 개발 담당에게 알려 준다 (해당 SQL 파일을 다시 실행)
 
 ## 1. 보안 강화 (필수, `docs/SECURITY_PLAN.md`)

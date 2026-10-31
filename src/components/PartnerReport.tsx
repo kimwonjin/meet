@@ -12,6 +12,8 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import BottomSheet from './BottomSheet';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
+import { buildStatement, downloadCsv } from '@/lib/payoutStatement';
 
 type Data = { matches: any[]; settlements: any[]; members: any[] };
 
@@ -112,6 +114,22 @@ export default function PartnerReportSheet({ visible, onClose }: { visible: bool
   const prev = useMemo(() => (data ? computeMonth(data, prevYm.y, prevYm.m) : null), [data, ym]);
   const isThisMonth = ym.y === now.getFullYear() && ym.m === now.getMonth() + 1;
 
+  // 월별 정산 내역서 (세금 신고 참고용 CSV)
+  const toast = useToast();
+  const [stmtBusy, setStmtBusy] = useState(false);
+  async function downloadStatement() {
+    if (!user || stmtBusy) return;
+    setStmtBusy(true);
+    try {
+      const r = await buildStatement({ id: user.id, name: user.name }, ym.y, ym.m);
+      if (downloadCsv(r.csv, r.fileName)) toast.show(`✓ ${ym.m}월 정산 내역서를 받았어요 (수수료 ${r.earnedCount}건 · 지급 ${r.paidCount}건)`, 'success');
+    } catch {
+      toast.show('내역서를 만들지 못했어요. 잠시 후 다시 시도해 주세요', 'error');
+    } finally {
+      setStmtBusy(false);
+    }
+  }
+
   const delta = (a: number, b: number, fmt: (n: number) => string = (n) => `${n}`) => {
     const d = a - b;
     if (d === 0) return '지난달과 같아요';
@@ -176,7 +194,10 @@ export default function PartnerReportSheet({ visible, onClose }: { visible: bool
               {cur.impressions.length > 5 && <Text style={s.boxSub}>전체는 매칭 › 매칭내역에서 볼 수 있어요</Text>}
             </View>
           )}
-          <Text style={s.note}>정산금은 그 달에 생긴 금액이에요. 출금은 마이 › 계좌 정보에서 신청할 수 있어요</Text>
+          <TouchableOpacity style={s.stmtBtn} onPress={downloadStatement} disabled={stmtBusy} accessibilityLabel="정산 내역서 내려받기">
+            {stmtBusy ? <ActivityIndicator color="#5B21FF" /> : <Text style={s.stmtBtnT}>📄 {ym.m}월 정산 내역서 내려받기</Text>}
+          </TouchableOpacity>
+          <Text style={s.note}>정산금은 그 달에 생긴 금액이에요. 출금은 마이 › 계좌 정보에서 신청할 수 있어요. 내역서에는 그 달 생긴 수수료와 그 달 지급된 금액(원천징수 포함)이 들어가요</Text>
         </View>
       )}
     </BottomSheet>
@@ -201,6 +222,8 @@ const s = StyleSheet.create({
   reasonT: { flex: 1, fontSize: 13, color: '#434049' },
   reasonN: { fontSize: 13, fontWeight: '700', color: '#322F38' },
   impT: { fontSize: 13, color: '#434049', lineHeight: 19 },
+  stmtBtn: { height: 46, borderRadius: 12, borderWidth: 1, borderColor: '#DCD9E2', alignItems: 'center', justifyContent: 'center' },
+  stmtBtnT: { fontSize: 14, fontWeight: '600', color: '#322F38' },
   note: { fontSize: 12, color: '#736F7A', lineHeight: 18 },
   empty: { fontSize: 14, color: '#6E6A75', textAlign: 'center', marginVertical: 40 },
 });
