@@ -1214,8 +1214,9 @@ export default function ConnectorsScreen() {
 }
 
 const styles = StyleSheet.create({
-  allyProposeBtn: { backgroundColor: '#5B21FF', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
-  allyProposeBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  // 목록마다 반복되는 버튼이라 꽉 찬 강조색 대신 테두리로 (화면의 주요 액션처럼 보이지 않게)
+  allyProposeBtn: { borderWidth: 1, borderColor: '#5B21FF', backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 },
+  allyProposeBtnText: { fontSize: 13, fontWeight: '700', color: '#5B21FF' },
   pendingBanner: { backgroundColor: '#F1ECFF', borderRadius: 12, padding: 14, marginBottom: 12 },
   pendingBannerTitle: { fontSize: 14, fontWeight: '700', color: '#5B21FF', marginBottom: 4 },
   pendingBannerBody: { fontSize: 13, color: '#54515A', lineHeight: 19 },
