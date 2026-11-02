@@ -62,11 +62,11 @@ const REJECT_REASONS = ['나이가 맞지 않아요', '사는 곳이 멀어요',
 
 // 파트너 심사 중인 사람에게 보여 줄 '승인되면 준비할 것'
 const PARTNER_PREP: [string, string][] = [
-  ['소개 글과 경력', '회원이 보고 가입을 정하는 글이에요. 3~5줄로, \'보장·100%\' 같은 과장 표현 없이 적어 두세요'],
-  ['1회 소개 비용', '만남 한 번에 받을 금액을 정해 두세요. 승인 뒤 마이 › 커리어 프로필에서 입력해요'],
-  ['정산 받을 계좌', '본인 명의 계좌가 필요해요. 수수료는 원천징수(3.3%) 후 입금돼요'],
-  ['처음 초대할 사람', '소개해 줄 지인·모임을 미리 떠올려 두세요. 승인되면 초대 링크와 QR로 바로 보낼 수 있어요'],
-  ['휴대폰 알림 켜기', '승인 소식과 회원의 가입 신청을 바로 받을 수 있어요. 마이 › 휴대폰 알림에서 켜요'],
+  ['소개 글·경력', '3~5줄, 과장 없이'],
+  ['1회 소개 비용', '만남 한 번에 받을 금액'],
+  ['정산 계좌', '본인 명의'],
+  ['초대할 사람', '지인·모임 떠올려 두기'],
+  ['휴대폰 알림', '마이에서 켜기'],
 ];
 
 // 만남 전 안전 수칙 (다가오는 소개팅 카드에서 펼쳐 본다)
@@ -1551,14 +1551,11 @@ export default function HomeScreen() {
       {partnerApp === 'pending' && (
         <View style={styles.prepBox} accessibilityLabel="파트너 승인 전 준비할 것">
           {!!firstTask && <Text style={styles.prepHead}>⏳ 파트너 심사 중이에요</Text>}
-          <Text style={styles.prepTitle}>승인되면 바로 시작할 수 있게 준비해 두세요</Text>
+          <Text style={styles.prepTitle}>승인 전에 준비해 두세요</Text>
           {PARTNER_PREP.map(([t, d], i) => (
             <View key={t} style={styles.prepRow}>
               <Text style={styles.prepNo}>{i + 1}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.prepT}>{t}</Text>
-                <Text style={styles.prepD}>{d}</Text>
-              </View>
+              <Text style={styles.prepT} numberOfLines={1}>{t} <Text style={styles.prepD}>· {d}</Text></Text>
             </View>
           ))}
         </View>
@@ -1988,13 +1985,13 @@ const styles = StyleSheet.create({
   rejectNote: { fontSize: 12, color: '#736F7A', marginTop: 12, marginBottom: 16 },
   rejectConfirm: { height: 50, borderRadius: 12, backgroundColor: '#E5484D', alignItems: 'center', justifyContent: 'center' },
   rejectConfirmT: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  prepBox: { marginHorizontal: 20, marginTop: 12, borderRadius: 16, backgroundColor: '#F8F7FA', padding: 16, gap: 12 },
+  prepBox: { marginHorizontal: 20, marginTop: 12, borderRadius: 16, backgroundColor: '#F8F7FA', padding: 16, gap: 10 },
   prepHead: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
   prepTitle: { fontSize: 15, fontWeight: '700', color: '#322F38' },
-  prepRow: { flexDirection: 'row', gap: 10 },
+  prepRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   prepNo: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#EDE4FF', color: '#5B21FF', fontSize: 12, fontWeight: '700', textAlign: 'center', lineHeight: 22, overflow: 'hidden' },
-  prepT: { fontSize: 14, fontWeight: '600', color: '#322F38' },
-  prepD: { fontSize: 13, color: '#6E6A75', lineHeight: 19, marginTop: 2 },
+  prepT: { flex: 1, fontSize: 14, fontWeight: '600', color: '#322F38' },
+  prepD: { fontSize: 13, color: '#6E6A75', fontWeight: '400' },
   tipsToggle: { marginTop: 10, paddingVertical: 4 },
   tipsToggleText: { fontSize: 13, color: '#54515A', fontWeight: '600' },
   tipsBox: { backgroundColor: '#fff', borderRadius: 10, padding: 10, marginTop: 4, gap: 4 },
