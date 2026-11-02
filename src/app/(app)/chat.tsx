@@ -12,6 +12,7 @@ import { useFocusPolling } from '@/hooks/use-focus-polling';
 import SafetyActions from '@/components/SafetyActions';
 import { getBlockState } from '@/lib/safety';
 import { AwayChatNotice } from '@/components/AwaySettings';
+import AllianceChatBanner from '@/components/AllianceChatBanner';
 import { loadPhrases, MAX_PHRASES, PhraseKind, savePhrases } from '@/lib/quickPhrases';
 import { makeImageContent, parseImage, previewText } from '@/lib/chatImage';
 import { pickAndUploadPhoto } from '@/lib/photos';
@@ -360,6 +361,23 @@ export default function ChatScreen() {
 
           {/* 상대 파트너가 자리 비움 중이면 알린다 (파트너가 아니면 아무것도 안 보임) */}
           {activeOther && operator?.id !== activeOther.id && <AwayChatNotice partnerId={activeOther.id} name={activeOther.name} />}
+
+          {/* 상대 파트너가 보낸 동맹 요청: 대화하다가 여기서 바로 수락 */}
+          {activeOther && user && isPartner && operator?.id !== activeOther.id && (
+            <AllianceChatBanner
+              meId={user.id}
+              myName={user.name}
+              otherId={activeOther.id}
+              otherName={activeOther.name}
+              threadId={activeThreadId}
+              onAccepted={async () => {
+                const tid = activeThreadId;
+                if (!tid) return;
+                const msgs = await fetchMessages(tid);
+                if (activeThreadRef.current === tid) setMessages(msgs);
+              }}
+            />
+          )}
 
           {/* 운영자 대화방 상단 고정 안내: 무엇이든 편하게 말할 수 있는 창구임을 알린다 */}
           {activeOther && operator?.id === activeOther.id && user?.role !== 'operator' && (

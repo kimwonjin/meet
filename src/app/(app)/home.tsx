@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isPartnerIntroWritten } from '@/lib/partnerIntroState';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SkeletonScreen from '@/components/Skeleton';
 import { usePullRefresh } from '@/hooks/use-pull-refresh';
@@ -204,9 +205,7 @@ export default function HomeScreen() {
           .eq('status', 'approved');
         setApprovedMemberCount(memberCount || 0);
         supabase.from('connectors').select('*').eq('id', user!.id).maybeSingle().then(({ data }) => {
-          const c = (data || {}) as any;
-          const pend = c.pending_profile && typeof c.pending_profile === 'object' ? Object.values(c.pending_profile).some((v: any) => String(v ?? '').trim()) : false;
-          setProfileWritten(!!(String(c.career || '').trim() || String(c.intro || '').trim() || Number(c.fee_per_session) > 0 || pend));
+          setProfileWritten(isPartnerIntroWritten(data));
         });
 
         // 연결자: 내가 제안한 매칭들 조회

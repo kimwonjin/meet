@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import SkeletonScreen from '@/components/Skeleton';
 import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, TextInput } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { isPartnerIntroWritten } from '@/lib/partnerIntroState';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
 import { supabase } from '@/lib/supabase';
 import { requestJoin } from '@/lib/join';
@@ -98,6 +99,15 @@ export default function ConnectorsScreen() {
   const memberFilter = useMemberFilter();
   // 회원이 없을 때 '초대장 보내기' (광고하기 시트)
   const [showInvite, setShowInvite] = useState(false);
+  // 파트너 소개를 썼는지 (null = 모름). 안 썼으면 빈 회원 탭에서 초대장보다 소개 쓰기를 먼저 보여 준다
+  const [introWritten, setIntroWritten] = useState<boolean | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.role !== 'connector') return;
+      supabase.from('connectors').select('*').eq('id', user.id).maybeSingle()
+        .then(({ data, error }) => setIntroWritten(error ? null : isPartnerIntroWritten(data)));
+    }, [user?.id, user?.role])
+  );
   // 내 회원 정렬: 최근 가입 순(기본) · 오래 기다린 순 · 이용권 남은 순
   const [memberSort, setMemberSort] = useState<'recent' | 'wait' | 'credit'>('recent');
   const [lastIntro, setLastIntro] = useState<Map<string, string>>(new Map());
@@ -648,10 +658,21 @@ export default function ConnectorsScreen() {
               // 회원이 없을 때: 홍보로 회원을 모으도록 바로 초대장 보내기
               <View style={styles.emptyInvite}>
                 <Text style={styles.emptyInviteT}>{tabStatus === 'approved' ? '아직 내 회원이 없어요' : '아직 가입 신청이 없어요'}</Text>
-                <Text style={styles.emptyInviteS}>홍보를 통해 회원을 모집해 보아요.{'\n'}초대 링크로 가입하면 나에게 바로 연결돼요.</Text>
-                <TouchableOpacity style={styles.emptyInviteBtn} onPress={() => setShowInvite(true)} accessibilityLabel="초대장 보내기">
-                  <Text style={styles.emptyInviteBtnT}>💌 초대장 보내기</Text>
-                </TouchableOpacity>
+                {introWritten === false ? (
+                  <>
+                    <Text style={styles.emptyInviteS}>먼저 파트너 소개를 써 주세요.{'\n'}회원이 보고 가입을 정하는 글이에요.</Text>
+                    <TouchableOpacity style={styles.emptyInviteBtn} onPress={() => router.push({ pathname: '/profile', params: { open: 'career' } })} accessibilityLabel="파트너 소개 쓰기">
+                      <Text style={styles.emptyInviteBtnT}>✍️ 파트너 소개 쓰기</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.emptyInviteS}>홍보를 통해 회원을 모집해 보아요.{'\n'}초대 링크로 가입하면 나에게 바로 연결돼요.</Text>
+                    <TouchableOpacity style={styles.emptyInviteBtn} onPress={() => setShowInvite(true)} accessibilityLabel="초대장 보내기">
+                      <Text style={styles.emptyInviteBtnT}>💌 초대장 보내기</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             ) : (
               <Text style={[styles.placeholderText, { textAlign: 'center', lineHeight: 20 }]}>

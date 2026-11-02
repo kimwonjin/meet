@@ -21,6 +21,7 @@ import { allyFit } from '@/lib/allyFit';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { createNotification } from '@/lib/notifications';
 import { getOrCreateThread, sendMessage } from '@/lib/chat';
+import { acceptAlliance, fetchRequestNote, ALLIANCE_NOTE_PREFIX } from '@/lib/alliance';
 import PartnerComposition from '@/components/PartnerComposition';
 
 // 동맹: 매칭 탭의 '동맹' 칸에 들어가는 화면 (마이·홈·알림에서도 이 칸으로 연결된다)
@@ -49,6 +50,8 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
   const [fRegions, setFRegions] = useState<string[]>([]);
   const [fFit, setFFit] = useState<0 | 60 | 80>(0); // 궁합 점수 이상
   const [fitInfoOpen, setFitInfoOpen] = useState(false);
+  // 받은 동맹 요청의 한마디 (프로필 시트에서 보여 준다). undefined = 불러오는 중
+  const [allyNote, setAllyNote] = useState<string | null | undefined>(null);
 
   useEffect(() => {
     fetchAlliances();
@@ -169,7 +172,7 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
       // 한마디는 채팅으로도 보내서 받은 사람이 바로 답할 수 있게 한다
       if (msg) {
         const threadId = await getOrCreateThread(user.id, otherId).catch(() => null);
-        if (threadId) await sendMessage(threadId, user.id, `🤝 동맹 요청\n${msg}`).catch(() => {});
+        if (threadId) await sendMessage(threadId, user.id, `${ALLIANCE_NOTE_PREFIX}${msg}`).catch(() => {});
       }
 
       toast.show('✓ 동맹을 요청했어요. 한마디는 채팅에서도 볼 수 있어요', 'success');
@@ -185,32 +188,14 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
     setAllianceProcessingId(allianceId);
     try {
       const alliance = alliances.find((a) => a.id === allianceId);
-
       // 상대가 그 사이 요청을 취소했으면 수락되지 않는다
-      const { data: accepted, error } = await supabase
-        .from('connector_alliances')
-        .update({ status: 'ACTIVE', updated_at: new Date().toISOString() })
-        .eq('id', allianceId)
-        .eq('status', 'PENDING')
-        .select('id');
-      if (error) throw error;
-      if (!accepted?.length) {
+      const r = await acceptAlliance(alliance ?? { id: allianceId }, user?.name);
+      if (r === 'gone') {
         toast.show('상대가 요청을 취소했거나 이미 처리된 요청이에요', 'info');
-        await fetchAlliances();
-        return;
+      } else {
+        toast.show('✓ 동맹을 수락했습니다', 'success');
+        setSelectedAlly(null);
       }
-
-      if (alliance?.requested_by) {
-        await createNotification({
-          userId: alliance.requested_by,
-          type: 'alliance_accepted',
-          title: '동맹 요청이 수락되었습니다',
-          body: `${user?.name}님이 동맹 요청을 수락했습니다`,
-          route: '/alliances',
-        });
-      }
-
-      toast.show('✓ 동맹을 수락했습니다', 'success');
       await fetchAlliances();
     } catch (error) {
       toast.show('처리 중 오류가 발생했습니다', 'error');
@@ -266,6 +251,13 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
   async function handleViewAlly(conn: any) {
     if (!user) return;
     setSelectedAlly(conn);
+    const a = getAllianceWith(conn.id);
+    if (a?.status === 'PENDING' && a.requested_by !== user.id) {
+      setAllyNote(undefined);
+      fetchRequestNote(user.id, conn.id).then(setAllyNote).catch(() => setAllyNote(null));
+    } else {
+      setAllyNote(null);
+    }
     setLoadingStats(true);
     setPoolStats(null);
     try {
@@ -400,7 +392,11 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                           </View>
                         );
                       })()}
-                      <Text style={styles.desc}>{isActive ? '동맹 중 · ' : ''}프로필 보기 ›</Text>
+                      {isIncoming ? (
+                        <Text style={styles.incomingLink}>나에게 동맹을 요청했어요 · 소개 보고 결정하기 ›</Text>
+                      ) : (
+                        <Text style={styles.desc}>{isActive ? '동맹 중 · ' : ''}프로필 보기 ›</Text>
+                      )}
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -519,6 +515,38 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                 </View>
                 <Text style={styles.modalTitle}>{selectedAlly?.name}</Text>
               </View>
+
+              {/* 받은 동맹 요청: 한마디와 함께 여기서 바로 수락하거나 채팅으로 물어본다 */}
+              {(() => {
+                const a = selectedAlly ? getAllianceWith(selectedAlly.id) : null;
+                if (!a || a.status !== 'PENDING' || a.requested_by === user?.id) return null;
+                const busy = allianceProcessingId === a.id;
+                return (
+                  <View style={styles.reqBox}>
+                    <Text style={styles.reqTitle}>🤝 나에게 동맹을 요청했어요</Text>
+                    {allyNote === undefined ? (
+                      <ActivityIndicator color="#5B21FF" style={{ marginVertical: 6, alignSelf: 'flex-start' }} />
+                    ) : allyNote ? (
+                      <Text style={styles.reqNote}>“{allyNote}”</Text>
+                    ) : null}
+                    <TouchableOpacity
+                      style={[styles.noteSendBtn, { marginTop: 10 }, allianceProcessingId !== null && styles.buttonDisabled]}
+                      disabled={allianceProcessingId !== null}
+                      onPress={() => handleAcceptAlliance(a.id)}
+                      accessibilityLabel="동맹 수락"
+                    >
+                      {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.noteSendText}>동맹 수락</Text>}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.reqChat}
+                      onPress={() => { const t = selectedAlly; setSelectedAlly(null); router.push({ pathname: '/chat', params: { with: t.id, name: t.name } }); }}
+                      accessibilityLabel="채팅으로 물어보기"
+                    >
+                      <Text style={styles.reqChatText}>💬 먼저 채팅으로 물어보기</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })()}
 
               {/* 연결자 기본 정보: 통계를 불러오지 못해도 항상 보여준다 */}
               <View style={styles.modalSection}>
@@ -693,6 +721,12 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
+  incomingLink: { fontSize: 13, fontWeight: '600', color: '#5B21FF', marginTop: 2 },
+  reqBox: { backgroundColor: '#F6F3FF', borderRadius: 12, padding: 14, marginBottom: 16 },
+  reqTitle: { fontSize: 15, fontWeight: '700', color: '#1A1820' },
+  reqNote: { fontSize: 14, color: '#4A4651', marginTop: 8, lineHeight: 20 },
+  reqChat: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
+  reqChatText: { fontSize: 14, fontWeight: '600', color: '#736F7A' },
   noteHint: { fontSize: 13, color: '#736F7A', marginBottom: 10 },
   noteInput: {
     minHeight: 96, borderWidth: 1, borderColor: '#E5E2EA', borderRadius: 10,
