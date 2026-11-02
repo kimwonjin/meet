@@ -20,6 +20,7 @@ import { formatRegions, partnerIntro } from '@/lib/format';
 import { allyFit } from '@/lib/allyFit';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { createNotification } from '@/lib/notifications';
+import { getOrCreateThread, sendMessage } from '@/lib/chat';
 import PartnerComposition from '@/components/PartnerComposition';
 
 // 동맹: 매칭 탭의 '동맹' 칸에 들어가는 화면 (마이·홈·알림에서도 이 칸으로 연결된다)
@@ -143,7 +144,12 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
     </TouchableOpacity>
   );
 
-  async function handleRequestAlliance(otherId: string) {
+  // 동맹 요청 시트: 한마디를 적어 보내면 상대 파트너와의 채팅방에도 남는다
+  const [requestTarget, setRequestTarget] = useState<{ id: string; name: string } | null>(null);
+  const [requestNote, setRequestNote] = useState('');
+  const DEFAULT_NOTE = '안녕하세요! 서로 회원을 소개하면 좋을 것 같아 동맹 신청드려요 😊';
+
+  async function handleRequestAlliance(otherId: string, note = '') {
     if (!user) return;
     setAllianceProcessingId(otherId);
     try {
@@ -152,15 +158,21 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
       ]);
       if (error) throw error;
 
+      const msg = note.trim();
       await createNotification({
         userId: otherId,
         type: 'alliance_requested',
         title: '새로운 동맹 요청이 도착했습니다',
-        body: `${user.name}님이 동맹을 요청했습니다`,
+        body: msg ? `${user.name}님: ${msg.slice(0, 60)}` : `${user.name}님이 동맹을 요청했습니다`,
         route: '/alliances',
       });
+      // 한마디는 채팅으로도 보내서 받은 사람이 바로 답할 수 있게 한다
+      if (msg) {
+        const threadId = await getOrCreateThread(user.id, otherId).catch(() => null);
+        if (threadId) await sendMessage(threadId, user.id, `🤝 동맹 요청\n${msg}`).catch(() => {});
+      }
 
-      toast.show('✓ 동맹을 요청했습니다', 'success');
+      toast.show('✓ 동맹을 요청했어요. 한마디는 채팅에서도 볼 수 있어요', 'success');
       await fetchAlliances();
     } catch (error) {
       toast.show('동맹 요청 중 오류가 발생했습니다', 'error');
@@ -416,6 +428,13 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                   ) : isIncoming ? (
                     <>
                       <TouchableOpacity
+                        style={styles.chatBtn}
+                        onPress={() => router.push({ pathname: '/chat', params: { with: item.id, name: item.name } })}
+                        accessibilityLabel="동맹 요청한 파트너와 채팅"
+                      >
+                        <Text style={styles.chatBtnText}>💬 채팅</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
                         style={[styles.approveBtn, allianceProcessingId === alliance.id && styles.buttonDisabled]}
                         onPress={() => handleAcceptAlliance(alliance.id)}
                         disabled={allianceProcessingId !== null}
@@ -434,6 +453,13 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                     <>
                       <Text style={styles.approvedStatusBadge}>요청됨</Text>
                       <TouchableOpacity
+                        style={styles.chatBtn}
+                        onPress={() => router.push({ pathname: '/chat', params: { with: item.id, name: item.name } })}
+                        accessibilityLabel="동맹 요청한 파트너와 채팅"
+                      >
+                        <Text style={styles.chatBtnText}>💬 채팅</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
                         style={[styles.rejectBtn, allianceProcessingId === alliance.id && styles.buttonDisabled]}
                         onPress={() => handleTerminateAlliance(alliance.id)}
                         disabled={allianceProcessingId !== null}
@@ -444,7 +470,7 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                   ) : (
                     <TouchableOpacity
                       style={[styles.approveBtn, allianceProcessingId === item.id && styles.buttonDisabled]}
-                      onPress={() => handleRequestAlliance(item.id)}
+                      onPress={() => { setRequestNote(DEFAULT_NOTE); setRequestTarget({ id: item.id, name: item.business_name || item.name || '파트너' }); }}
                       disabled={allianceProcessingId !== null}
                     >
                       <Text style={styles.approveBtnText}>{allianceProcessingId === item.id ? '처리 중...' : '동맹 요청'}</Text>
@@ -524,6 +550,33 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                 )}
               </View>
             </View>
+      </BottomSheet>
+
+      <BottomSheet visible={!!requestTarget} onClose={() => setRequestTarget(null)} title={`${requestTarget?.name ?? ''}님께 동맹 요청`}>
+        <Text style={styles.noteHint}>짧은 인사를 함께 보내요. 받은 분은 채팅으로 답할 수 있어요</Text>
+        <TextInput
+          style={styles.noteInput}
+          value={requestNote}
+          onChangeText={(t) => setRequestNote(t.slice(0, 200))}
+          multiline
+          placeholder="간단한 인사를 적어 주세요"
+          placeholderTextColor="#A8A4AE"
+          accessibilityLabel="동맹 요청 한마디"
+        />
+        <Text style={styles.noteCount}>{requestNote.length}/200</Text>
+        <TouchableOpacity
+          style={[styles.noteSendBtn, allianceProcessingId !== null && styles.buttonDisabled]}
+          disabled={allianceProcessingId !== null}
+          onPress={async () => {
+            const t = requestTarget;
+            if (!t) return;
+            await handleRequestAlliance(t.id, requestNote);
+            setRequestTarget(null);
+          }}
+          accessibilityLabel="동맹 요청 보내기"
+        >
+          {allianceProcessingId !== null ? <ActivityIndicator color="#fff" /> : <Text style={styles.noteSendText}>동맹 요청 보내기</Text>}
+        </TouchableOpacity>
       </BottomSheet>
     </View>
   );
@@ -640,6 +693,14 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
+  noteHint: { fontSize: 13, color: '#736F7A', marginBottom: 10 },
+  noteInput: {
+    minHeight: 96, borderWidth: 1, borderColor: '#E5E2EA', borderRadius: 10,
+    padding: 12, fontSize: 15, color: '#1A1820', textAlignVertical: 'top',
+  },
+  noteCount: { fontSize: 12, color: '#A8A4AE', textAlign: 'right', marginTop: 4, marginBottom: 12 },
+  noteSendBtn: { backgroundColor: '#5B21FF', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  noteSendText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   chatBtn: {
     backgroundColor: '#F1ECFF',
     paddingHorizontal: 12,
