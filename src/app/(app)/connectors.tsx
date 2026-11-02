@@ -15,6 +15,7 @@ import SafetyActions from '@/components/SafetyActions';
 import MemberProfileView from '@/components/MemberProfileView';
 import { useMemberFilter } from '@/components/MemberFilter';
 import { BulkMessageRow } from '@/components/BulkMessage';
+import InviteSheet from '@/components/InviteSheet';
 import PartnerComposition from '@/components/PartnerComposition';
 import BottomSheet from '@/components/BottomSheet';
 import { Avatar, PhotoList } from '@/components/ProfilePhoto';
@@ -95,6 +96,8 @@ export default function ConnectorsScreen() {
   const [search, setSearch] = useState('');
   // 파트너의 회원 탭 필터 (매칭 탭과 같은 필터)
   const memberFilter = useMemberFilter();
+  // 회원이 없을 때 '초대장 보내기' (광고하기 시트)
+  const [showInvite, setShowInvite] = useState(false);
   // 내 회원 정렬: 최근 가입 순(기본) · 오래 기다린 순 · 이용권 남은 순
   const [memberSort, setMemberSort] = useState<'recent' | 'wait' | 'credit'>('recent');
   const [lastIntro, setLastIntro] = useState<Map<string, string>>(new Map());
@@ -641,9 +644,20 @@ export default function ConnectorsScreen() {
 
         {displayRequests.length === 0 ? (
           <View style={styles.emptyTab}>
-            <Text style={[styles.placeholderText, { textAlign: 'center', lineHeight: 20 }]}>
-              {tabMembers.length > 0 ? '조건에 맞는 회원이 없습니다' : emptyText}
-            </Text>
+            {tabMembers.length === 0 && tabStatus !== 'ally' ? (
+              // 회원이 없을 때: 홍보로 회원을 모으도록 바로 초대장 보내기
+              <View style={styles.emptyInvite}>
+                <Text style={styles.emptyInviteT}>{tabStatus === 'approved' ? '아직 내 회원이 없어요' : '아직 가입 신청이 없어요'}</Text>
+                <Text style={styles.emptyInviteS}>홍보를 통해 회원을 모집해 보아요.{'\n'}초대 링크로 가입하면 나에게 바로 연결돼요.</Text>
+                <TouchableOpacity style={styles.emptyInviteBtn} onPress={() => setShowInvite(true)} accessibilityLabel="초대장 보내기">
+                  <Text style={styles.emptyInviteBtnT}>💌 초대장 보내기</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <Text style={[styles.placeholderText, { textAlign: 'center', lineHeight: 20 }]}>
+                {tabMembers.length > 0 ? '조건에 맞는 회원이 없습니다' : emptyText}
+              </Text>
+            )}
           </View>
         ) : (
           <FlatList
@@ -805,6 +819,7 @@ export default function ConnectorsScreen() {
           </BottomSheet>
         )}
 
+        <InviteSheet visible={showInvite} onClose={() => setShowInvite(false)} partnerName={user.name} />
       </ScrollView>
     );
   }
@@ -1580,6 +1595,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#5B21FF',
   },
+  emptyInvite: { alignItems: 'center', gap: 8, paddingHorizontal: 20 },
+  emptyInviteT: { fontSize: 17, fontWeight: '700', color: '#322F38' },
+  emptyInviteS: { fontSize: 14, color: '#6E6A75', textAlign: 'center', lineHeight: 21 },
+  emptyInviteBtn: { marginTop: 12, backgroundColor: '#5B21FF', borderRadius: 12, height: 50, paddingHorizontal: 28, alignItems: 'center', justifyContent: 'center' },
+  emptyInviteBtnT: { color: '#fff', fontSize: 16, fontWeight: '700' },
   bulkRow: { marginHorizontal: 20, marginTop: 12 },
   sortRow: { flexDirection: 'row', gap: 14, marginTop: 10, paddingHorizontal: 2 },
   sortT: { fontSize: 13, color: '#6E6A75' },
