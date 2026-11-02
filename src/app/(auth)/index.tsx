@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import BusinessInfo from '@/components/BusinessInfo';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
-import MemberIntro from '@/components/MemberIntro';
 import { useRouter } from 'expo-router';
 import { useAuth, type RecentLogin } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -65,10 +64,8 @@ export default function LoginScreen() {
     }
   }
 
-  // 처음 온 사람: 로그인 아래의 서비스 소개로 바로 내려가는 안내 (이 기기에서 로그인한 적이 없을 때)
   const scrollRef = useRef<ScrollView>(null);
   const [showRecent, setShowRecent] = useState(false);
-  const introY = useRef(0);
 
   return (
     <ScrollView ref={scrollRef} style={styles.page} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
@@ -99,15 +96,10 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
-        {/* 주요 행동은 '시작하기' 하나. 가입·파트너는 작은 글자 링크로 */}
+        {/* 주요 행동은 '시작하기' 하나. 가입은 작은 링크 (회원·매니저는 가입 화면에서 고른다) */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>처음이세요? </Text>
-          <TouchableOpacity onPress={() => router.push('/(auth)/signup')} accessibilityLabel="가입하기">
+          <TouchableOpacity onPress={() => router.push('/(auth)/signup')} accessibilityLabel="가입하기" hitSlop={8}>
             <Text style={styles.footerLink}>가입하기</Text>
-          </TouchableOpacity>
-          <Text style={styles.footerDot}>·</Text>
-          <TouchableOpacity onPress={() => router.push('/partner')} disabled={loading} accessibilityLabel="파트너로 시작하기">
-            <Text style={styles.footerSub}>매니저로 시작하기</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -138,10 +130,6 @@ export default function LoginScreen() {
           ))}
         </View>
       )}
-      {/* 처음 온 사람을 위한 서비스 소개 */}
-      <View style={{ marginTop: 16 }} onLayout={(e) => { introY.current = e.nativeEvent.layout.y; }}>
-        <MemberIntro />
-      </View>
 
       {/* 로그인 전에도 보이도록 화면 맨 아래 (결제 심사 등) */}
       <View style={{ marginTop: 'auto', paddingTop: 24 }}>
@@ -174,8 +162,6 @@ const styles = StyleSheet.create({
   form: {
     gap: 16,
   },
-  footerDot: { fontSize: 13, color: '#BAB7C0', marginHorizontal: 8 },
-  footerSub: { fontSize: 13, color: '#54515A', textDecorationLine: 'underline' },
   recentToggle: { fontSize: 12, color: '#736F7A' },
   label: {
     fontSize: 12,
@@ -211,10 +197,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
   },
-  footerText: {
-    fontSize: 13,
-    color: '#736F7A',
-  },
   recent: {
     marginTop: 28,
     gap: 8,
@@ -246,7 +228,7 @@ const styles = StyleSheet.create({
     color: '#65626B',
   },
   footerLink: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#5B21FF',
     fontWeight: '700',
   },
