@@ -731,7 +731,14 @@ export default function ConnectorsScreen() {
                 )}
                 {tabStatus === 'ally' && !!item.ally_connector_id && (
                   <View style={styles.meta}>
-                    <View />
+                    {/* 이 동맹 회원을 골라 둔 채 매칭 제안 화면을 연다: 내 회원 한 명만 고르면 된다 */}
+                    <TouchableOpacity
+                      style={styles.allyProposeBtn}
+                      onPress={() => router.push({ pathname: '/matching', params: { pick: item.id, pickFrom: item.ally_connector_id } })}
+                      accessibilityLabel={`${item.name} 회원으로 매칭 제안`}
+                    >
+                      <Text style={styles.allyProposeBtnText}>💞 매칭 제안</Text>
+                    </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.chatShortcutBtn}
                       onPress={() => router.push({ pathname: '/chat', params: { with: item.ally_connector_id, name: item.ally_connector_name } })}
@@ -1207,6 +1214,8 @@ export default function ConnectorsScreen() {
 }
 
 const styles = StyleSheet.create({
+  allyProposeBtn: { backgroundColor: '#5B21FF', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
+  allyProposeBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
   pendingBanner: { backgroundColor: '#F1ECFF', borderRadius: 12, padding: 14, marginBottom: 12 },
   pendingBannerTitle: { fontSize: 14, fontWeight: '700', color: '#5B21FF', marginBottom: 4 },
   pendingBannerBody: { fontSize: 13, color: '#54515A', lineHeight: 19 },

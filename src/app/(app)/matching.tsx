@@ -981,7 +981,7 @@ export default function MatchingScreen() {
               <TouchableOpacity onPress={() => setPreviewMember({ member: m, connectorId })} accessibilityLabel={`${m.name} 프로필 보기`}>
                 <Avatar photoUrls={m.photo_urls} size={48} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.memberRowBody} onPress={() => toggleSelectForMatch(m.id, connectorId)} accessibilityLabel={busy ? `${m.name} ${block}` : `${m.name} 선택`}>
+              <TouchableOpacity style={styles.memberRowBody} onPress={() => toggleSelectForMatch(m.id, connectorId)} accessibilityLabel={busy ? `${m.name} ${block}` : `${m.name} 선택`} role="checkbox" aria-checked={isSelected} aria-disabled={!!busy}>
                 <View style={styles.memberRowText}>
                   <Text style={styles.memberRowName}>{m.name}</Text>
                   {!!summary && <Text style={styles.memberRowSub}>{summary}</Text>}

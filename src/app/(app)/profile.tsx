@@ -53,6 +53,13 @@ const FEE_MIN = 1000;
 const FEE_MAX = 10000000;
 const feeDigits = (v: any) => String(v ?? '').replace(/[^0-9]/g, '');
 
+// 파트너 소개 쓰기 도우미 예시 (과장 표현 없이 짧게)
+const INTRO_EXAMPLES = [
+  '주로 30대 직장인을 소개해요.',
+  '직접 만나 본 분만 소개해요.',
+  '부담 없이 편하게 물어보세요.',
+];
+
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout, updateUser, refreshUser } = useAuth();
@@ -1936,6 +1943,19 @@ export default function ProfileScreen() {
 
         <View style={styles.profileFormSection}>
           <Text style={styles.formLabel}>파트너 소개</Text>
+          {/* 쓰기 도우미: 누르면 소개 글에 이어 붙는다 (그대로 두거나 고쳐 써도 된다) */}
+          <View style={styles.introChips}>
+            {INTRO_EXAMPLES.filter((ex) => !(storeData.intro || '').includes(ex)).map((ex) => (
+              <TouchableOpacity
+                key={ex}
+                style={styles.introChip}
+                onPress={() => setStoreData({ ...storeData, intro: ((storeData.intro || '').trim() ? `${(storeData.intro || '').trim()} ` : '') + ex })}
+                accessibilityLabel={`예시 문장 넣기: ${ex}`}
+              >
+                <Text style={styles.introChipText}>+ {ex}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           <TextInput
             style={[styles.formInput, { height: 100, textAlignVertical: 'top' }]}
             placeholder="어떤 분들을 주로 소개하는지, 소개 방식과 진행 과정, 회원에게 하고 싶은 말을 적어주세요"
@@ -2373,6 +2393,9 @@ function moneyFit(n: number) {
 
 const PROFILE_STEPS_BASE = 7;
 const styles = StyleSheet.create({
+  introChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
+  introChip: { borderWidth: 1, borderColor: '#E5E2EA', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 },
+  introChipText: { fontSize: 12, color: '#4A4651' },
   wizardFooter: { flexDirection: 'row', gap: 8 },
   applyCancel: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 16, marginTop: 4 },
   applyCancelText: { fontSize: 13, color: '#6E6A75', textDecorationLine: 'underline' },

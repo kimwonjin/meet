@@ -12,6 +12,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomSheet from '@/components/BottomSheet';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -148,6 +149,36 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
       <Text style={[styles.fChipText, on && styles.fChipTextOn]}>{label}</Text>
     </TouchableOpacity>
   );
+
+  // 답 없는 보낸 요청: 7일이 지나면 '다시 알리기'를 한 번 할 수 있다 (이 기기에서 알린 요청은 기억)
+  const STALE_DAYS = 7;
+  const [reminded, setReminded] = useState<Record<string, true>>({});
+  const [remindingId, setRemindingId] = useState<string | null>(null);
+  useEffect(() => {
+    AsyncStorage.getItem('ally_reminded').then((v) => { try { setReminded(v ? JSON.parse(v) : {}); } catch {} }).catch(() => {});
+  }, []);
+  const isStale = (a: any) => !!a?.created_at && Date.now() - new Date(a.created_at).getTime() >= STALE_DAYS * 86400000;
+  async function remindAlliance(a: any, otherId: string) {
+    if (!user || remindingId) return;
+    setRemindingId(a.id);
+    try {
+      await createNotification({
+        userId: otherId,
+        type: 'alliance_requested',
+        title: '동맹 요청이 아직 기다리고 있어요',
+        body: `${user.name}님의 동맹 요청에 답해 주세요`,
+        route: '/alliances',
+      });
+      const next = { ...reminded, [a.id]: true as const };
+      setReminded(next);
+      AsyncStorage.setItem('ally_reminded', JSON.stringify(next)).catch(() => {});
+      toast.show('✓ 다시 알렸어요', 'success');
+    } catch {
+      toast.show('알림을 보내지 못했어요. 잠시 후 다시 시도해 주세요', 'error');
+    } finally {
+      setRemindingId(null);
+    }
+  }
 
   // 동맹 요청 시트: 한마디를 적어 보내면 상대 파트너와의 채팅방에도 남는다
   const [requestTarget, setRequestTarget] = useState<{ id: string; name: string } | null>(null);
@@ -458,6 +489,31 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                         <Text style={styles.rejectBtnText}>거절</Text>
                       </TouchableOpacity>
                     </>
+                  ) : isOutgoing && isStale(alliance) ? (
+                    // 7일 넘게 답이 없는 요청: 한 번 다시 알리거나 취소한다
+                    <>
+                      <Text style={styles.staleText}>아직 답이 없어요</Text>
+                      {reminded[alliance.id] ? (
+                        <Text style={styles.approvedStatusBadge}>다시 알림 보냄</Text>
+                      ) : (
+                        <TouchableOpacity
+                          style={[styles.chatBtn, remindingId === alliance.id && styles.buttonDisabled]}
+                          onPress={() => remindAlliance(alliance, item.id)}
+                          disabled={remindingId !== null}
+                          accessibilityLabel="동맹 요청 다시 알리기"
+                        >
+                          {remindingId === alliance.id ? <ActivityIndicator size="small" color="#5B21FF" /> : <Text style={styles.chatBtnText}>🔔 다시 알리기</Text>}
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        style={[styles.rejectBtn, allianceProcessingId === alliance.id && styles.buttonDisabled]}
+                        onPress={() => handleTerminateAlliance(alliance.id)}
+                        disabled={allianceProcessingId !== null}
+                        accessibilityLabel="동맹 요청 취소"
+                      >
+                        <Text style={styles.rejectBtnText}>요청 취소</Text>
+                      </TouchableOpacity>
+                    </>
                   ) : isOutgoing ? (
                     <>
                       <Text style={styles.approvedStatusBadge}>요청됨</Text>
@@ -749,6 +805,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   alliedBody: { fontSize: 15, color: '#4A4651', lineHeight: 22, marginBottom: 16 },
+  staleText: { fontSize: 12, color: '#736F7A', alignSelf: 'center' },
   incomingLink: { fontSize: 13, fontWeight: '600', color: '#5B21FF', marginTop: 2 },
   reqBox: { backgroundColor: '#F6F3FF', borderRadius: 12, padding: 14, marginBottom: 16 },
   reqTitle: { fontSize: 15, fontWeight: '700', color: '#1A1820' },
