@@ -70,7 +70,7 @@ export default function LoginScreen() {
   return (
     <ScrollView ref={scrollRef} style={styles.page} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>두두인연</Text>
-      <Text style={styles.subtitle}>사람이 아닌, 지지 인연.</Text>
+      <Text style={styles.subtitle}>좋은 사람, 좋은 사람에게 소개받기</Text>
 
       <View style={styles.form}>
         <Text style={styles.label}>전화번호</Text>
