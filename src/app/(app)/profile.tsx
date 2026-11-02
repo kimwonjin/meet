@@ -1926,7 +1926,7 @@ export default function ProfileScreen() {
           <Text style={styles.formLabel}>경력</Text>
           <TextInput
             style={styles.formInput}
-            placeholder="예: 결혼정보회사 커플매니저 5년"
+            placeholder="예: 독서 소모임 회장, 공대 과대 출신"
             placeholderTextColor="#DCD9E2"
             value={storeData.career}
             onChangeText={(text) => setStoreData({ ...storeData, career: text })}
