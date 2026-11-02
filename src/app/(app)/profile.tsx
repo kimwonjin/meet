@@ -206,6 +206,10 @@ export default function ProfileScreen() {
       // 파트너 모집 페이지에서 '파트너 신청하기'로 들어오면 신청서를 바로 연다
       setShowConnectorModal(true);
       router.setParams({ open: undefined });
+    } else if (open === 'career') {
+      // 파트너 홈 '파트너 소개 쓰기'에서 들어오면 소개 편집을 바로 연다
+      setShowStoreModal(true);
+      router.setParams({ open: undefined });
     } else if (open === 'settlements') {
       // 파트너 홈 '출금 가능'에서 들어오면 정산관리를 바로 연다
       setShowSettlementsModal(true);
@@ -646,7 +650,7 @@ export default function ProfileScreen() {
         })));
         toast.show('저장했어요. 소개 글은 운영자 확인 후 회원에게 보여요', 'success');
       } else {
-        toast.show('✓ 커리어 프로필을 저장했습니다', 'success');
+        toast.show('✓ 파트너 소개를 저장했어요', 'success');
       }
       setShowStoreModal(false);
     } catch (error: any) {
@@ -1092,8 +1096,8 @@ export default function ProfileScreen() {
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowStoreModal(true)}>
             <Text style={styles.menuIcon}>🏪</Text>
             <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>커리어 프로필</Text>
-              <Text style={styles.menuSub}>회원 정보, 가격, 소개 지역</Text>
+              <Text style={styles.menuTitle}>파트너 소개</Text>
+              <Text style={styles.menuSub}>회원에게 보이는 소개 글·비용·지역</Text>
             </View>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -1833,7 +1837,7 @@ export default function ProfileScreen() {
       </BottomSheet>
 
       {/* 스토어관리 시트 */}
-      <BottomSheet visible={showStoreModal} onClose={() => setShowStoreModal(false)} title="커리어 프로필">
+      <BottomSheet visible={showStoreModal} onClose={() => setShowStoreModal(false)} title="파트너 소개">
         {profileReview.reviewReady && profileReview.status === 'PENDING' && (
           <View style={styles.reviewBanner}>
             <Text style={styles.reviewBannerTitle}>⏳ 소개 글 검수 중</Text>

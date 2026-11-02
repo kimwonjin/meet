@@ -120,6 +120,8 @@ export default function HomeScreen() {
   // 내 파트너 가입 상태: 승인된 파트너 수 · 신청(대기 포함) 수
   const [myPartners, setMyPartners] = useState<{ approved: number; requested: number; pendingId?: string; pendingDays?: number; approvedId?: string; waitDays?: number; paused?: boolean }>({ approved: 0, requested: 0 });
   const [approvedMemberCount, setApprovedMemberCount] = useState(0);
+  // 파트너 소개(경력·소개 글·비용)를 한 칸이라도 저장했는지 (null = 아직 모름). 안 썼으면 초대장보다 먼저 쓰게 한다
+  const [profileWritten, setProfileWritten] = useState<boolean | null>(null);
   const [profileGaps, setProfileGaps] = useState<string[]>([]);
   // 파트너 신청 상태 (회원 화면에서 심사 중 안내)
   const [partnerApp, setPartnerApp] = useState<string | null>(null);
@@ -201,6 +203,11 @@ export default function HomeScreen() {
           .eq('connector_id', user!.id)
           .eq('status', 'approved');
         setApprovedMemberCount(memberCount || 0);
+        supabase.from('connectors').select('*').eq('id', user!.id).maybeSingle().then(({ data }) => {
+          const c = (data || {}) as any;
+          const pend = c.pending_profile && typeof c.pending_profile === 'object' ? Object.values(c.pending_profile).some((v: any) => String(v ?? '').trim()) : false;
+          setProfileWritten(!!(String(c.career || '').trim() || String(c.intro || '').trim() || Number(c.fee_per_session) > 0 || pend));
+        });
 
         // 연결자: 내가 제안한 매칭들 조회
         const { data: matchData } = await supabase
@@ -853,9 +860,13 @@ export default function HomeScreen() {
             <>
               <Text style={styles.aHeroK}>오늘 처리할 일</Text>
               <Text style={styles.aHeroEmpty}>
-                {approvedMemberCount === 0 ? '아직 내 회원이 없어요.\n초대장을 보내 회원을 모아보세요' : approvedMemberCount < 2 ? '매칭하려면 회원이 2명 이상 필요해요' : '처리할 일이 없어요 👍\n새 매칭을 제안해 보세요'}
+                {approvedMemberCount < 2 && profileWritten === false ? '먼저 파트너 소개를 써 주세요.\n회원이 보고 가입을 정하는 글이에요' : approvedMemberCount === 0 ? '아직 내 회원이 없어요.\n초대장을 보내 회원을 모아보세요' : approvedMemberCount < 2 ? '매칭하려면 회원이 2명 이상 필요해요' : '처리할 일이 없어요 👍\n새 매칭을 제안해 보세요'}
               </Text>
-              {approvedMemberCount < 2 ? (
+              {approvedMemberCount < 2 && profileWritten === false ? (
+                <TouchableOpacity style={styles.aHeroBtnWide} onPress={() => router.push({ pathname: '/profile', params: { open: 'career' } })} accessibilityLabel="파트너 소개 쓰기">
+                  <Text style={styles.aHeroBtnT}>✍️ 파트너 소개 쓰기</Text>
+                </TouchableOpacity>
+              ) : approvedMemberCount < 2 ? (
                 <TouchableOpacity style={styles.aHeroBtnWide} onPress={() => setShowInvite(true)}>
                   <Text style={styles.aHeroBtnT}>💌 초대장 보내기</Text>
                 </TouchableOpacity>
@@ -889,6 +900,7 @@ export default function HomeScreen() {
         {startState && !startState.settled && (() => {
           const GOAL = 5;
           const steps = [
+            { label: '파트너 소개 쓰기', sub: '경력·소개 글·1회 비용', done: profileWritten !== false, go: () => router.push({ pathname: '/profile', params: { open: 'career' } }) },
             { label: `회원 ${GOAL}명 초대하기`, sub: `지금 ${approvedMemberCount}명`, done: approvedMemberCount >= GOAL, go: () => setShowInvite(true) },
             { label: '동맹 파트너 맺기', sub: allyState.pending ? '동맹 신청이 진행 중이에요. 수락되면 완료' : '다른 파트너 회원과도 소개할 수 있어요', done: allyState.active, go: () => router.push({ pathname: '/matching', params: { view: 'ally' } }) },
             { label: '첫 매칭 제안하기', sub: '어울릴 두 사람을 골라 제안해요', done: startState.proposed, go: () => router.push({ pathname: '/matching', params: { view: 'active' } }) },
