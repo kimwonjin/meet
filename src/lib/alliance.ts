@@ -60,12 +60,12 @@ export async function fetchRequestNote(meId: string, otherId: string): Promise<s
   return c ? c.slice(ALLIANCE_NOTE_PREFIX.length).trim() || null : null;
 }
 
-// 동맹 파트너의 회원 수 (탈퇴 회원 제외). 모르면 null
+// 동맹 파트너의 회원 수 (탈퇴·정지 회원 제외). 모르면 null
 export async function countAllyMembers(connectorId: string): Promise<number | null> {
   const { data, error } = await supabase.from('hopeful_requests').select('hopeful_id').eq('connector_id', connectorId).eq('status', 'approved');
   if (error) return null;
   const ids = [...new Set((data || []).map((r: any) => r.hopeful_id))];
   if (!ids.length) return 0;
-  const { data: gone } = await supabase.from('users').select('id').in('id', ids).not('withdrawn_at', 'is', null);
+  const { data: gone } = await supabase.from('users').select('id').in('id', ids).or('withdrawn_at.not.is.null,suspended_at.not.is.null');
   return ids.length - (gone || []).length;
 }

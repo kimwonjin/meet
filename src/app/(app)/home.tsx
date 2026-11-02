@@ -275,7 +275,7 @@ export default function HomeScreen() {
             const pairs = [...new Set((allyReqs || []).map((r: any) => `${r.connector_id}|${r.hopeful_id}`))];
             const memberIds = [...new Set((allyReqs || []).map((r: any) => r.hopeful_id))];
             const { data: gone } = memberIds.length
-              ? await supabase.from('users').select('id').in('id', memberIds).not('withdrawn_at', 'is', null)
+              ? await supabase.from('users').select('id').in('id', memberIds).or('withdrawn_at.not.is.null,suspended_at.not.is.null')
               : { data: [] as any[] };
             const goneIds = new Set((gone || []).map((u: any) => u.id));
             const count = pairs.filter((k) => !goneIds.has(k.split('|')[1])).length;

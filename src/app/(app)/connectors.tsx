@@ -349,12 +349,13 @@ export default function ConnectorsScreen() {
     const [{ data: members }, { data: allyUsers }] = await Promise.all([
       supabase
         .from('users')
-        .select('id, name, gender, age, photo_urls, height, location, job, education, bio, religion, smoking, drinking, body_type')
+        .select('id, name, gender, age, photo_urls, height, location, job, education, bio, religion, smoking, drinking, body_type, withdrawn_at, suspended_at')
         .in('id', memberIds),
       supabase.from('users').select('id, name').in('id', allyIds),
     ]);
     setAllyMembers(
-      (members || []).map((m: any) => ({
+      // 탈퇴·정지된 동맹 회원은 소개할 수 없으니 빼고 보여 준다 (홈의 '동맹 회원 n명'과 같은 기준)
+      (members || []).filter((m: any) => !m.withdrawn_at && !m.suspended_at).map((m: any) => ({
         ...m,
         business_name: m.name,
         verified: false,

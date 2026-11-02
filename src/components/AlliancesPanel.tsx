@@ -161,7 +161,15 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
       const { error } = await supabase.from('connector_alliances').insert([
         { connector_1_id: user.id, connector_2_id: otherId, status: 'PENDING', requested_by: user.id },
       ]);
-      if (error) throw error;
+      if (error) {
+        // 그 사이 상대가 먼저 요청했거나 이미 동맹인 경우: 목록을 새로 불러와 받은 요청에서 바로 수락할 수 있게 한다
+        if ((error as any).code === '23505') {
+          toast.show('상대가 먼저 동맹을 요청했어요. 목록에서 바로 수락할 수 있어요', 'info');
+          await fetchAlliances();
+          return;
+        }
+        throw error;
+      }
 
       const msg = note.trim();
       await createNotification({
@@ -398,7 +406,7 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                         );
                       })()}
                       {isIncoming ? (
-                        <Text style={styles.incomingLink}>나에게 동맹을 요청했어요 · 소개 보고 결정하기 ›</Text>
+                        <Text style={styles.incomingLink}>🤝 동맹 요청 받음 · 소개 보기 ›</Text>
                       ) : (
                         <Text style={styles.desc}>{isActive ? '동맹 중 · ' : ''}프로필 보기 ›</Text>
                       )}
