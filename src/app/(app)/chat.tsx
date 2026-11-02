@@ -325,6 +325,11 @@ export default function ChatScreen() {
                     <Text style={styles.roleBadgeText}>{roleLabel(item.otherRole)}</Text>
                   </View>
                 )}
+                {item.allianceRequest && (
+                  <View style={styles.allyBadge} accessibilityLabel="동맹 요청 받음">
+                    <Text style={styles.allyBadgeText}>🤝 동맹 요청</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.threadPreview} numberOfLines={1}>
                 {previewText(item.lastMessagePreview) || '대화를 시작해보세요'}
@@ -370,6 +375,7 @@ export default function ChatScreen() {
               otherId={activeOther.id}
               otherName={activeOther.name}
               threadId={activeThreadId}
+              onSeeMembers={() => { closeThread(); router.push({ pathname: '/connectors', params: { tab: 'ally' } }); }}
               onAccepted={async () => {
                 const tid = activeThreadId;
                 if (!tid) return;
@@ -502,6 +508,8 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  allyBadge: { marginLeft: 6, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: '#5B21FF' },
+  allyBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
   operatorNotice: { marginHorizontal: 16, marginTop: 12, paddingVertical: 12, paddingHorizontal: 14, borderLeftWidth: 3, borderLeftColor: '#5B21FF', backgroundColor: '#F7F5FA', borderRadius: 6 },
   operatorNoticeTitle: { fontSize: 14, fontWeight: '700', color: '#18151E' },
   operatorNoticeBody: { fontSize: 13, color: '#65626B', marginTop: 4, lineHeight: 19 },

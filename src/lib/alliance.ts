@@ -31,8 +31,9 @@ export async function acceptAlliance(alliance: { id: string; requested_by?: stri
       userId: alliance.requested_by,
       type: 'alliance_accepted',
       title: '동맹 요청이 수락되었습니다',
-      body: `${myName ?? ''}님이 동맹 요청을 수락했습니다`,
-      route: '/alliances',
+      body: `${myName ?? ''}님이 동맹 요청을 수락했어요. 이제 동맹 회원을 볼 수 있어요`,
+      route: '/connectors',
+      routeParams: { tab: 'ally' },
     });
   }
   return 'ok';
@@ -57,4 +58,14 @@ export async function fetchRequestNote(meId: string, otherId: string): Promise<s
     .limit(1);
   const c = data?.[0]?.content as string | undefined;
   return c ? c.slice(ALLIANCE_NOTE_PREFIX.length).trim() || null : null;
+}
+
+// 동맹 파트너의 회원 수 (탈퇴 회원 제외). 모르면 null
+export async function countAllyMembers(connectorId: string): Promise<number | null> {
+  const { data, error } = await supabase.from('hopeful_requests').select('hopeful_id').eq('connector_id', connectorId).eq('status', 'approved');
+  if (error) return null;
+  const ids = [...new Set((data || []).map((r: any) => r.hopeful_id))];
+  if (!ids.length) return 0;
+  const { data: gone } = await supabase.from('users').select('id').in('id', ids).not('withdrawn_at', 'is', null);
+  return ids.length - (gone || []).length;
 }

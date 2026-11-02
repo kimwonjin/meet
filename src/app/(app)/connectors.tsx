@@ -180,7 +180,7 @@ export default function ConnectorsScreen() {
   const [buyFirst, setBuyFirst] = useState(false);
   // 홈 '지금 할 일'의 가입 신청에서 들어오면 대기중 목록을 연다
   useEffect(() => {
-    if (params.tab === 'pending' || params.tab === 'approved') {
+    if (params.tab === 'pending' || params.tab === 'approved' || params.tab === 'ally') {
       setTabStatus(params.tab);
       router.setParams({ tab: undefined });
     }

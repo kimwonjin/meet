@@ -21,7 +21,7 @@ import { allyFit } from '@/lib/allyFit';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { createNotification } from '@/lib/notifications';
 import { getOrCreateThread, sendMessage } from '@/lib/chat';
-import { acceptAlliance, fetchRequestNote, ALLIANCE_NOTE_PREFIX } from '@/lib/alliance';
+import { acceptAlliance, countAllyMembers, fetchRequestNote, ALLIANCE_NOTE_PREFIX } from '@/lib/alliance';
 import PartnerComposition from '@/components/PartnerComposition';
 
 // 동맹: 매칭 탭의 '동맹' 칸에 들어가는 화면 (마이·홈·알림에서도 이 칸으로 연결된다)
@@ -52,6 +52,8 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
   const [fitInfoOpen, setFitInfoOpen] = useState(false);
   // 받은 동맹 요청의 한마디 (프로필 시트에서 보여 준다). undefined = 불러오는 중
   const [allyNote, setAllyNote] = useState<string | null | undefined>(null);
+  // 방금 맺은 동맹: 다음 할 일(동맹 회원 보기)을 바로 안내한다. count undefined = 세는 중
+  const [justAllied, setJustAllied] = useState<{ name: string; count?: number | null } | null>(null);
 
   useEffect(() => {
     fetchAlliances();
@@ -193,8 +195,11 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
       if (r === 'gone') {
         toast.show('상대가 요청을 취소했거나 이미 처리된 요청이에요', 'info');
       } else {
-        toast.show('✓ 동맹을 수락했습니다', 'success');
         setSelectedAlly(null);
+        const otherId = alliance ? (alliance.connector_1_id === user?.id ? alliance.connector_2_id : alliance.connector_1_id) : null;
+        const other = otherConnectors.find((c) => c.id === otherId);
+        setJustAllied({ name: other?.business_name || other?.name || '파트너' });
+        if (otherId) countAllyMembers(otherId).then((n) => setJustAllied((j) => (j ? { ...j, count: n } : j))).catch(() => {});
       }
       await fetchAlliances();
     } catch (error) {
@@ -580,6 +585,20 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
             </View>
       </BottomSheet>
 
+      <BottomSheet visible={!!justAllied} onClose={() => setJustAllied(null)} title="🎉 동맹을 맺었어요">
+        <Text style={styles.alliedBody}>
+          {justAllied?.name}님과 서로의 회원을 소개할 수 있어요.{'\n'}
+          {justAllied?.count === undefined ? '동맹 회원을 세는 중이에요…' : justAllied.count ? `지금 동맹 회원 ${justAllied.count}명을 볼 수 있어요.` : '아직 상대 회원이 없어요. 회원이 생기면 동맹 회원에 보여요.'}
+        </Text>
+        <TouchableOpacity
+          style={styles.noteSendBtn}
+          onPress={() => { setJustAllied(null); router.push({ pathname: '/connectors', params: { tab: 'ally' } }); }}
+          accessibilityLabel="동맹 회원 보기"
+        >
+          <Text style={styles.noteSendText}>동맹 회원 보기</Text>
+        </TouchableOpacity>
+      </BottomSheet>
+
       <BottomSheet visible={!!requestTarget} onClose={() => setRequestTarget(null)} title={`${requestTarget?.name ?? ''}님께 동맹 요청`}>
         <Text style={styles.noteHint}>짧은 인사를 함께 보내요. 받은 분은 채팅으로 답할 수 있어요</Text>
         <TextInput
@@ -721,6 +740,7 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
+  alliedBody: { fontSize: 15, color: '#4A4651', lineHeight: 22, marginBottom: 16 },
   incomingLink: { fontSize: 13, fontWeight: '600', color: '#5B21FF', marginTop: 2 },
   reqBox: { backgroundColor: '#F6F3FF', borderRadius: 12, padding: 14, marginBottom: 16 },
   reqTitle: { fontSize: 15, fontWeight: '700', color: '#1A1820' },

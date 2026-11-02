@@ -1,20 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useToast } from '@/contexts/ToastContext';
-import { acceptAlliance, findIncomingRequest } from '@/lib/alliance';
+import { acceptAlliance, countAllyMembers, findIncomingRequest } from '@/lib/alliance';
 import { sendMessage } from '@/lib/chat';
 
 // 채팅방 위 띠: 상대 파트너가 나에게 보낸 동맹 요청이 있으면 대화하다가 바로 수락할 수 있다
 // (요청이 없거나 내가 파트너가 아니면 아무것도 보이지 않음)
 export default function AllianceChatBanner({
-  meId, myName, otherId, otherName, threadId, onAccepted,
+  meId, myName, otherId, otherName, threadId, onAccepted, onSeeMembers,
 }: {
-  meId: string; myName?: string | null; otherId: string; otherName: string; threadId: string | null; onAccepted?: () => void;
+  meId: string; myName?: string | null; otherId: string; otherName: string; threadId: string | null; onAccepted?: () => void; onSeeMembers?: () => void;
 }) {
   const toast = useToast();
   const [alliance, setAlliance] = useState<any | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [memberCount, setMemberCount] = useState<number | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -26,9 +27,16 @@ export default function AllianceChatBanner({
 
   if (done) {
     return (
-      <View style={[styles.box, styles.doneBox]}>
-        <Text style={styles.title}>✓ {otherName}님과 동맹을 맺었어요</Text>
-        <Text style={styles.body}>이제 서로의 회원을 소개할 수 있어요</Text>
+      <View style={styles.box}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>✓ {otherName}님과 동맹을 맺었어요</Text>
+          <Text style={styles.body}>{memberCount ? `동맹 회원 ${memberCount}명을 볼 수 있어요` : '이제 서로의 회원을 소개할 수 있어요'}</Text>
+        </View>
+        {!!onSeeMembers && (
+          <TouchableOpacity style={styles.btn} onPress={onSeeMembers} accessibilityLabel="동맹 회원 보기">
+            <Text style={styles.btnText}>회원 보기</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
@@ -46,6 +54,7 @@ export default function AllianceChatBanner({
       }
       if (threadId) await sendMessage(threadId, meId, '🤝 동맹 요청을 수락했어요. 잘 부탁드려요!').catch(() => {});
       setDone(true);
+      countAllyMembers(otherId).then(setMemberCount).catch(() => {});
       onAccepted?.();
     } catch {
       toast.show('처리 중 오류가 발생했습니다', 'error');
@@ -73,7 +82,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 16, marginTop: 12, paddingVertical: 12, paddingHorizontal: 14,
     borderLeftWidth: 3, borderLeftColor: '#5B21FF', backgroundColor: '#F6F3FF', borderRadius: 6,
   },
-  doneBox: { flexDirection: 'column', alignItems: 'flex-start', gap: 0 },
   title: { fontSize: 14, fontWeight: '700', color: '#18151E' },
   body: { fontSize: 13, color: '#65626B', marginTop: 4 },
   btn: { backgroundColor: '#5B21FF', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 10, minWidth: 64, alignItems: 'center' },

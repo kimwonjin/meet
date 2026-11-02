@@ -29,6 +29,15 @@ export async function fetchThreads(myId: string) {
     .in('thread_id', threadIds)
     .neq('sender_id', myId);
 
+  // 상대 파트너가 나에게 보낸, 아직 답하지 않은 동맹 요청 (목록에 '동맹 요청' 배지)
+  const { data: pendingAlly } = await supabase
+    .from('connector_alliances')
+    .select('requested_by')
+    .eq('status', 'PENDING')
+    .neq('requested_by', myId)
+    .or(`connector_1_id.eq.${myId},connector_2_id.eq.${myId}`);
+  const allyRequesters = new Set((pendingAlly || []).map((a: any) => a.requested_by));
+
   return threads.map((t: any) => {
     const isP1 = t.participant_1_id === myId;
     const otherId = isP1 ? t.participant_2_id : t.participant_1_id;
@@ -47,6 +56,7 @@ export async function fetchThreads(myId: string) {
       lastMessageAt: t.last_message_at,
       lastMessagePreview: t.last_message_preview,
       unreadCount,
+      allianceRequest: allyRequesters.has(otherId),
     };
   });
 }
