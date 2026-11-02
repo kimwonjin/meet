@@ -67,17 +67,13 @@ export default function LoginScreen() {
 
   // 처음 온 사람: 로그인 아래의 서비스 소개로 바로 내려가는 안내 (이 기기에서 로그인한 적이 없을 때)
   const scrollRef = useRef<ScrollView>(null);
+  const [showRecent, setShowRecent] = useState(false);
   const introY = useRef(0);
 
   return (
     <ScrollView ref={scrollRef} style={styles.page} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>두두인연</Text>
       <Text style={styles.subtitle}>사람이 아닌, 지지 인연.</Text>
-      {recentLogins.length === 0 && (
-        <TouchableOpacity onPress={() => scrollRef.current?.scrollTo({ y: introY.current - 20, animated: true })} accessibilityLabel="어떻게 소개받는지 보기" style={styles.introLink}>
-          <Text style={styles.introLinkT}>처음이세요? 어떻게 소개받는지 보기 ↓</Text>
-        </TouchableOpacity>
-      )}
 
       <View style={styles.form}>
         <Text style={styles.label}>전화번호</Text>
@@ -103,24 +99,26 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
+        {/* 주요 행동은 '시작하기' 하나. 가입·파트너는 작은 글자 링크로 */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>계정이 없으신가요? </Text>
-          <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
+          <Text style={styles.footerText}>처음이세요? </Text>
+          <TouchableOpacity onPress={() => router.push('/(auth)/signup')} accessibilityLabel="가입하기">
             <Text style={styles.footerLink}>가입하기</Text>
           </TouchableOpacity>
+          <Text style={styles.footerDot}>·</Text>
+          <TouchableOpacity onPress={() => router.push('/partner')} disabled={loading} accessibilityLabel="파트너로 시작하기">
+            <Text style={styles.footerSub}>매니저로 시작하기</Text>
+          </TouchableOpacity>
         </View>
-
-        {/* 매니저(파트너)는 회원과 가는 길이 달라서 첫 화면에서 바로 찾을 수 있게 한다 */}
-        <TouchableOpacity style={styles.partnerEntry} onPress={() => router.push('/partner')} disabled={loading} accessibilityLabel="파트너로 시작하기">
-          <Text style={styles.partnerEntryT}>소개해 주는 매니저이신가요?</Text>
-          <Text style={styles.partnerEntryLink}>파트너로 시작하기 ›</Text>
-        </TouchableOpacity>
       </View>
 
+      {/* 테스트용 빠른 로그인: 접어 두고 필요할 때만 펼친다 */}
       {TEST_MODE && recentLogins.length > 0 && (
         <View style={styles.recent}>
-          <Text style={styles.label}>최근 로그인 (테스트용)</Text>
-          {recentLogins.map((item) => (
+          <TouchableOpacity onPress={() => setShowRecent(!showRecent)} accessibilityLabel={showRecent ? '테스트 계정 접기' : '테스트 계정 펼치기'} style={{ alignSelf: 'center', paddingVertical: 6 }}>
+            <Text style={styles.recentToggle}>테스트 계정 {recentLogins.length}개 {showRecent ? '▴' : '▾'}</Text>
+          </TouchableOpacity>
+          {showRecent && recentLogins.map((item) => (
             <TouchableOpacity
               key={item.phone}
               style={styles.recentItem}
@@ -141,7 +139,7 @@ export default function LoginScreen() {
         </View>
       )}
       {/* 처음 온 사람을 위한 서비스 소개 */}
-      <View onLayout={(e) => { introY.current = e.nativeEvent.layout.y; }}>
+      <View style={{ marginTop: 16 }} onLayout={(e) => { introY.current = e.nativeEvent.layout.y; }}>
         <MemberIntro />
       </View>
 
@@ -162,8 +160,6 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     backgroundColor: '#fff',
   },
-  introLink: { alignSelf: 'flex-start', marginTop: -28, marginBottom: 28, paddingVertical: 4 },
-  introLinkT: { fontSize: 13, color: '#5B21FF', fontWeight: '600' },
   title: {
     fontSize: 28,
     fontWeight: '700',
@@ -178,9 +174,9 @@ const styles = StyleSheet.create({
   form: {
     gap: 16,
   },
-  partnerEntry: { marginTop: 4, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, backgroundColor: '#F8F7FA', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  partnerEntryT: { fontSize: 13, color: '#65626B' },
-  partnerEntryLink: { fontSize: 13, fontWeight: '700', color: '#5B21FF' },
+  footerDot: { fontSize: 13, color: '#BAB7C0', marginHorizontal: 8 },
+  footerSub: { fontSize: 13, color: '#54515A', textDecorationLine: 'underline' },
+  recentToggle: { fontSize: 12, color: '#736F7A' },
   label: {
     fontSize: 12,
     fontWeight: '700',
@@ -212,14 +208,15 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 16,
+    alignItems: 'center',
+    marginTop: 4,
   },
   footerText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#736F7A',
   },
   recent: {
-    marginTop: 40,
+    marginTop: 28,
     gap: 8,
   },
   recentItem: {
@@ -249,7 +246,7 @@ const styles = StyleSheet.create({
     color: '#65626B',
   },
   footerLink: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#5B21FF',
     fontWeight: '700',
   },

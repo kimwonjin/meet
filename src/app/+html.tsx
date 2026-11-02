@@ -7,7 +7,8 @@ const BOOT_CSS = `#boot{position:fixed;inset:0;z-index:9999;background:#fff;disp
 #boot .t{font-size:28px;font-weight:800;color:#5B21FF;letter-spacing:-0.5px}
 #boot .s{font-size:14px;color:#87848D}
 #boot .d{width:28px;height:28px;border-radius:50%;border:3px solid #EDE4FF;border-top-color:#5B21FF;animation:bootspin .8s linear infinite}
-@keyframes bootspin{to{transform:rotate(360deg)}}`;
+@keyframes bootspin{to{transform:rotate(360deg)}}
+*{scrollbar-width:none}*::-webkit-scrollbar{display:none;width:0;height:0}`;
 const BOOT_HTML = '<div class="t">두두인연</div><div class="d"></div><div class="s">믿을 수 있는 소개를 준비하고 있어요</div>';
 
 export default function Root({ children }: PropsWithChildren) {
