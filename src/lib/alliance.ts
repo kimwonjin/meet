@@ -3,6 +3,9 @@ import { createNotification } from './notifications';
 
 // 동맹 요청 한마디는 채팅에 이 머리말로 남는다
 export const ALLIANCE_NOTE_PREFIX = '🤝 동맹 요청\n';
+// 수락하면 채팅방에 남기는 안내 줄 (본인 말풍선이 아니라 가운데 안내로 보인다)
+export const ALLIANCE_DONE_NOTICE = '🤝 동맹을 맺었어요. 이제 서로의 회원을 소개할 수 있어요';
+export const isChatNotice = (content?: string | null) => content === ALLIANCE_DONE_NOTICE;
 
 // 상대(otherId)가 나(meId)에게 보낸, 아직 답하지 않은 동맹 요청
 export async function findIncomingRequest(meId: string, otherId: string): Promise<any | null> {

@@ -13,6 +13,7 @@ import SafetyActions from '@/components/SafetyActions';
 import { getBlockState } from '@/lib/safety';
 import { AwayChatNotice } from '@/components/AwaySettings';
 import AllianceChatBanner from '@/components/AllianceChatBanner';
+import { isChatNotice } from '@/lib/alliance';
 import { loadPhrases, MAX_PHRASES, PhraseKind, savePhrases } from '@/lib/quickPhrases';
 import { makeImageContent, parseImage, previewText } from '@/lib/chatImage';
 import { pickAndUploadPhoto } from '@/lib/photos';
@@ -400,6 +401,14 @@ export default function ChatScreen() {
             contentContainerStyle={styles.messageList}
             renderItem={({ item }) => {
               const isMine = item.sender_id === user?.id;
+              // 동맹 수락 같은 안내 줄: 누가 보냈든 가운데 안내로 보여 준다
+              if (isChatNotice(item.content)) {
+                return (
+                  <View style={styles.noticeRow}>
+                    <Text style={styles.noticeText}>{item.content}</Text>
+                  </View>
+                );
+              }
               return (
                 <View style={[styles.messageRow, isMine ? styles.messageRowMine : styles.messageRowTheirs]}>
                   {parseImage(item.content) ? (
@@ -508,6 +517,8 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  noticeRow: { alignItems: 'center', marginVertical: 8 },
+  noticeText: { fontSize: 12, color: '#65626B', backgroundColor: '#F1EFF4', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, overflow: 'hidden', textAlign: 'center' },
   allyBadge: { marginLeft: 6, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: '#5B21FF' },
   allyBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
   operatorNotice: { marginHorizontal: 16, marginTop: 12, paddingVertical: 12, paddingHorizontal: 14, borderLeftWidth: 3, borderLeftColor: '#5B21FF', backgroundColor: '#F7F5FA', borderRadius: 6 },

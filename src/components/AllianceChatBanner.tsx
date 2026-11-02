@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useToast } from '@/contexts/ToastContext';
-import { acceptAlliance, countAllyMembers, findIncomingRequest } from '@/lib/alliance';
+import { acceptAlliance, countAllyMembers, findIncomingRequest, ALLIANCE_DONE_NOTICE } from '@/lib/alliance';
 import { sendMessage } from '@/lib/chat';
 
 // 채팅방 위 띠: 상대 파트너가 나에게 보낸 동맹 요청이 있으면 대화하다가 바로 수락할 수 있다
@@ -52,7 +52,7 @@ export default function AllianceChatBanner({
         setAlliance(null);
         return;
       }
-      if (threadId) await sendMessage(threadId, meId, '🤝 동맹 요청을 수락했어요. 잘 부탁드려요!').catch(() => {});
+      if (threadId) await sendMessage(threadId, meId, ALLIANCE_DONE_NOTICE).catch(() => {});
       setDone(true);
       countAllyMembers(otherId).then(setMemberCount).catch(() => {});
       onAccepted?.();

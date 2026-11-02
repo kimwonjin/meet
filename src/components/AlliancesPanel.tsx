@@ -401,7 +401,7 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                             <TouchableOpacity onPress={() => setFitInfoOpen(true)} hitSlop={10} accessibilityLabel="궁합 점수 설명">
                               <Text style={styles.fitInfo}>ⓘ</Text>
                             </TouchableOpacity>
-                            {!!fit.reasons.length && <Text style={styles.fitWhy} numberOfLines={1}>{fit.reasons.join(' · ')}</Text>}
+                            {!!fit.reasons.length && <Text style={styles.fitWhy} numberOfLines={1}>{fit.reasons.slice(0, 2).join(' · ')}</Text>}
                           </View>
                         );
                       })()}
@@ -569,7 +569,7 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                   ['주요 지역', formatRegions(selectedAlly?.main_region)],
                   ['회당 비용', selectedAlly?.fee_per_session ? `${Number(selectedAlly.fee_per_session).toLocaleString()}원` : null],
                   ['인증', selectedAlly?.verified ? '✓ 인증됨' : '미인증'],
-                ].map(([label, value]) => (
+                ].filter(([, value]) => !!value).map(([label, value]) => (
                   <View key={label} style={styles.infoRow}>
                     <Text style={styles.infoLabel}>{label}</Text>
                     <Text style={styles.infoValue}>{value || '-'}</Text>

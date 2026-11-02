@@ -93,12 +93,13 @@ export function allyFit(me: Dir | undefined, other: Dir | undefined, myRegion?: 
   if (!used.length || parts.gender === null) return null;
   const wsum = used.reduce((s, k) => s + WEIGHTS[k], 0);
   const score = used.reduce((s, k) => s + (parts[k] as number) * WEIGHTS[k], 0) / wsum;
+  // 카드 한 줄에 다 보이도록 짧은 말로 (화면에는 앞의 2개만)
   const reasons: string[] = [];
-  if (peers !== null) reasons.push(peers > 0 ? `또래 이성 ${peers}명` : '또래 이성 회원이 없어요');
-  if ((parts.region ?? 0) >= 0.5) reasons.push('같은 지역 회원이 많아요');
-  else if (parts.region !== null && parts.region < 0.2) reasons.push('지역이 많이 달라요');
-  if ((parts.age ?? 0) >= 0.6) reasons.push('나이대가 잘 맞아요');
-  if ((parts.gender ?? 0) >= 0.6) reasons.push('남녀 수가 서로 맞아요');
-  else if ((parts.gender ?? 1) < 0.3) reasons.push('성별 구성이 겹쳐요');
+  if (peers !== null) reasons.push(peers > 0 ? `또래 이성 ${peers}명` : '또래 이성 없음');
+  if ((parts.region ?? 0) >= 0.5) reasons.push('같은 지역');
+  else if (parts.region !== null && parts.region < 0.2) reasons.push('지역 다름');
+  if ((parts.age ?? 0) >= 0.6) reasons.push('나이대 맞음');
+  if ((parts.gender ?? 0) >= 0.6) reasons.push('남녀 균형');
+  else if ((parts.gender ?? 1) < 0.3) reasons.push('성별 겹침');
   return { score, label: score >= 0.6 ? '잘 맞아요' : score >= 0.35 ? '괜찮아요' : '덜 맞아요', reasons, peers };
 }
