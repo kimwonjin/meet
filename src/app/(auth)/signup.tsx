@@ -226,7 +226,7 @@ export default function SignupScreen() {
             </View>
           </View>
 
-          <ConsentChecklist items={SIGNUP_CONSENTS} checked={consents} onChange={setConsents} disabled={loading} compact />
+          <ConsentChecklist items={SIGNUP_CONSENTS} checked={consents} onChange={setConsents} disabled={loading} compact defaultOpen />
         </View>
       </ScrollView>
 

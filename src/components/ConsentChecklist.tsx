@@ -11,13 +11,15 @@ interface Props {
   disabled?: boolean;
   // 한 화면 가입용: 처음엔 '전체 동의' 한 줄만 보이고, '자세히'를 누르면 항목이 펼쳐진다
   compact?: boolean;
+  // 처음부터 항목을 펼쳐 둘지 (compact여도)
+  defaultOpen?: boolean;
 }
 
 // 필수 약관 동의 체크리스트 (전체 동의 + 항목별 동의, 항목마다 전문 보기)
 // 전문은 그 자리에서 펼쳐 보여준다 (시트 안에서 시트를 또 열면 웹에서 뒤에 가려진다)
-export default function ConsentChecklist({ items, checked, onChange, disabled, compact }: Props) {
+export default function ConsentChecklist({ items, checked, onChange, disabled, compact, defaultOpen }: Props) {
   const [viewing, setViewing] = useState<TermsDocKey | null>(null);
-  const [expanded, setExpanded] = useState(!compact);
+  const [expanded, setExpanded] = useState(!compact || !!defaultOpen);
   const allChecked = items.every((i) => checked.includes(i.key));
 
   function toggle(key: string) {
