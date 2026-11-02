@@ -944,6 +944,16 @@ export default function MatchingScreen() {
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
+  // 동맹 회원 목록: 내 회원이기도 한 사람(두 파트너에 모두 가입)과 다른 동맹 묶음에 이미 나온 사람은 한 번만 보인다
+  // (같은 사람이 두 곳에 보이면 한쪽에서 고른 표시가 다른 쪽에도 떠서 헷갈린다)
+  const allyGroupsShown = (() => {
+    const seen = new Set(ownMembers.map((m) => m.id));
+    return allyMembers.map((g) => {
+      const members = g.members.filter((m) => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
+      return { ...g, members, hiddenDup: members.length === 0 && g.members.length > 0 };
+    });
+  })();
+
   // 회원 후보 목록: 줄을 누르면 선택, 사진을 누르면 프로필 크게 보기
   function renderMemberChips(allMembers: Member[], connectorId: string) {
     // 이미 고른 회원은 필터와 관계없이 계속 보인다
@@ -1116,11 +1126,11 @@ export default function MatchingScreen() {
         renderMemberChips(ownMembers, user!.id)
       )}
 
-      {includeAllies && allyMembers.map((g) => (
+      {includeAllies && allyGroupsShown.map((g) => (
         <View key={g.connector.id}>
           <Text style={styles.groupTitle}>{g.connector.name}님 회원 (동맹)</Text>
           {g.members.length === 0 ? (
-            <Text style={styles.emptyCreateText}>승인된 회원이 없습니다</Text>
+            <Text style={styles.emptyCreateText}>{g.hiddenDup ? '모두 내 회원 목록에 이미 있어요' : '승인된 회원이 없습니다'}</Text>
           ) : (
             renderMemberChips(g.members, g.connector.id)
           )}
