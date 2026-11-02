@@ -7,6 +7,7 @@ import { AwayMenuRow } from '@/components/AwaySettings';
 import { profileFill } from '@/lib/profileFill';
 import { hasContract } from '@/lib/contract';
 import { withholding, WITHHOLDING_LABEL } from '@/lib/tax';
+import { isNameTaken, NAME_TAKEN_MSG } from '@/lib/partnerName';
 import ContractSheet from '@/components/ContractSheet';
 import { PrefsMenuRow } from '@/components/PrefsSettings';
 import { FeedbackMenuRow } from '@/components/FeedbackSettings';
@@ -66,6 +67,9 @@ export default function ProfileScreen() {
   const confirm = useConfirm();
   const [showConnectorModal, setShowConnectorModal] = useState(false);
   const [businessName, setBusinessName] = useState('');
+  // 모임 이름 중복 확인
+  const [nameTaken, setNameTaken] = useState(false);
+  const [checkingName, setCheckingName] = useState(false);
   const [partnerConsents, setPartnerConsents] = useState<string[]>([]);
   const [showBlocks, setShowBlocks] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
@@ -952,6 +956,11 @@ export default function ProfileScreen() {
       toast.show('파트너 이용약관에 동의해주세요', 'error');
       return;
     }
+    if (await isNameTaken(businessName, user?.id).catch(() => false)) {
+      setNameTaken(true); setApplyStep(1);
+      toast.show(NAME_TAKEN_MSG, 'error');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -1695,10 +1704,19 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 style={[styles.wizardNext, applyStep === 1 && !businessName.trim() && styles.storeSaveBtnDisabled]}
                 disabled={applyStep === 1 && !businessName.trim()}
-                onPress={() => setApplyStep(applyStep + 1)}
+                onPress={async () => {
+                  // 모임 이름 단계: 다른 파트너와 같은 이름이면 넘어가지 않는다
+                  if (applyStep === 1) {
+                    setCheckingName(true);
+                    const taken = await isNameTaken(businessName, user?.id).catch(() => false);
+                    setCheckingName(false);
+                    if (taken) { setNameTaken(true); return; }
+                  }
+                  setApplyStep(applyStep + 1);
+                }}
                 accessibilityLabel="다음"
               >
-                <Text style={styles.wizardNextText}>{applyStep === 0 ? '시작하기' : '다음'}</Text>
+                {checkingName ? <ActivityIndicator color="#fff" /> : <Text style={styles.wizardNextText}>{applyStep === 0 ? '시작하기' : '다음'}</Text>}
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
@@ -1794,10 +1812,11 @@ export default function ProfileScreen() {
                       placeholder="예: 행복매칭, 판교 러닝크루"
                       placeholderTextColor="#DCD9E2"
                       value={businessName}
-                      onChangeText={setBusinessName}
+                      onChangeText={(t) => { setBusinessName(t); setNameTaken(false); }}
                       editable={!loading}
                       autoFocus
                     />
+                    {nameTaken && <Text style={styles.nameTakenT}>{NAME_TAKEN_MSG}</Text>}
                   </>
                 )}
                 {applyStep === 2 && (
@@ -2482,6 +2501,7 @@ const styles = StyleSheet.create({
   inviteItem: { backgroundColor: '#F1ECFF' },
   newBadge: { backgroundColor: '#5B21FF', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  nameTakenT: { fontSize: 13, color: '#E5484D', marginTop: 8, lineHeight: 19 },
   taxHint: { fontSize: 12, color: '#736F7A', marginTop: 8 },
   taxBox: { backgroundColor: '#F8F7FA', borderRadius: 10, padding: 12, marginTop: 10, gap: 2 },
   taxRow: { fontSize: 13, color: '#54515A' },
