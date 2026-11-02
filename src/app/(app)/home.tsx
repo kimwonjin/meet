@@ -60,6 +60,15 @@ const meetTime = (iso: string) => {
 // 소개를 거절할 때 고를 수 있는 이유 (선택, 파트너에게만)
 const REJECT_REASONS = ['나이가 맞지 않아요', '사는 곳이 멀어요', '사진이 끌리지 않아요', '직업·생활이 맞지 않을 것 같아요', '지금은 만날 여유가 없어요', '기타'];
 
+// 파트너 심사 중인 사람에게 보여 줄 '승인되면 준비할 것'
+const PARTNER_PREP: [string, string][] = [
+  ['소개 글과 경력', '회원이 보고 가입을 정하는 글이에요. 3~5줄로, \'보장·100%\' 같은 과장 표현 없이 적어 두세요'],
+  ['1회 소개 비용', '만남 한 번에 받을 금액을 정해 두세요. 승인 뒤 마이 › 커리어 프로필에서 입력해요'],
+  ['정산 받을 계좌', '본인 명의 계좌가 필요해요. 수수료는 원천징수(3.3%) 후 입금돼요'],
+  ['처음 초대할 사람', '소개해 줄 지인·모임을 미리 떠올려 두세요. 승인되면 초대 링크와 QR로 바로 보낼 수 있어요'],
+  ['신분증', '회원을 직접 만나 확인할 때, 회사가 구청에 종사자로 신고할 때 필요해요'],
+];
+
 // 만남 전 안전 수칙 (다가오는 소개팅 카드에서 펼쳐 본다)
 const SAFETY_TIPS = [
   '처음 만남은 사람이 많은 카페·식당에서 낮이나 이른 저녁에',
@@ -112,6 +121,8 @@ export default function HomeScreen() {
   const [myPartners, setMyPartners] = useState<{ approved: number; requested: number; pendingId?: string; pendingDays?: number; approvedId?: string; waitDays?: number; paused?: boolean }>({ approved: 0, requested: 0 });
   const [approvedMemberCount, setApprovedMemberCount] = useState(0);
   const [profileGaps, setProfileGaps] = useState<string[]>([]);
+  // 파트너 신청 상태 (회원 화면에서 심사 중 안내)
+  const [partnerApp, setPartnerApp] = useState<string | null>(null);
   // 프로필 채우기 도우미: 채운 정도와 다음에 채울 것 하나
   const [profileFillState, setProfileFillState] = useState<ReturnType<typeof profileFill> | null>(null);
   const [showInvite, setShowInvite] = useState(false);
@@ -283,6 +294,7 @@ export default function HomeScreen() {
             .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         );
       } else {
+        supabase.from('connectors').select('status').eq('id', user!.id).maybeSingle().then(({ data }) => setPartnerApp((data as any)?.status || null));
         // 프로필이 비어 있으면 파트너가 소개하기 어렵다 → 채울 항목을 알려준다
         let { data: me, error: meErr }: { data: any; error: any } = await supabase.from('users').select('photo_urls, bio, job, height, location, education, religion, smoking, drinking, body_type, job_category').eq('id', user!.id).maybeSingle();
         if (meErr) ({ data: me } = await supabase.from('users').select('photo_urls, bio, job, height, location, education, religion, smoking, drinking, body_type').eq('id', user!.id).maybeSingle());
@@ -1069,7 +1081,9 @@ export default function HomeScreen() {
 
   // 할 일이 없을 때: 처음 온 회원은 시작 순서대로 안내
   const idle = !firstTask
-    ? isNew && profileGaps.length > 0
+    ? partnerApp === 'pending'
+      ? { title: '파트너 심사 중이에요', sub: '운영자가 신청 내용을 확인하고 있어요.\n승인되면 알림으로 바로 알려드릴게요.' }
+    : isNew && profileGaps.length > 0
       ? { title: '프로필을 채워 주세요', sub: '사진과 자기소개가 있으면\n파트너가 소개하기 훨씬 쉬워요.', btn: '프로필 채우기', go: () => router.push({ pathname: '/profile', params: { open: 'profile' } }) }
       : myPartners.requested === 0
         ? { title: '파트너를 찾아보세요', sub: '파트너에게 가입 신청하면\n맞는 분을 소개받을 수 있어요.', btn: '파트너 찾아보기', go: () => router.push('/connectors') }
@@ -1533,6 +1547,23 @@ export default function HomeScreen() {
         <TermsUpdatePrompt />
         <NoticeBanner />
 
+      {/* 파트너 심사 중: 승인되면 바로 시작할 수 있게 미리 준비할 것 */}
+      {partnerApp === 'pending' && (
+        <View style={styles.prepBox} accessibilityLabel="파트너 승인 전 준비할 것">
+          {!!firstTask && <Text style={styles.prepHead}>⏳ 파트너 심사 중이에요</Text>}
+          <Text style={styles.prepTitle}>승인되면 바로 시작할 수 있게 준비해 두세요</Text>
+          {PARTNER_PREP.map(([t, d], i) => (
+            <View key={t} style={styles.prepRow}>
+              <Text style={styles.prepNo}>{i + 1}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.prepT}>{t}</Text>
+                <Text style={styles.prepD}>{d}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* 나머지 할 일: 한 줄씩 (첫 할 일의 남은 건도 포함) */}
       {firstTask && (tasks.length > 1 || firstTask.items.length > 1) && (
         <View style={styles.aList}>
@@ -1957,6 +1988,13 @@ const styles = StyleSheet.create({
   rejectNote: { fontSize: 12, color: '#736F7A', marginTop: 12, marginBottom: 16 },
   rejectConfirm: { height: 50, borderRadius: 12, backgroundColor: '#E5484D', alignItems: 'center', justifyContent: 'center' },
   rejectConfirmT: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  prepBox: { marginHorizontal: 20, marginTop: 12, borderRadius: 16, backgroundColor: '#F8F7FA', padding: 16, gap: 12 },
+  prepHead: { fontSize: 14, fontWeight: '700', color: '#5B21FF' },
+  prepTitle: { fontSize: 15, fontWeight: '700', color: '#322F38' },
+  prepRow: { flexDirection: 'row', gap: 10 },
+  prepNo: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#EDE4FF', color: '#5B21FF', fontSize: 12, fontWeight: '700', textAlign: 'center', lineHeight: 22, overflow: 'hidden' },
+  prepT: { fontSize: 14, fontWeight: '600', color: '#322F38' },
+  prepD: { fontSize: 13, color: '#6E6A75', lineHeight: 19, marginTop: 2 },
   tipsToggle: { marginTop: 10, paddingVertical: 4 },
   tipsToggleText: { fontSize: 13, color: '#54515A', fontWeight: '600' },
   tipsBox: { backgroundColor: '#fff', borderRadius: 10, padding: 10, marginTop: 4, gap: 4 },
