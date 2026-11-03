@@ -176,16 +176,19 @@ export default function ConnectorsScreen() {
   }, [memberSort, memberIdsKey]);
 
   // 초대 링크로 들어온 회원: 초대한 파트너 정보를 바로 열어 준다
-  const params = useLocalSearchParams<{ open?: string; tab?: string; buy?: string }>();
+  const params = useLocalSearchParams<{ open?: string; tab?: string; buy?: string; allyOf?: string }>();
+  // 동맹 화면의 '회원 프로필 보기'로 들어오면 그 파트너의 회원만 보여 준다
+  const [allyOf, setAllyOf] = useState<string | null>(null);
   // 마이 › 이용권/결제에서 '이용권 구매하기'로 들어오면 구매 칸을 맨 위에 보여준다
   const [buyFirst, setBuyFirst] = useState(false);
   // 홈 '지금 할 일'의 가입 신청에서 들어오면 대기중 목록을 연다
   useEffect(() => {
     if (params.tab === 'pending' || params.tab === 'approved' || params.tab === 'ally') {
       setTabStatus(params.tab);
-      router.setParams({ tab: undefined });
+      setAllyOf(params.tab === 'ally' && params.allyOf ? params.allyOf : null);
+      router.setParams({ tab: undefined, allyOf: undefined });
     }
-  }, [params.tab]);
+  }, [params.tab, params.allyOf]);
   useEffect(() => {
     if (!params.open || user?.role !== 'hopeful' || loading) return;
     const target = connectors.find((c) => c.id === params.open);
@@ -567,7 +570,8 @@ export default function ConnectorsScreen() {
 
   // connector면 회원 관리 화면
   if (user?.role === 'connector') {
-    const tabMembers = tabStatus === 'ally' ? allyMembers : allRequests.filter(r => r.request_status === tabStatus);
+    const tabMembers = tabStatus === 'ally' ? allyMembers.filter((m: any) => !allyOf || m.ally_connector_id === allyOf) : allRequests.filter(r => r.request_status === tabStatus);
+    const allyOfName = allyOf ? allyMembers.find((m: any) => m.ally_connector_id === allyOf)?.ally_connector_name : null;
     const waitDays = (m: any) => daysSince(lastIntro.get(m.id) || m.joined_at);
     const sortOn = tabStatus === 'approved' && tabMembers.length > 1;
     const displayRequests = tabMembers
@@ -599,12 +603,19 @@ export default function ConnectorsScreen() {
             <TouchableOpacity
               key={key}
               style={[styles.subTab, tabStatus === key && styles.activeSubTab]}
-              onPress={() => setTabStatus(key)}
+              onPress={() => { setTabStatus(key); setAllyOf(null); }}
             >
               <Text style={[styles.subTabText, tabStatus === key && styles.activeSubTabText]}>{label}</Text>
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* 한 동맹 파트너의 회원만 보는 중: 위치를 알리고 전체로 바로 돌아갈 수 있게 */}
+        {tabStatus === 'ally' && !!allyOf && (
+          <TouchableOpacity style={styles.allyOfChip} onPress={() => setAllyOf(null)} accessibilityLabel="동맹 회원 전체 보기">
+            <Text style={styles.allyOfChipText}>{allyOfName || '이 파트너'}님 회원만 보는 중 · 전체 보기 ✕</Text>
+          </TouchableOpacity>
+        )}
 
         {/* 내 회원에게 같은 안내를 한꺼번에 (회원 2명 이상일 때) */}
         {tabStatus === 'approved' && (
@@ -1200,6 +1211,8 @@ export default function ConnectorsScreen() {
 }
 
 const styles = StyleSheet.create({
+  allyOfChip: { alignSelf: 'flex-start', marginHorizontal: 20, marginTop: 10, backgroundColor: '#F1ECFF', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
+  allyOfChipText: { fontSize: 13, fontWeight: '600', color: '#5B21FF' },
   // 목록마다 반복되는 버튼이라 꽉 찬 강조색 대신 테두리로 (화면의 주요 액션처럼 보이지 않게)
   allyProposeBtn: { borderWidth: 1, borderColor: '#5B21FF', backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 },
   allyProposeBtnText: { fontSize: 13, fontWeight: '700', color: '#5B21FF' },

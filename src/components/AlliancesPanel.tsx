@@ -652,6 +652,35 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                   <PartnerComposition ov={poolStats} />
                 )}
               </View>
+
+              {/* 회원 프로필: 동맹을 맺은 파트너의 회원만 볼 수 있다 (회원 개인정보 보호) */}
+              {(() => {
+                const a = selectedAlly ? getAllianceWith(selectedAlly.id) : null;
+                if (a?.status === 'ACTIVE') {
+                  return (
+                    <TouchableOpacity
+                      style={styles.noteSendBtn}
+                      onPress={() => { const t = selectedAlly; setSelectedAlly(null); router.push({ pathname: '/connectors', params: { tab: 'ally', allyOf: t.id } }); }}
+                      accessibilityLabel="회원 프로필 보기"
+                    >
+                      <Text style={styles.noteSendText}>회원 프로필 보기 ›</Text>
+                    </TouchableOpacity>
+                  );
+                }
+                if (a?.status === 'PENDING') return <Text style={styles.memberLock}>🔒 동맹을 맺으면 회원 프로필을 볼 수 있어요</Text>;
+                return (
+                  <View>
+                    <Text style={styles.memberLock}>🔒 회원 프로필은 동맹을 맺은 뒤 볼 수 있어요</Text>
+                    <TouchableOpacity
+                      style={styles.noteSendBtn}
+                      onPress={() => { const t = selectedAlly; setSelectedAlly(null); setRequestNote(DEFAULT_NOTE); setRequestTarget({ id: t.id, name: t.business_name || t.name || '파트너' }); }}
+                      accessibilityLabel="동맹 요청하기"
+                    >
+                      <Text style={styles.noteSendText}>동맹 요청하기</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })()}
             </View>
       </BottomSheet>
 
@@ -810,6 +839,7 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
+  memberLock: { fontSize: 13, color: '#736F7A', textAlign: 'center', marginBottom: 10 },
   fitFew: { fontSize: 12, color: '#736F7A', marginTop: 2 },
   alliedBody: { fontSize: 15, color: '#4A4651', lineHeight: 22, marginBottom: 16 },
   staleText: { fontSize: 12, color: '#736F7A', alignSelf: 'center' },
