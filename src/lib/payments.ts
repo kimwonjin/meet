@@ -43,13 +43,24 @@ export async function purchasePackage(hopefulId: string, connectorId: string, se
     p_expected_fee: expectedFee,
   });
   if (error || !data) return { ok: false, reason: 'error' };
-  const result = data as PurchaseResult;
+  let result = data as PurchaseResult;
+  // 무료 파트너: 서버가 아직 0원 이용권을 모르면(SQL 실행 전) 0원 기록을 바로 남긴다
+  if (!result.ok && result.reason === 'no_fee' && expectedFee === 0) {
+    const { data: c } = await supabase.from('connectors').select('fee_per_session').eq('id', connectorId).maybeSingle();
+    if (c && Number((c as any).fee_per_session) === 0 && (c as any).fee_per_session !== null) {
+      const { error: insErr } = await supabase.from('payments').insert([{
+        hopeful_id: hopefulId, connector_id: connectorId, session_count: sessionCount, amount_total: 0, amount_per_session: 0,
+        sessions_remaining: sessionCount, status: 'paid', pg_provider: 'free_partner', paid_at: new Date().toISOString(),
+      }]);
+      result = insErr ? { ok: false, reason: 'error' } : { ok: true, total: 0 };
+    }
+  }
   if (result.ok) {
     await createNotification({
       userId: hopefulId,
       type: 'payment_completed',
-      title: '결제가 완료되었습니다',
-      body: `이용권 ${sessionCount}회 결제가 완료되었습니다`,
+      title: expectedFee === 0 ? '무료 이용권을 받았어요' : '결제가 완료되었습니다',
+      body: expectedFee === 0 ? `무료 이용권 ${sessionCount}회를 받았어요` : `이용권 ${sessionCount}회 결제가 완료되었습니다`,
       route: '/profile',
     });
   }

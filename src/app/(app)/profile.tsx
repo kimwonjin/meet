@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BackupMenuRow } from '@/components/BackupSettings';
+import { feeText, isFreeFee } from '@/lib/fee';
 import { PushMenuRow } from '@/components/PushSettings';
 import { PauseMenuRow } from '@/components/PauseSettings';
 import { setPaused } from '@/lib/pause';
@@ -51,6 +52,8 @@ import { fetchConnectorReviews, Review } from '@/lib/reviews';
 // 회당 금액: 가격은 파트너가 정하되, 0원·오타(자릿수 실수)만 막는다
 const FEE_MIN = 1000;
 const FEE_MAX = 10000000;
+// 회당 금액 칸의 '무료' 표시 (저장할 때 0원)
+const FREE_FEE = 'free';
 const feeDigits = (v: any) => String(v ?? '').replace(/[^0-9]/g, '');
 
 // 파트너 소개 쓰기 도우미 예시 (과장 표현 없이 짧게)
@@ -411,7 +414,8 @@ export default function ProfileScreen() {
         setStoreData((prev) => ({
           ...prev,
           main_region: connectorData.main_region || '',
-          fee_per_session: connectorData.fee_per_session || '',
+          // 0 = 무료로 소개 (빈 값과 구분한다)
+          fee_per_session: connectorData.fee_per_session === 0 ? FREE_FEE : connectorData.fee_per_session || '',
           service_description: pending?.service_description ?? approved.service_description,
           intro: pending?.intro ?? approved.intro,
           career: pending?.career ?? approved.career,
@@ -572,8 +576,9 @@ export default function ProfileScreen() {
       toast.show('주요지역을 선택해주세요', 'info');
       return;
     }
-    const feeValue = Number(feeDigits(storeData.fee_per_session)) || 0;
-    if (feeValue < FEE_MIN || feeValue > FEE_MAX) {
+    const feeFree = storeData.fee_per_session === FREE_FEE;
+    const feeValue = feeFree ? 0 : Number(feeDigits(storeData.fee_per_session)) || 0;
+    if (!feeFree && (feeValue < FEE_MIN || feeValue > FEE_MAX)) {
       toast.show(`회당 금액은 ${FEE_MIN.toLocaleString()}원 ~ ${FEE_MAX.toLocaleString()}원 사이로 입력해 주세요`, 'error');
       return;
     }
@@ -1880,18 +1885,37 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.profileFormSection}>
-          <Text style={styles.formLabel}>회당 금액 (원)</Text>
+          <View style={styles.feeLabelRow}>
+            <Text style={[styles.formLabel, { marginBottom: 0 }]}>회당 금액 (원)</Text>
+            {/* 무료로 소개해 주는 파트너: 누르면 금액 칸이 '무료'로 바뀌고, 다시 누르면 금액을 적을 수 있다 */}
+            <TouchableOpacity
+              style={[styles.feeFreeChip, storeData.fee_per_session === FREE_FEE && styles.feeFreeChipOn]}
+              onPress={() => setStoreData({ ...storeData, fee_per_session: storeData.fee_per_session === FREE_FEE ? '' : FREE_FEE })}
+              accessibilityLabel="무료로 소개하기"
+              accessibilityState={{ selected: storeData.fee_per_session === FREE_FEE }}
+              hitSlop={8}
+            >
+              <Text style={[styles.feeFreeChipText, storeData.fee_per_session === FREE_FEE && styles.feeFreeChipTextOn]}>
+                {storeData.fee_per_session === FREE_FEE ? '✓ 무료' : '무료'}
+              </Text>
+            </TouchableOpacity>
+          </View>
           <TextInput
-            style={styles.formInput}
+            style={[styles.formInput, storeData.fee_per_session === FREE_FEE && styles.feeInputFree]}
             placeholder="예: 50,000"
             placeholderTextColor="#DCD9E2"
             keyboardType="number-pad"
+            editable={storeData.fee_per_session !== FREE_FEE}
             // 3자리마다 쉼표를 넣어 보여주고, 저장은 숫자만
-            value={feeDigits(storeData.fee_per_session) ? Number(feeDigits(storeData.fee_per_session)).toLocaleString('ko-KR') : ''}
+            value={storeData.fee_per_session === FREE_FEE ? '무료로 소개해요' : feeDigits(storeData.fee_per_session) ? Number(feeDigits(storeData.fee_per_session)).toLocaleString('ko-KR') : ''}
             onChangeText={(text) => setStoreData({ ...storeData, fee_per_session: feeDigits(text).slice(0, 8) })}
             accessibilityLabel="회당 금액"
           />
+          {storeData.fee_per_session === FREE_FEE && (
+            <Text style={styles.formHint}>회원은 0원 이용권을 받아 소개를 받아요. 정산금도 0원이에요.</Text>
+          )}
           {(() => {
+            if (storeData.fee_per_session === FREE_FEE) return null;
             const fee = Number(feeDigits(storeData.fee_per_session)) || 0;
             if (!fee) return null;
             if (fee < FEE_MIN || fee > FEE_MAX) return <Text style={[styles.formHint, { color: '#E5484D' }]}>{FEE_MIN.toLocaleString()}원 ~ {FEE_MAX.toLocaleString()}원 사이로 입력해 주세요</Text>;
@@ -2031,7 +2055,7 @@ export default function ProfileScreen() {
                   <View key={c.connectorId} style={styles.creditCard}>
                     <View style={styles.creditCardHeader}>
                       <Text style={styles.creditConnectorName}>{c.connectorName}</Text>
-                      <Text style={styles.creditFee}>{c.feePerSession?.toLocaleString() || '-'}원 / 회</Text>
+                      <Text style={styles.creditFee}>{c.feePerSession > 0 ? `${c.feePerSession.toLocaleString()}원 / 회` : c.totalCharged === 0 && c.purchased > 0 ? '무료' : '-'}</Text>
                     </View>
                     <View style={styles.creditRow}>
                       <View style={styles.creditStat}>
@@ -2393,6 +2417,12 @@ function moneyFit(n: number) {
 
 const PROFILE_STEPS_BASE = 7;
 const styles = StyleSheet.create({
+  feeLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  feeFreeChip: { borderWidth: 1, borderColor: '#E5E2EA', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 5 },
+  feeFreeChipOn: { borderColor: '#5B21FF', backgroundColor: '#F1ECFF' },
+  feeFreeChipText: { fontSize: 13, fontWeight: '600', color: '#4A4651' },
+  feeFreeChipTextOn: { color: '#5B21FF' },
+  feeInputFree: { backgroundColor: '#F7F5FA', color: '#5B21FF' },
   introChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
   introChip: { borderWidth: 1, borderColor: '#E5E2EA', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 },
   introChipText: { fontSize: 12, color: '#4A4651' },

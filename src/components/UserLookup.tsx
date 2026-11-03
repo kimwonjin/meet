@@ -1,6 +1,7 @@
 // 운영자 '회원·파트너 찾기': 이름이나 전화번호 뒷자리로 찾고, 한 사람의 상태를 보고, 대화·정지·해제
 // 목록 → 한 사람 보기 (2단계). 정지는 같은 시트 안에서 사유를 적고 한 번 더 누른다
 import React, { useEffect, useRef, useState } from 'react';
+import { feeText, isFreeFee } from '@/lib/fee';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import BottomSheet from './BottomSheet';
@@ -139,7 +140,7 @@ export default function UserLookupSheet({ visible, onClose }: { visible: boolean
                 <>
                   <Line k="상호" v={sum.partner.businessName || '-'} />
                   <Line k="파트너 상태" v={PARTNER_STATUS[sum.partner.status] || sum.partner.status || '-'} />
-                  <Line k="1회 비용" v={sum.partner.fee ? `${sum.partner.fee.toLocaleString()}원` : '-'} />
+                  <Line k="1회 비용" v={feeText(sum.partner.fee) ?? '-'} />
                   <Line k="회원" v={`${sum.partner.members}명${sum.partner.pendingMembers ? ` · 가입 대기 ${sum.partner.pendingMembers}명` : ''}`} />
                   {sum.partner.pendingWithdrawals > 0 && <Line k="출금 요청" v={`${sum.partner.pendingWithdrawals}건 대기`} />}
                 </>

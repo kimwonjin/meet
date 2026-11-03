@@ -15,7 +15,9 @@ export async function hasContract(userId: string): Promise<boolean> {
 
 export function contractSections(c: ContractInfo): { heading: string; body: string }[] {
   const b = BUSINESS;
-  const money = c.fee && c.count
+  const money = c.fee === 0 && c.count
+    ? `· 담당 파트너: ${c.partnerName || '파트너'}\n· 소개 1회 비용: 무료 (0원)\n· 이번에 받는 이용권: ${c.count}회 · 합계 0원`
+    : c.fee && c.count
     ? `· 담당 파트너: ${c.partnerName || '파트너'}\n· 소개 1회 비용: ${c.fee.toLocaleString()}원\n· 이번 구매: ${c.count}회 · 합계 ${(c.fee * c.count).toLocaleString()}원`
     : '· 소개 1회 비용은 담당 파트너마다 다르며, 서비스 화면의 요금표와 구매 화면에 표시된 금액을 따릅니다.';
   return [

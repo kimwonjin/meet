@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { feeText, isFreeFee } from '@/lib/fee';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { supabase } from '@/lib/supabase';
@@ -195,10 +196,10 @@ export default function InviteLanding({ partnerId, code, inactive }: { partnerId
                       <Text style={styles.factValue}>{formatRegions(partner.main_region)}</Text>
                     </View>
                   )}
-                  {!!partner.fee_per_session && (
+                  {!!feeText(partner.fee_per_session) && (
                     <View style={styles.fact}>
                       <Text style={styles.factLabel}>1회 소개 비용</Text>
-                      <Text style={styles.factValue}>{partner.fee_per_session.toLocaleString()}원</Text>
+                      <Text style={styles.factValue}>{feeText(partner.fee_per_session)}</Text>
                     </View>
                   )}
                 </View>

@@ -1,6 +1,7 @@
 // 요금표: 파트너별 1회 소개 비용 + 이용권·환불 기준 (결혼중개업법 제8조 ②: 홈페이지에 수수료표 게시)
 // 화면 맨 아래 사업자 정보 줄에서 연다
 import React, { useEffect, useState } from 'react';
+import { feeText, isFreeFee } from '@/lib/fee';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BottomSheet from './BottomSheet';
 import { supabase } from '@/lib/supabase';
@@ -9,7 +10,7 @@ type Row = { id: string; name: string; fee: number };
 
 async function fetchFees(): Promise<Row[]> {
   const { data } = await supabase.from('connectors').select('id, business_name, fee_per_session').eq('status', 'approved');
-  const rows = ((data || []) as any[]).filter((c) => Number(c.fee_per_session) > 0);
+  const rows = ((data || []) as any[]).filter((c) => c.fee_per_session !== null && Number(c.fee_per_session) >= 0); // 0원 = 무료 파트너도 요금표에 싣는다
   if (!rows.length) return [];
   const { data: users } = await supabase.from('users').select('id, name, withdrawn_at, suspended_at').in('id', rows.map((c) => c.id));
   const ok = new Map(((users || []) as any[]).filter((u) => !u.withdrawn_at && !u.suspended_at).map((u) => [u.id, u.name]));
@@ -42,7 +43,7 @@ export function FeeTableSheet({ visible, onClose }: { visible: boolean; onClose:
           ) : rows.map((r) => (
             <View key={r.id} style={s.row}>
               <Text style={s.cName} numberOfLines={1}>{r.name}</Text>
-              <Text style={s.cFee}>{r.fee.toLocaleString()}원</Text>
+              <Text style={s.cFee}>{feeText(r.fee)}</Text>
             </View>
           ))}
         </View>

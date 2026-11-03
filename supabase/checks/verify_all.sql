@@ -33,6 +33,7 @@ extra AS (
   -- 내용까지 확인할 것: 독려 알림이 자리 비움을 건너뛰는지, 자동 알림 예약 4개가 하루 한 번(주 1회)인지
   SELECT '내용' AS kind, '독려 알림이 자리 비움 파트너를 건너뜀' AS name,
     EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'fn_nudge_idle_partners' AND prosrc LIKE '%away_until%') AS ok
+  UNION ALL SELECT '내용', '무료(0원) 파트너 이용권 받기', EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'fn_purchase_package' AND prosrc LIKE '%v_fee < 0%')
   UNION ALL SELECT '내용', '파트너 회원 수에서 정지 회원 제외', EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'fn_partner_members' AND prosrc LIKE '%suspended_at%')
   UNION ALL SELECT '예약', 'dudu-reminders 매일 09시', EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'dudu-reminders' AND schedule = '0 0 * * *')
   UNION ALL SELECT '예약', 'dudu-safety 매일 09시', EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'dudu-safety' AND schedule = '0 0 * * *')

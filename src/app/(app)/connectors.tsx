@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import SkeletonScreen from '@/components/Skeleton';
+import { feeText, isFreeFee } from '@/lib/fee';
 import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, TextInput } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -443,9 +444,11 @@ export default function ConnectorsScreen() {
     purchasingRef.current = true;
     setPurchasing(true);
     try {
-      const result = await purchasePackage(user.id, selectedConnector.id, selectedPackage, selectedConnector.fee_per_session ?? 0);
+      // 비용을 아직 정하지 않은 파트너(빈 값)는 -1로 보내 서버가 '비용 미정'으로 거절하게 한다 (무료 0원과 구분)
+      const expected = isFreeFee(selectedConnector.fee_per_session) ? 0 : Number(selectedConnector.fee_per_session) > 0 ? Number(selectedConnector.fee_per_session) : -1;
+      const result = await purchasePackage(user.id, selectedConnector.id, selectedPackage, expected);
       if (result.ok) {
-        toast.show(`✓ ${selectedPackage}회 이용권을 구매했습니다`, 'success');
+        toast.show(isFreeFee(selectedConnector.fee_per_session) ? `✓ 무료 이용권 ${selectedPackage}회를 받았어요` : `✓ ${selectedPackage}회 이용권을 구매했습니다`, 'success');
         const { credit } = await getCredit(user.id, selectedConnector.id);
         setMyCredit(credit);
       } else if (result.reason === 'insufficient') {
@@ -858,7 +861,7 @@ export default function ConnectorsScreen() {
   const feeOk = (fee?: number | null) => {
     const f = fee || 0;
     if (pfFee === 'all') return true;
-    if (pfFee === 'u3') return f > 0 && f <= 30000;
+    if (pfFee === 'u3') return isFreeFee(fee) || (f > 0 && f <= 30000); // 무료 파트너도 '3만원 이하'에
     if (pfFee === '3to5') return f > 30000 && f <= 50000;
     if (pfFee === '5to10') return f > 50000 && f <= 100000;
     return f > 100000;
@@ -906,7 +909,7 @@ export default function ConnectorsScreen() {
                         </View>
 
                         <Text style={styles.packagePrice}>
-                          {((selectedConnector.fee_per_session || 0) * selectedPackage).toLocaleString()}원
+                          {isFreeFee(selectedConnector.fee_per_session) ? '무료' : `${((selectedConnector.fee_per_session || 0) * selectedPackage).toLocaleString()}원`}
                         </Text>
 
                         <TouchableOpacity
@@ -914,7 +917,7 @@ export default function ConnectorsScreen() {
                           onPress={handlePurchase}
                           disabled={purchasing}
                         >
-                          <Text style={styles.contactBtnText}>{purchasing ? '결제 중...' : '결제하기'}</Text>
+                          <Text style={styles.contactBtnText}>{isFreeFee(selectedConnector.fee_per_session) ? (purchasing ? '받는 중...' : '무료 이용권 받기') : purchasing ? '결제 중...' : '결제하기'}</Text>
                         </TouchableOpacity>
     </>
   ) : null;
@@ -1010,7 +1013,7 @@ export default function ConnectorsScreen() {
               </Text>
             )}
             <View style={styles.meta}>
-              <Text style={styles.price}>{item.fee_per_session ? `${item.fee_per_session.toLocaleString()}원 / 건` : '-'}</Text>
+              <Text style={styles.price}>{isFreeFee(item.fee_per_session) ? '무료' : item.fee_per_session ? `${item.fee_per_session.toLocaleString()}원 / 건` : '-'}</Text>
               {!publicStats?.[item.id] && !!reviewSummaries[item.id] && (
                 <Text style={styles.reviewScore}>★ {reviewSummaries[item.id].avg.toFixed(1)} ({reviewSummaries[item.id].count})</Text>
               )}
@@ -1089,7 +1092,7 @@ export default function ConnectorsScreen() {
                       </View>
                       <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>1회 소개 비용</Text>
-                        <Text style={styles.infoValue}>{selectedConnector.fee_per_session ? `${selectedConnector.fee_per_session.toLocaleString()}원` : '-'}</Text>
+                        <Text style={styles.infoValue}>{feeText(selectedConnector.fee_per_session) ?? '-'}</Text>
                       </View>
                       {publicStats?.[selectedConnector.id] ? (() => {
                         const st = publicStats[selectedConnector.id];
@@ -1205,7 +1208,7 @@ export default function ConnectorsScreen() {
       <ContractSheet
         visible={contractOpen}
         onClose={() => setContractOpen(false)}
-        info={{ partnerName: selectedConnector?.business_name || selectedConnector?.name, fee: selectedConnector?.fee_per_session ?? 0, count: selectedPackage }}
+        info={{ partnerName: selectedConnector?.business_name || selectedConnector?.name, fee: isFreeFee(selectedConnector?.fee_per_session) ? 0 : selectedConnector?.fee_per_session || undefined, count: selectedPackage }}
         onAgree={agreeContractAndPurchase}
         busy={purchasing}
       />

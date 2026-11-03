@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import SkeletonScreen from '@/components/Skeleton';
+import { feeText, isFreeFee } from '@/lib/fee';
 import { usePullRefresh } from '@/hooks/use-pull-refresh';
 import {
   View,
@@ -415,7 +416,7 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                     <View style={styles.connInfo}>
                       <Text style={styles.name}>{item.business_name || item.name}</Text>
                       <Text style={styles.desc} numberOfLines={1}>
-                        {[item.business_name && item.name, formatRegions(item.main_region), item.fee_per_session && `1회 ${Number(item.fee_per_session).toLocaleString()}원`].filter(Boolean).join(' · ')}
+                        {[item.business_name && item.name, formatRegions(item.main_region), feeText(item.fee_per_session) && `1회 ${feeText(item.fee_per_session)}`].filter(Boolean).join(' · ')}
                       </Text>
                       {!!directory?.[item.id] && (
                         <Text style={styles.desc}>
@@ -623,7 +624,7 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                 {[
                   ['회사명', selectedAlly?.business_name],
                   ['주요 지역', formatRegions(selectedAlly?.main_region)],
-                  ['회당 비용', selectedAlly?.fee_per_session ? `${Number(selectedAlly.fee_per_session).toLocaleString()}원` : null],
+                  ['회당 비용', feeText(selectedAlly?.fee_per_session)],
                   ['인증', selectedAlly?.verified ? '✓ 인증됨' : '미인증'],
                 ].filter(([, value]) => !!value).map(([label, value]) => (
                   <View key={label} style={styles.infoRow}>
