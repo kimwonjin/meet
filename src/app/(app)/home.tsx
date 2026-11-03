@@ -304,7 +304,7 @@ export default function HomeScreen() {
         // 프로필이 비어 있으면 파트너가 소개하기 어렵다 → 채울 항목을 알려준다
         let { data: me, error: meErr }: { data: any; error: any } = await supabase.from('users').select('photo_urls, bio, job, height, location, education, religion, smoking, drinking, body_type, job_category').eq('id', user!.id).maybeSingle();
         if (meErr) ({ data: me } = await supabase.from('users').select('photo_urls, bio, job, height, location, education, religion, smoking, drinking, body_type').eq('id', user!.id).maybeSingle());
-        const fill = profileFill(me || {}, !meErr);
+        const fill = profileFill(me || {}); // 직업 분류는 처음엔 묻지 않는다 (채운 정도·다음에 채울 것에서 뺌)
         setProfileFillState(fill);
         setProfileGaps(fill.missing.filter((k) => ['사진', '자기소개', '직업', '키'].includes(k)));
 
