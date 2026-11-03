@@ -53,6 +53,9 @@ import { fetchConnectorReviews, Review } from '@/lib/reviews';
 // 회당 금액: 가격은 파트너가 정하되, 0원·오타(자릿수 실수)만 막는다
 const FEE_MIN = 1000;
 const FEE_MAX = 10000000;
+// 직업 분류·해당 조건(연봉·자산 등): 회원이 주눅 들 수 있어 지금은 묻지 않는다 (나중에 프리미엄에서 true로)
+// 이미 저장된 값은 지워지지 않고 파트너 화면에 그대로 보인다
+const SHOW_PREMIUM_FIELDS = false;
 // 회당 금액 칸의 '무료' 표시 (저장할 때 0원)
 const FREE_FEE = 'free';
 const feeDigits = (v: any) => String(v ?? '').replace(/[^0-9]/g, '');
@@ -169,7 +172,7 @@ export default function ProfileScreen() {
   const [meBasics, setMeBasics] = useState<{ gender: string | null; age: number | null }>({ gender: null, age: null });
   const [showPreview, setShowPreview] = useState(false);
   // 처음 프로필 채우기 단계 수: 해당 조건 단계가 더해진다
-  const profileSteps = PROFILE_STEPS_BASE + (companyAvailable ? 1 : 0) + (meetIntentAvailable ? 1 : 0);
+  const profileSteps = PROFILE_STEPS_BASE + (companyAvailable && SHOW_PREMIUM_FIELDS ? 1 : 0) + (meetIntentAvailable ? 1 : 0);
   // 프로필에 연락처가 들어가 저장을 막은 칸 (약관: 만남일 전 연락처 노출 금지)
   const [contactErr, setContactErr] = useState<{ field: string; hit: ContactHit } | null>(null);
   // 칸을 고치면 경고를 지운다 (다시 저장할 때 다시 검사)
@@ -1390,7 +1393,7 @@ export default function ProfileScreen() {
             ...(meetIntentAvailable ? [
               { title: '어떤 만남을 원하세요?', sub: '파트너에게만 보여요. 나중에 바꿀 수 있어요.', body: chips([...MEET_INTENTS], meetIntent, (v) => { setMeetIntent(v); pickAndNext({}); }) },
             ] : []),
-            ...(companyAvailable ? [
+            ...(companyAvailable && SHOW_PREMIUM_FIELDS ? [
               // 직업 분류는 처음 채우기에서 뺐다 (처음부터 물으면 부담스러움 → 나중에 프리미엄 단계에서). 마이 › 내 프로필에서는 그대로 고칠 수 있다
               { title: '해당하는 조건이 있나요?', sub: '여러 개 고를 수 있어요. 없으면 그냥 다음을 눌러 주세요. 파트너에게만 보여요.', body: multiChips(EXTRA_CONDITIONS, profileData.extra_conditions || [], (v) => set({ extra_conditions: toggleCondition(profileData.extra_conditions || [], v) })) },
             ] : []),
@@ -1534,7 +1537,7 @@ export default function ProfileScreen() {
             </View>
           </View>
         )}
-        {companyAvailable && (
+        {companyAvailable && SHOW_PREMIUM_FIELDS && (
           <View style={styles.profileFormSection}>
             <Text style={styles.formLabel}>직업 분류</Text>
             <View style={styles.buttonGroup}>
@@ -1546,7 +1549,7 @@ export default function ProfileScreen() {
             </View>
           </View>
         )}
-        {companyAvailable && (
+        {companyAvailable && SHOW_PREMIUM_FIELDS && (
           <View style={styles.profileFormSection}>
             <Text style={styles.formLabel}>해당하는 조건 (선택 · 여러 개)</Text>
             <View style={styles.buttonGroup}>
