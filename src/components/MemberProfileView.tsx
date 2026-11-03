@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { fetchMeetIntent } from '@/lib/meetIntent';
 import ProtectedPhoto from './ProtectedPhoto';
 import { shownPhotos } from '@/lib/photos';
 import { fetchVerifiedIds } from '@/lib/memberNotes';
@@ -71,6 +72,15 @@ export default function MemberProfileView({ member, showBirthDate = false, verif
   const [company, setCompany] = useState<string | null>(null);
   const [jobCat, setJobCat] = useState<string | null>(null);
   const [conds, setConds] = useState<string[]>([]);
+  // 원하는 만남: 파트너가 볼 때만 (add_meet_intent.sql 전이면 없음)
+  const [intent, setIntent] = useState<string | null>(null);
+  useEffect(() => {
+    setIntent(null);
+    if (!showBirthDate || !member.id) return;
+    let alive = true;
+    fetchMeetIntent(member.id).then(({ value }) => { if (alive) setIntent(value); }).catch(() => {});
+    return () => { alive = false; };
+  }, [member.id, showBirthDate]);
   useEffect(() => {
     setCompany(null); setJobCat(null); setConds([]);
     if (!showBirthDate || !member.id) return;
@@ -105,6 +115,7 @@ export default function MemberProfileView({ member, showBirthDate = false, verif
     ['📏', '키', member.height ? `${member.height}cm` : null],
     ['🎓', '학력', member.education],
     ...(company ? ([['🏢', '회사', company]] as [string, string, string][]) : []),
+    ...(intent ? ([['💞', '원하는 만남', intent]] as [string, string, string][]) : []),
     ...(jobCat ? ([['💼', '직업 분류', jobCat]] as [string, string, string][]) : []),
     ...(conds.length ? ([['⭐', '본인 선택 조건', conds.join(', ')]] as [string, string, string][]) : []),
     ...(showBirthDate ? ([['🎂', '생년월일', member.birth_date]] as [string, string, string | undefined][]) : []),

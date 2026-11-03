@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BackupMenuRow } from '@/components/BackupSettings';
+import { MEET_INTENTS, fetchMeetIntent, saveMeetIntent } from '@/lib/meetIntent';
 import { feeText, isFreeFee } from '@/lib/fee';
 import { PushMenuRow } from '@/components/PushSettings';
 import { PauseMenuRow } from '@/components/PauseSettings';
@@ -161,11 +162,14 @@ export default function ProfileScreen() {
   const [companyAvailable, setCompanyAvailable] = useState(false);
   // 구·시 칸 (add_district.sql 전에는 없음)
   const [districtAvailable, setDistrictAvailable] = useState(false);
+  // 원하는 만남 (add_meet_intent.sql 전에는 칸이 없음 → 묻지 않는다)
+  const [meetIntentAvailable, setMeetIntentAvailable] = useState(false);
+  const [meetIntent, setMeetIntent] = useState<string>('');
   // '상대에게 이렇게 보여요' 미리보기
   const [meBasics, setMeBasics] = useState<{ gender: string | null; age: number | null }>({ gender: null, age: null });
   const [showPreview, setShowPreview] = useState(false);
   // 처음 프로필 채우기 단계 수: 해당 조건 단계가 더해진다
-  const profileSteps = PROFILE_STEPS_BASE + (companyAvailable ? 1 : 0);
+  const profileSteps = PROFILE_STEPS_BASE + (companyAvailable ? 1 : 0) + (meetIntentAvailable ? 1 : 0);
   // 프로필에 연락처가 들어가 저장을 막은 칸 (약관: 만남일 전 연락처 노출 금지)
   const [contactErr, setContactErr] = useState<{ field: string; hit: ContactHit } | null>(null);
   // 칸을 고치면 경고를 지운다 (다시 저장할 때 다시 검사)
@@ -493,6 +497,7 @@ export default function ProfileScreen() {
     const { data: comp, error: compErr } = await supabase.from('users').select('company, job_category, extra_conditions').eq('id', user!.id).maybeSingle();
     setCompanyAvailable(!compErr);
     if (!compErr) setProfileData((prev) => ({ ...prev, company: (comp as any)?.company ?? '', job_category: (comp as any)?.job_category ?? '', extra_conditions: (comp as any)?.extra_conditions ?? [] }));
+    fetchMeetIntent(user!.id).then(({ available, value }) => { setMeetIntentAvailable(available); setMeetIntent(value || ''); }).catch(() => setMeetIntentAvailable(false));
     const { data: dist, error: distErr } = await supabase.from('users').select('district').eq('id', user!.id).maybeSingle();
     setDistrictAvailable(!distErr);
     if (!distErr) setProfileData((prev) => ({ ...prev, district: (dist as any)?.district ?? '' }));
@@ -548,6 +553,10 @@ export default function ProfileScreen() {
       if (districtAvailable) {
         // 서울·경기가 아니면 구·시는 비운다
         await supabase.from('users').update({ district: DISTRICTS[profileData.location] ? profileData.district || null : null }).eq('id', user!.id);
+      }
+      if (meetIntentAvailable) {
+        const { error: intentErr } = await saveMeetIntent(user!.id, meetIntent || null);
+        if (intentErr) throw intentErr;
       }
       if (companyAvailable) {
         const { error: extraErr } = await supabase.from('users').update({
@@ -1377,6 +1386,9 @@ export default function ProfileScreen() {
                 {chips(bodyTypes, profileData.body_type, (v) => set({ body_type: v }))}
               </>
             ) },
+            ...(meetIntentAvailable ? [
+              { title: '어떤 만남을 원하세요?', sub: '파트너에게만 보여요. 나중에 바꿀 수 있어요.', body: chips([...MEET_INTENTS], meetIntent, (v) => { setMeetIntent(v); pickAndNext({}); }) },
+            ] : []),
             ...(companyAvailable ? [
               // 직업 분류는 처음 채우기에서 뺐다 (처음부터 물으면 부담스러움 → 나중에 프리미엄 단계에서). 마이 › 내 프로필에서는 그대로 고칠 수 있다
               { title: '해당하는 조건이 있나요?', sub: '여러 개 고를 수 있어요. 없으면 그냥 다음을 눌러 주세요. 파트너에게만 보여요.', body: multiChips(EXTRA_CONDITIONS, profileData.extra_conditions || [], (v) => set({ extra_conditions: toggleCondition(profileData.extra_conditions || [], v) })) },
@@ -1509,6 +1521,18 @@ export default function ProfileScreen() {
           {contactWarn('job')}
         </View>
 
+        {meetIntentAvailable && (
+          <View style={styles.profileFormSection}>
+            <Text style={styles.formLabel}>원하는 만남 <Text style={styles.formHint}>(파트너에게만 보여요)</Text></Text>
+            <View style={styles.buttonGroup}>
+              {MEET_INTENTS.map((o) => (
+                <TouchableOpacity key={o} style={[styles.optionBtn, meetIntent === o && styles.optionBtnSelected]} onPress={() => setMeetIntent(meetIntent === o ? '' : o)} accessibilityLabel={`원하는 만남 ${o}`}>
+                  <Text style={[styles.optionBtnText, meetIntent === o && styles.optionBtnTextSelected]}>{o}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
         {companyAvailable && (
           <View style={styles.profileFormSection}>
             <Text style={styles.formLabel}>직업 분류</Text>
