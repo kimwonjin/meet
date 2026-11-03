@@ -72,12 +72,23 @@ function peerCount(me: Dir | undefined, other: Dir | undefined) {
   return (other.ages || []).reduce((n, a) => n + ((a.gender === 'F' && has('M', a.decade)) || (a.gender === 'M' && has('F', a.decade)) ? a.count : 0), 0);
 }
 
+// 남녀 균형: 내 회원 중 상대 쪽에서 이성을 찾을 수 있는 비율 (내 여성 1명 ↔ 상대 남성 4명이면 100%)
+// 예전에는 두 파트너 전체로 나눠, 내 회원이 적기만 해도 '성별 겹침'으로 나왔다
 function genderScore(me: Dir | undefined, other: Dir | undefined) {
   const mM = me?.male || 0, mF = me?.female || 0, oM = other?.male || 0, oF = other?.female || 0;
-  const half = (mM + mF + oM + oF) / 2;
-  if (!half || !(mM + mF) || !(oM + oF)) return null;
-  return (Math.min(mM, oF) + Math.min(mF, oM)) / half;
+  if (!(mM + mF) || !(oM + oF)) return null;
+  return (Math.min(mM, oF) + Math.min(mF, oM)) / (mM + mF);
 }
+
+// 두 파트너 회원이 같은 성별로 쏠렸는지 (둘 다 남성이 대부분 같은 경우)
+function sameSkew(me: Dir | undefined, other: Dir | undefined) {
+  const major = (d?: Dir) => ((d?.male || 0) > (d?.female || 0) * 1.5 ? 'M' : (d?.female || 0) > (d?.male || 0) * 1.5 ? 'F' : null);
+  const a = major(me);
+  return !!a && a === major(other);
+}
+
+// 내 회원이 이보다 적으면 궁합을 계산하지 않는다 (몇 명만으로는 점수가 흔들림)
+export const ALLY_FIT_MIN_MEMBERS = 3;
 
 export function allyFit(me: Dir | undefined, other: Dir | undefined, myRegion?: string | null, otherRegion?: string | null): AllyFit | null {
   const parts = {
@@ -89,6 +100,7 @@ export function allyFit(me: Dir | undefined, other: Dir | undefined, myRegion?: 
   };
   const peers = peerCount(me, other);
   if (peers !== null) parts.peers = Math.min(1, peers / Math.max(3, (me?.total || 0) / 2));
+  if ((me?.total ?? (me?.male || 0) + (me?.female || 0)) < ALLY_FIT_MIN_MEMBERS) return null;
   const used = (Object.keys(parts) as (keyof typeof parts)[]).filter((k) => parts[k] !== null);
   if (!used.length || parts.gender === null) return null;
   const wsum = used.reduce((s, k) => s + WEIGHTS[k], 0);
@@ -100,6 +112,6 @@ export function allyFit(me: Dir | undefined, other: Dir | undefined, myRegion?: 
   else if (parts.region !== null && parts.region < 0.2) reasons.push('지역 다름');
   if ((parts.age ?? 0) >= 0.6) reasons.push('나이대 맞음');
   if ((parts.gender ?? 0) >= 0.6) reasons.push('남녀 균형');
-  else if ((parts.gender ?? 1) < 0.3) reasons.push('성별 겹침');
+  else if ((parts.gender ?? 1) < 0.5 && sameSkew(me, other)) reasons.push('성별 겹침');
   return { score, label: score >= 0.6 ? '잘 맞아요' : score >= 0.35 ? '괜찮아요' : '덜 맞아요', reasons, peers };
 }

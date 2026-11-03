@@ -19,7 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatRegions, partnerIntro } from '@/lib/format';
-import { allyFit } from '@/lib/allyFit';
+import { allyFit, ALLY_FIT_MIN_MEMBERS } from '@/lib/allyFit';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { createNotification } from '@/lib/notifications';
 import { getOrCreateThread, sendMessage } from '@/lib/chat';
@@ -135,6 +135,8 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
   };
   const composing = fGender !== 'all' || fAges.length > 0;
   // 동맹 궁합 (지역·나이대·남녀 균형). 회원 정보가 없으면 null
+  // 내 회원이 적으면 궁합 대신 한 줄 안내 (카드마다 반복하지 않는다)
+  const fewForFit = !!directory && !!user && (directory[user.id]?.total ?? 0) < ALLY_FIT_MIN_MEMBERS;
   const fitOf = (c: any) => (directory && user ? allyFit(directory[user.id], directory[c.id], myRegion, c.main_region) : null);
   const shownConnectors = otherConnectors
     .filter((c) => !q || [c.name, c.business_name, formatRegions(c.main_region), partnerIntro(c)].some((v) => (v || '').toLowerCase().includes(q)))
@@ -327,7 +329,10 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
       {otherConnectors.length > 0 && (
         <View style={styles.searchWrap}>
           <View style={styles.listHead}>
-            <Text style={styles.listHeadTitle} numberOfLines={1}>다른 파트너 {shownConnectors.length}곳</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.listHeadTitle} numberOfLines={1}>다른 파트너 {shownConnectors.length}곳</Text>
+              {fewForFit && <Text style={styles.fitFew}>내 회원이 {ALLY_FIT_MIN_MEMBERS}명 이상 모이면 동맹 궁합을 알려 드려요</Text>}
+            </View>
             <TouchableOpacity
               style={[styles.fToggle, (filterOpen || filterCount > 0) && styles.fToggleOn]}
               onPress={() => setFilterOpen(!filterOpen)}
@@ -364,7 +369,7 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
           )}
           <Text style={styles.fLabel}>지역 (활동 지역·회원 지역)</Text>
           <View style={styles.fRow}>{REGIONS.map((r) => chip(r, fRegions.includes(r), () => setFRegions(toggleIn(fRegions, r))))}</View>
-          {directory && (
+          {directory && !fewForFit && (
             <>
               <View style={styles.fLabelRow}>
                 <Text style={[styles.fLabel, { marginTop: 0, marginBottom: 0 }]}>궁합 점수</Text>
@@ -557,7 +562,7 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
             ['또래 이성 회원', '30점', '내 회원과 같은 나이대의 상대 이성 회원이 많을수록'],
             ['지역', '30점', '회원들이 사는 지역이 겹칠수록'],
             ['나이대', '20점', '내 남성 ↔ 상대 여성, 내 여성 ↔ 상대 남성의 나이대가 가까울수록'],
-            ['남녀 수', '20점', '내 남성 수와 상대 여성 수, 내 여성 수와 상대 남성 수가 비슷할수록'],
+            ['남녀 균형', '20점', '내 회원이 상대 파트너 회원 중에서 이성을 찾을 수 있을수록 (내 회원 수 기준)'],
           ].map(([k, pt, d]) => (
             <View key={k} style={styles.fitInfoRow}>
               <View style={{ flex: 1 }}>
@@ -805,6 +810,7 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
+  fitFew: { fontSize: 12, color: '#736F7A', marginTop: 2 },
   alliedBody: { fontSize: 15, color: '#4A4651', lineHeight: 22, marginBottom: 16 },
   staleText: { fontSize: 12, color: '#736F7A', alignSelf: 'center' },
   incomingLink: { fontSize: 13, fontWeight: '600', color: '#5B21FF', marginTop: 2 },
