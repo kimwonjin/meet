@@ -45,6 +45,9 @@ export default function ChatScreen() {
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [messageInput, setMessageInput] = useState('');
+  // 전송 뒤 입력창으로 커서를 돌려 연속으로 입력할 수 있게 한다
+  const inputRef = useRef<TextInput>(null);
+  const refocusInput = () => setTimeout(() => inputRef.current?.focus(), 0);
   // 크게 보는 채팅 사진
   const [viewImage, setViewImage] = useState<string | null>(null);
   // 파트너 '자주 쓰는 문구' (입력창 위에 펼쳐서 누르면 입력창에 들어간다)
@@ -224,6 +227,7 @@ export default function ChatScreen() {
     } finally {
       sendingRef.current = false;
       setSending(false);
+      refocusInput();
     }
   }
 
@@ -492,12 +496,17 @@ export default function ChatScreen() {
               style={styles.messageInput}
               placeholder="메시지 입력"
               placeholderTextColor="#BAB7C0"
+              ref={inputRef}
               value={messageInput}
               onChangeText={setMessageInput}
-              editable={!sending}
+              // 보내는 중에도 입력창을 잠그지 않는다 (잠그면 포커스가 빠져 이어서 칠 수 없음). 두 번 전송은 sendingRef로 막는다
               onSubmitEditing={handleSend}
+              blurOnSubmit={false}
+              submitBehavior="submit"
             />
-            <TouchableOpacity style={[styles.sendBtn, (sending || !messageInput.trim()) && { opacity: 0.5 }]} onPress={handleSend} disabled={sending || !messageInput.trim()}>
+            <TouchableOpacity style={[styles.sendBtn, (sending || !messageInput.trim()) && { opacity: 0.5 }]} onPress={handleSend} disabled={sending || !messageInput.trim()} accessibilityLabel="전송"
+              // 웹: 버튼을 눌러도 입력창의 포커스가 빠지지 않게
+              {...({ onMouseDown: (e: any) => e.preventDefault?.() } as any)}>
               {sending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.sendBtnText}>전송</Text>}
             </TouchableOpacity>
           </View>
