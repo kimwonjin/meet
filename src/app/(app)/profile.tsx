@@ -502,8 +502,9 @@ export default function ProfileScreen() {
     setDistrictAvailable(!distErr);
     if (!distErr) setProfileData((prev) => ({ ...prev, district: (dist as any)?.district ?? '' }));
     setProfileLoaded(true);
-    // 아직 아무것도 채우지 않았으면 한 질문씩 안내한다 (이미 채운 사람은 한 화면에서 고친다)
-    const firstFill = !data.location && !data.job && !data.bio && !(data.photo_urls ?? []).some(Boolean);
+    // 아직 글로 채운 게 없으면 한 질문씩 안내한다 (이미 채운 사람은 한 화면에서 고친다)
+    // 사진은 올리는 즉시 저장되므로 기준에서 뺀다: 1단계에서 사진만 올리고 닫아도 다음에 다시 한 단계씩 이어진다
+    const firstFill = !data.location && !data.job && !data.bio && !data.height;
     // 기기에 저장해 둔 작성 중 내용 (새로고침·앱 재시작 후에도 이어서)
     let draft = wizardDraftRef.current;
     if (firstFill && !draft) {
