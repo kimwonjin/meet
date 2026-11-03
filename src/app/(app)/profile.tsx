@@ -461,7 +461,8 @@ export default function ProfileScreen() {
   const religions = ['기독교', '천주교', '불교', '무교'];
   const smokings = ['비흡연', '흡연', '가끔'];
   const drinkings = ['비음주', '가끔', '자주'];
-  const bodyTypes = ['마름', '보통', '통통', '근육질'];
+  // 여성 회원에게는 '볼륨있음'도 보여 준다 (이미 고른 값은 성별과 상관없이 그대로 보인다)
+  const bodyTypes = meBasics.gender === 'F' || profileData.body_type === '볼륨있음' ? ['마름', '보통', '볼륨있음', '통통', '근육질'] : ['마름', '보통', '통통', '근육질'];
 
   async function loadProfile() {
     setProfileLoaded(false);
