@@ -336,6 +336,11 @@ export default function ChatScreen() {
                     <Text style={styles.allyBadgeText}>🤝 동맹 요청</Text>
                   </View>
                 )}
+                {item.joinRequest && (
+                  <View style={styles.allyBadge} accessibilityLabel="가입 신청 받음">
+                    <Text style={styles.allyBadgeText}>🙋 가입 신청</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.threadPreview} numberOfLines={1}>
                 {previewText(item.lastMessagePreview) || '대화를 시작해보세요'}

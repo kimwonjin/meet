@@ -37,6 +37,13 @@ export async function fetchThreads(myId: string) {
     .neq('requested_by', myId)
     .or(`connector_1_id.eq.${myId},connector_2_id.eq.${myId}`);
   const allyRequesters = new Set((pendingAlly || []).map((a: any) => a.requested_by));
+  // 나(파트너)에게 가입 신청하고 기다리는 회원 (목록에 '가입 신청' 배지)
+  const { data: pendingJoin } = await supabase
+    .from('hopeful_requests')
+    .select('hopeful_id')
+    .eq('connector_id', myId)
+    .eq('status', 'pending');
+  const joinRequesters = new Set((pendingJoin || []).map((r: any) => r.hopeful_id));
 
   return threads.map((t: any) => {
     const isP1 = t.participant_1_id === myId;
@@ -57,6 +64,7 @@ export async function fetchThreads(myId: string) {
       lastMessagePreview: t.last_message_preview,
       unreadCount,
       allianceRequest: allyRequesters.has(otherId),
+      joinRequest: joinRequesters.has(otherId),
     };
   });
 }
