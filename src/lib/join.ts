@@ -1,4 +1,5 @@
-import { isAccountActive } from './chat';
+import { getOrCreateThread, isAccountActive, sendMessage } from './chat';
+import { joinRequestNotice } from './alliance';
 import { supabase } from './supabase';
 import { createNotification } from './notifications';
 
@@ -60,5 +61,8 @@ export async function requestJoin(
     body: `${me.name}님이 가입을 요청했습니다`,
     route: '/connectors',
   });
+  // 채팅방에도 가입 신청을 남긴다 (파트너가 대화에서 바로 알 수 있게, 회원은 이어서 인사할 수 있게)
+  const threadId = await getOrCreateThread(me.id, connectorId).catch(() => null);
+  if (threadId) await sendMessage(threadId, me.id, joinRequestNotice(me.name)).catch(() => {});
   return 'sent';
 }

@@ -5,7 +5,10 @@ import { createNotification } from './notifications';
 export const ALLIANCE_NOTE_PREFIX = '🤝 동맹 요청\n';
 // 수락하면 채팅방에 남기는 안내 줄 (본인 말풍선이 아니라 가운데 안내로 보인다)
 export const ALLIANCE_DONE_NOTICE = '🤝 동맹을 맺었어요. 이제 서로의 회원을 소개할 수 있어요';
-export const isChatNotice = (content?: string | null) => content === ALLIANCE_DONE_NOTICE;
+// 회원이 가입 신청을 하면 그 파트너와의 채팅방에 남기는 안내 줄
+export const joinRequestNotice = (name: string) => `🙋 ${name}님이 가입을 신청했어요`;
+export const isChatNotice = (content?: string | null) =>
+  content === ALLIANCE_DONE_NOTICE || (!!content && content.startsWith('🙋 ') && content.endsWith('님이 가입을 신청했어요') && !content.includes('\n'));
 
 // 상대(otherId)가 나(meId)에게 보낸, 아직 답하지 않은 동맹 요청
 export async function findIncomingRequest(meId: string, otherId: string): Promise<any | null> {
