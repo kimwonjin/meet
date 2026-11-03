@@ -389,11 +389,12 @@ export default function MatchingScreen() {
   }, [lastMatch, credits]);
 
   // 지금 고를 수 없는 이유 (없으면 null). 같은 성별·동맹끼리는 한 명을 고른 뒤에만 따진다
-  function blockReason(id: string, connectorId: string): BlockLabel | null {
-    if (selectedForMatch.some((x) => x.id === id)) return null;
+  // firstOverride: 방금 고른 회원 기준으로 미리 볼 때 (상태가 바뀌기 전)
+  function blockReason(id: string, connectorId: string, firstOverride?: { id: string; connectorId: string }): BlockLabel | null {
+    if (!firstOverride && selectedForMatch.some((x) => x.id === id)) return null;
     if (pausedIds.has(id)) return '쉬는 중';
     if (lastMatch[id]?.active) return '만남중';
-    const first = selectedForMatch.length === 1 ? selectedForMatch[0] : null;
+    const first = firstOverride ?? (selectedForMatch.length === 1 ? selectedForMatch[0] : null);
     if (first) {
       const all = [...ownMembers, ...allyMembers.flatMap((g) => g.members)];
       const g1 = all.find((m) => m.id === first.id)?.gender, g2 = all.find((m) => m.id === id)?.gender;
@@ -463,6 +464,23 @@ export default function MatchingScreen() {
       return;
     }
     setSelectedForMatch([...prev, { id: memberId, connectorId }]);
+    // 첫 번째로 골랐는데 짝지을 수 있는 회원이 아무도 없으면: 동맹 쪽으로 안내한다
+    if (prev.length === 0) {
+      const first = { id: memberId, connectorId };
+      const pool = [
+        ...ownMembers.map((m) => ({ id: m.id, c: user!.id })),
+        ...(includeAllies ? allyMembers.flatMap((g) => g.members.map((m) => ({ id: m.id, c: g.connector.id }))) : []),
+      ].filter((x) => x.id !== memberId);
+      const canPair = pool.some((x) => !blockReason(x.id, x.c, first));
+      if (!canPair) {
+        const allyPool = allyMembers.flatMap((g) => g.members.map((m) => ({ id: m.id, c: g.connector.id })));
+        if (!includeAllies && allyPool.some((x) => !blockReason(x.id, x.c, first))) {
+          toast.show('내 회원 중엔 짝지을 분이 없어요. 동맹 회원도 함께 볼까요?', 'info', { label: '동맹 포함', onPress: () => setIncludeAllies(true) });
+        } else {
+          toast.show('지금 함께 소개할 회원이 없어요. 동맹을 맺으면 다른 파트너 회원과도 소개할 수 있어요', 'info', { label: '동맹 찾기', onPress: () => setView('ally') });
+        }
+      }
+    }
   }
 
   function memberName(id: string) {
