@@ -1,5 +1,5 @@
 import { getOrCreateThread, isAccountActive, sendMessage } from './chat';
-import { joinRequestNotice } from './alliance';
+import { joinRequestNotice, JOIN_APPROVED_NOTICE } from './alliance';
 import { supabase } from './supabase';
 import { createNotification } from './notifications';
 
@@ -65,4 +65,33 @@ export async function requestJoin(
   const threadId = await getOrCreateThread(me.id, connectorId).catch(() => null);
   if (threadId) await sendMessage(threadId, me.id, joinRequestNotice(me.name)).catch(() => {});
   return 'sent';
+}
+
+// 이 회원이 이 파트너에게 보낸, 아직 처리 안 된 가입 신청 (없으면 null)
+export async function findPendingJoin(hopefulId: string, connectorId: string): Promise<{ id: string } | null> {
+  const { data } = await supabase.from('hopeful_requests').select('id').eq('hopeful_id', hopefulId).eq('connector_id', connectorId).eq('status', 'pending').limit(1);
+  return (data?.[0] as any) ?? null;
+}
+
+// 가입 승인: 'ok' 승인됨, 'gone' 이미 처리됐거나 탈퇴. 실패하면 throw
+// threadId를 주면 그 채팅방에 '가입이 승인됐어요' 안내 줄을 남긴다
+export async function approveJoin(requestId: string, hopefulId: string, partner: { id: string; name?: string | null }, threadId?: string | null): Promise<'ok' | 'gone'> {
+  const { data: updated, error } = await supabase
+    .from('hopeful_requests')
+    .update({ status: 'approved' })
+    .eq('id', requestId)
+    .eq('status', 'pending')
+    .select('id');
+  if (error) throw error;
+  if (!updated?.length) return 'gone';
+  await createNotification({
+    userId: hopefulId,
+    type: 'signup_approved',
+    title: '가입 요청이 승인되었습니다',
+    body: `${partner.name ?? ''}님이 가입 요청을 승인했습니다`,
+    route: '/connectors',
+  });
+  const tid = threadId ?? (await getOrCreateThread(partner.id, hopefulId).catch(() => null));
+  if (tid) await sendMessage(tid, partner.id, JOIN_APPROVED_NOTICE).catch(() => {});
+  return 'ok';
 }

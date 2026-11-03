@@ -7,7 +7,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { isPartnerIntroWritten } from '@/lib/partnerIntroState';
 import { useFocusPolling } from '@/hooks/use-focus-polling';
 import { supabase } from '@/lib/supabase';
-import { requestJoin } from '@/lib/join';
+import { approveJoin, requestJoin } from '@/lib/join';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatRegions, partnerIntro } from '@/lib/format';
@@ -506,33 +506,16 @@ export default function ConnectorsScreen() {
   }
 
   async function handleApprove(requestId: string, hopefulId: string) {
+    if (!user) return;
     setProcessingId(requestId);
     try {
-      // 요청 승인
       // 아직 대기 중인 신청만 승인한다 (그 사이 회원이 탈퇴했거나 다른 기기에서 이미 처리한 경우)
-      const { data: updated, error: updateError } = await supabase
-        .from('hopeful_requests')
-        .update({ status: 'approved' })
-        .eq('id', requestId)
-        .eq('status', 'pending')
-        .select('id');
-
-      if (updateError) throw updateError;
-      if (!updated?.length) {
+      const r = await approveJoin(requestId, hopefulId, { id: user.id, name: user.name });
+      if (r === 'gone') {
         toast.show('이미 처리됐거나 탈퇴한 회원이에요', 'info');
-        fetchConnectors();
-        return;
+      } else {
+        toast.show('요청을 승인했습니다', 'success');
       }
-
-      await createNotification({
-        userId: hopefulId,
-        type: 'signup_approved',
-        title: '가입 요청이 승인되었습니다',
-        body: `${user?.name}님이 가입 요청을 승인했습니다`,
-        route: '/connectors',
-      });
-
-      toast.show('요청을 승인했습니다', 'success');
       fetchConnectors();
     } catch (error) {
       console.error('Approve error:', error);

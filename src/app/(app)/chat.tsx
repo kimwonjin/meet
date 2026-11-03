@@ -13,6 +13,7 @@ import SafetyActions from '@/components/SafetyActions';
 import { getBlockState } from '@/lib/safety';
 import { AwayChatNotice } from '@/components/AwaySettings';
 import AllianceChatBanner from '@/components/AllianceChatBanner';
+import JoinChatBanner from '@/components/JoinChatBanner';
 import { isChatNotice } from '@/lib/alliance';
 import { loadPhrases, MAX_PHRASES, PhraseKind, savePhrases } from '@/lib/quickPhrases';
 import { makeImageContent, parseImage, previewText } from '@/lib/chatImage';
@@ -371,6 +372,22 @@ export default function ChatScreen() {
 
           {/* 상대 파트너가 자리 비움 중이면 알린다 (파트너가 아니면 아무것도 안 보임) */}
           {activeOther && operator?.id !== activeOther.id && <AwayChatNotice partnerId={activeOther.id} name={activeOther.name} />}
+
+          {/* 회원이 보낸 가입 신청: 파트너가 대화하다가 여기서 바로 승인 */}
+          {activeOther && user && isPartner && operator?.id !== activeOther.id && (
+            <JoinChatBanner
+              partner={{ id: user.id, name: user.name }}
+              memberId={activeOther.id}
+              memberName={activeOther.name}
+              threadId={activeThreadId}
+              onApproved={async () => {
+                const tid = activeThreadId;
+                if (!tid) return;
+                const msgs = await fetchMessages(tid);
+                if (activeThreadRef.current === tid) setMessages(msgs);
+              }}
+            />
+          )}
 
           {/* 상대 파트너가 보낸 동맹 요청: 대화하다가 여기서 바로 수락 */}
           {activeOther && user && isPartner && operator?.id !== activeOther.id && (
