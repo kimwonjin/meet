@@ -20,6 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatRegions, partnerIntro } from '@/lib/format';
 import { allyFit, ALLY_FIT_MIN_MEMBERS } from '@/lib/allyFit';
+import { AllyRules, DEFAULT_ALLY_RULES, MIN_MEMBER_OPTIONS, fetchAllyRules, fetchRulesOf, regionsOf, ruleBlock, rulesSummary, saveAllyRules } from '@/lib/allyRules';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { createNotification } from '@/lib/notifications';
 import { getOrCreateThread, sendMessage } from '@/lib/chat';
@@ -52,6 +53,13 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
   const [fRegions, setFRegions] = useState<string[]>([]);
   const [fFit, setFFit] = useState<0 | 60 | 80>(0); // 궁합 점수 이상
   const [fitInfoOpen, setFitInfoOpen] = useState(false);
+  // 동맹 받는 조건 (칸이 없으면 rulesAvail=false → 이 기능을 숨긴다)
+  const [rulesAvail, setRulesAvail] = useState(false);
+  const [rulesMap, setRulesMap] = useState<Record<string, AllyRules>>({});
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const [rulesDraft, setRulesDraft] = useState<AllyRules>(DEFAULT_ALLY_RULES);
+  const [savingRules, setSavingRules] = useState(false);
+  const [fCanReq, setFCanReq] = useState(false); // 지금 요청할 수 있는 파트너만
   // 받은 동맹 요청의 한마디 (프로필 시트에서 보여 준다). undefined = 불러오는 중
   const [allyNote, setAllyNote] = useState<string | null | undefined>(null);
   // 방금 맺은 동맹: 다음 할 일(동맹 회원 보기)을 바로 안내한다. count undefined = 세는 중
@@ -83,6 +91,7 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
         .map((c: any) => ({ ...c, name: (otherConnUsers || []).find((u: any) => u.id === c.id)?.name }));
       setOtherConnectors(others);
       setMyRegion((allConnectors || []).find((c: any) => c.id === user.id)?.main_region ?? null);
+      fetchAllyRules().then(({ available, map }) => { setRulesAvail(available); setRulesMap(map); }).catch(() => setRulesAvail(false));
       supabase.rpc('fn_partner_directory').then(({ data, error }) => {
         setDirectory(error || !Array.isArray(data) ? null : Object.fromEntries(data.map((d: any) => [d.id, d])));
       });
@@ -115,7 +124,14 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
   };
   const q = query.trim().toLowerCase();
   const toggleIn = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
-  const filterCount = (fGender !== 'all' ? 1 : 0) + fAges.length + fRegions.length + (fFit ? 1 : 0);
+  const filterCount = (fGender !== 'all' ? 1 : 0) + fAges.length + fRegions.length + (fFit ? 1 : 0) + (fCanReq ? 1 : 0);
+  // 내가 이 파트너에게 동맹을 요청할 수 있는지 (상대가 정한 조건 기준). 이미 요청·동맹 중이면 보지 않는다
+  const myRegions = regionsOf(myRegion);
+  const myTotal = directory && user ? (directory[user.id]?.total ?? 0) : null;
+  const blockOf = (c: any) => (rulesAvail ? ruleBlock(rulesMap[c.id], { total: myTotal, regions: myRegions }, { regions: regionsOf(c.main_region) }) : null);
+  const myRules = (user && rulesMap[user.id]) || DEFAULT_ALLY_RULES;
+  // 조건 시트 미리보기: 이 조건이면 다른 파트너 중 몇 곳이 나에게 요청할 수 있는지
+  const draftPassCount = otherConnectors.filter((c) => !ruleBlock(rulesDraft, { total: directory ? (directory[c.id]?.total ?? 0) : null, regions: regionsOf(c.main_region) }, { regions: myRegions })).length;
   // 찾는 조건(성별·연령대)에 맞는 회원 수. 연령대는 회원이 적은 파트너는 공개하지 않아 null
   const matchCount = (c: any): number | null => {
     const d = directory?.[c.id];
@@ -142,6 +158,7 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
     .filter((c) => !q || [c.name, c.business_name, formatRegions(c.main_region), partnerIntro(c)].some((v) => (v || '').toLowerCase().includes(q)))
     .filter(inRegions)
     .filter((c) => !fFit || Math.round((fitOf(c)?.score ?? 0) * 100) >= fFit)
+    .filter((c) => !fCanReq || (!getAllianceWith(c.id) && !blockOf(c)))
     .filter((c) => !composing || (matchCount(c) ?? 0) > 0)
     // 조건을 고르면 맞는 회원이 많은 순, 아니면 받은 요청 → 동맹 중 → 보낸 요청 → 나머지 (같은 묶음 안에서는 궁합이 좋은 순)
     .sort((a, b) => (composing ? (matchCount(b) ?? 0) - (matchCount(a) ?? 0) : 0) || rank(a) - rank(b) || (fitOf(b)?.score ?? -1) - (fitOf(a)?.score ?? -1));
@@ -188,10 +205,42 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
   const [requestNote, setRequestNote] = useState('');
   const DEFAULT_NOTE = '안녕하세요! 서로 회원을 소개하면 좋을 것 같아 동맹 신청드려요 😊';
 
+  function showBlock(b: { kind: string; text: string }) {
+    if (b.kind === 'members') toast.show(b.text, 'info', { label: '회원 모으기', onPress: () => router.push('/connectors') });
+    else toast.show(b.text, 'info');
+  }
+
+  async function saveRules() {
+    if (!user || savingRules) return;
+    setSavingRules(true);
+    try {
+      const { error } = await saveAllyRules(user.id, rulesDraft);
+      if (error) throw error;
+      setRulesMap((m) => ({ ...m, [user.id]: rulesDraft }));
+      setRulesOpen(false);
+      toast.show('✓ 동맹 받는 조건을 저장했어요', 'success');
+    } catch {
+      toast.show('저장하지 못했어요. 잠시 후 다시 시도해 주세요', 'error');
+    } finally {
+      setSavingRules(false);
+    }
+  }
+
   async function handleRequestAlliance(otherId: string, note = '') {
     if (!user) return;
     setAllianceProcessingId(otherId);
     try {
+      // 화면을 연 사이 상대가 조건을 바꿨을 수 있으니 보내기 직전에 한 번 더 확인한다
+      if (rulesAvail) {
+        const fresh = await fetchRulesOf(otherId);
+        const other = otherConnectors.find((c) => c.id === otherId);
+        const blk = fresh ? ruleBlock(fresh, { total: myTotal, regions: myRegions }, { regions: regionsOf(other?.main_region) }) : null;
+        if (blk) {
+          if (fresh) setRulesMap((m) => ({ ...m, [otherId]: fresh }));
+          showBlock(blk);
+          return;
+        }
+      }
       const { error } = await supabase.from('connector_alliances').insert([
         { connector_1_id: user.id, connector_2_id: otherId, status: 'PENDING', requested_by: user.id },
       ]);
@@ -332,6 +381,11 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
             <View style={{ flex: 1 }}>
               <Text style={styles.listHeadTitle} numberOfLines={1}>다른 파트너 {shownConnectors.length}곳</Text>
               {fewForFit && <Text style={styles.fitFew}>내 회원이 {ALLY_FIT_MIN_MEMBERS}명 이상 모이면 동맹 궁합을 알려 드려요</Text>}
+              {rulesAvail && (
+                <TouchableOpacity onPress={() => { setRulesDraft(myRules); setRulesOpen(true); }} accessibilityLabel="내 동맹 받는 조건" hitSlop={6}>
+                  <Text style={styles.myRulesLine} numberOfLines={1}>🛡 내 동맹 받는 조건: {rulesSummary(myRules, myRegions) || '상관없음'} ›</Text>
+                </TouchableOpacity>
+              )}
             </View>
             <TouchableOpacity
               style={[styles.fToggle, (filterOpen || filterCount > 0) && styles.fToggleOn]}
@@ -384,8 +438,11 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
               </View>
             </>
           )}
+          {rulesAvail && (
+            <View style={[styles.fRow, { marginTop: 8 }]}>{chip('지금 요청할 수 있는 파트너만', fCanReq, () => setFCanReq(!fCanReq))}</View>
+          )}
           {filterCount > 0 && (
-            <TouchableOpacity onPress={() => { setFGender('all'); setFAges([]); setFRegions([]); setFFit(0); }} style={{ alignSelf: 'flex-start', paddingVertical: 4 }}>
+            <TouchableOpacity onPress={() => { setFGender('all'); setFAges([]); setFRegions([]); setFFit(0); setFCanReq(false); }} style={{ alignSelf: 'flex-start', paddingVertical: 4 }}>
               <Text style={styles.fReset}>필터 초기화</Text>
             </TouchableOpacity>
           )}
@@ -442,6 +499,9 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                           </View>
                         );
                       })()}
+                      {rulesAvail && !alliance && !!rulesSummary(rulesMap[item.id] || DEFAULT_ALLY_RULES, regionsOf(item.main_region)) && (
+                        <Text style={styles.cardRules} numberOfLines={1}>🛡 받는 조건: {rulesSummary(rulesMap[item.id] || DEFAULT_ALLY_RULES, regionsOf(item.main_region))}</Text>
+                      )}
                       {isIncoming ? (
                         <Text style={styles.incomingLink}>🤝 동맹 요청 받음 · 소개 보기 ›</Text>
                       ) : (
@@ -538,6 +598,11 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                         <Text style={styles.rejectBtnText}>취소</Text>
                       </TouchableOpacity>
                     </>
+                  ) : blockOf(item) ? (
+                    // 상대가 정한 조건에 안 맞음: 무엇이 모자란지 보여 주고, 누르면 한 번 더 알려 준다
+                    <TouchableOpacity style={styles.blockedBtn} onPress={() => showBlock(blockOf(item)!)} accessibilityLabel={blockOf(item)!.text}>
+                      <Text style={styles.blockedBtnText} numberOfLines={1}>{blockOf(item)!.text}</Text>
+                    </TouchableOpacity>
                   ) : (
                     <TouchableOpacity
                       style={[styles.approveBtn, allianceProcessingId === item.id && styles.buttonDisabled]}
@@ -668,6 +733,17 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                   );
                 }
                 if (a?.status === 'PENDING') return <Text style={styles.memberLock}>🔒 동맹을 맺으면 회원 프로필을 볼 수 있어요</Text>;
+                const blk = selectedAlly ? blockOf(selectedAlly) : null;
+                if (blk) {
+                  return (
+                    <View>
+                      <Text style={styles.memberLock}>🔒 회원 프로필은 동맹을 맺은 뒤 볼 수 있어요</Text>
+                      <TouchableOpacity style={[styles.blockedBtn, { alignSelf: 'stretch', paddingVertical: 14 }]} onPress={() => showBlock(blk)} accessibilityLabel={blk.text}>
+                        <Text style={[styles.blockedBtnText, { textAlign: 'center' }]}>{blk.text}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }
                 return (
                   <View>
                     <Text style={styles.memberLock}>🔒 회원 프로필은 동맹을 맺은 뒤 볼 수 있어요</Text>
@@ -682,6 +758,32 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                 );
               })()}
             </View>
+      </BottomSheet>
+
+      <BottomSheet visible={rulesOpen} onClose={() => setRulesOpen(false)} title="동맹 받는 조건">
+        <Text style={styles.noteHint}>조건에 맞는 파트너만 나에게 동맹을 요청할 수 있어요. 이미 맺은 동맹과 받은 요청은 그대로예요.</Text>
+        <View style={!rulesDraft.accepting && { opacity: 0.4 }} pointerEvents={rulesDraft.accepting ? 'auto' : 'none'}>
+          <Text style={styles.fLabel}>회원 수</Text>
+          <View style={styles.fRow}>
+            {MIN_MEMBER_OPTIONS.map((n) => chip(n ? `${n}명 이상` : '상관없음', rulesDraft.minMembers === n, () => setRulesDraft({ ...rulesDraft, minMembers: n })))}
+          </View>
+          <Text style={styles.fLabel}>지역</Text>
+          <View style={styles.fRow}>
+            {chip('상관없음', !rulesDraft.sameRegion, () => setRulesDraft({ ...rulesDraft, sameRegion: false }))}
+            {chip(myRegions.length ? `${myRegions.join('·')} 파트너만` : '내 활동 지역과 겹치는 파트너만', rulesDraft.sameRegion, () => setRulesDraft({ ...rulesDraft, sameRegion: true }))}
+          </View>
+        </View>
+        <Text style={styles.fLabel}>동맹 요청 받기</Text>
+        <View style={styles.fRow}>
+          {chip('받기', rulesDraft.accepting, () => setRulesDraft({ ...rulesDraft, accepting: true }))}
+          {chip('잠시 안 받기', !rulesDraft.accepting, () => setRulesDraft({ ...rulesDraft, accepting: false }))}
+        </View>
+        <Text style={styles.rulesPreview}>
+          {rulesDraft.accepting ? `지금 조건이면 다른 파트너 ${otherConnectors.length}곳 중 ${draftPassCount}곳이 요청할 수 있어요` : '지금은 새 동맹 요청을 받지 않아요'}
+        </Text>
+        <TouchableOpacity style={[styles.noteSendBtn, savingRules && styles.buttonDisabled]} onPress={saveRules} disabled={savingRules} accessibilityLabel="동맹 받는 조건 저장">
+          {savingRules ? <ActivityIndicator color="#fff" /> : <Text style={styles.noteSendText}>저장하기</Text>}
+        </TouchableOpacity>
       </BottomSheet>
 
       <BottomSheet visible={!!justAllied} onClose={() => setJustAllied(null)} title="🎉 동맹을 맺었어요">
@@ -839,6 +941,11 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
+  myRulesLine: { fontSize: 12, color: '#736F7A', marginTop: 3 },
+  cardRules: { fontSize: 12, color: '#736F7A', marginTop: 2 },
+  blockedBtn: { backgroundColor: '#F1EFF4', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 7, flexShrink: 1 },
+  blockedBtnText: { fontSize: 12, fontWeight: '600', color: '#736F7A' },
+  rulesPreview: { fontSize: 13, color: '#5B21FF', fontWeight: '600', marginTop: 14, marginBottom: 12 },
   memberLock: { fontSize: 13, color: '#736F7A', textAlign: 'center', marginBottom: 10 },
   fitFew: { fontSize: 12, color: '#736F7A', marginTop: 2 },
   alliedBody: { fontSize: 15, color: '#4A4651', lineHeight: 22, marginBottom: 16 },
