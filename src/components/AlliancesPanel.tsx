@@ -27,6 +27,7 @@ import { getOrCreateThread, sendMessage } from '@/lib/chat';
 import { acceptAlliance, countAllyMembers, fetchRequestNote, ALLIANCE_NOTE_PREFIX } from '@/lib/alliance';
 import PartnerComposition from '@/components/PartnerComposition';
 import { Avatar } from '@/components/ProfilePhoto';
+import { fetchDistricts } from '@/lib/regions';
 
 // 동맹: 매칭 탭의 '동맹' 칸에 들어가는 화면 (마이·홈·알림에서도 이 칸으로 연결된다)
 // onIncoming: 받은 동맹 요청 수 (매칭 탭의 '동맹' 칸 숫자)
@@ -352,8 +353,12 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
       const { data: reqs } = await supabase.from('hopeful_requests').select('hopeful_id').eq('connector_id', connectorId).eq('status', 'approved');
       const ids = [...new Set((reqs || []).map((r: any) => r.hopeful_id))];
       if (!ids.length) { setPreviewMembers([]); return; }
-      const { data: us } = await supabase.from('users').select('id, name, gender, age, location, photo_urls, withdrawn_at, suspended_at').in('id', ids);
-      setPreviewMembers(((us || []) as any[]).filter((u) => !u.withdrawn_at && !u.suspended_at));
+      // 이름·회사·자기소개처럼 사람을 알아볼 수 있는 것은 가져오지 않는다
+      const [{ data: us }, districts] = await Promise.all([
+        supabase.from('users').select('id, gender, age, location, photo_urls, height, body_type, job, education, religion, smoking, drinking, withdrawn_at, suspended_at').in('id', ids),
+        fetchDistricts(ids).catch(() => new Map<string, string>()),
+      ]);
+      setPreviewMembers(((us || []) as any[]).filter((u) => !u.withdrawn_at && !u.suspended_at).map((u) => ({ ...u, district: districts.get(u.id) || null })));
     } catch {
       setPreviewMembers([]);
     }
@@ -745,13 +750,28 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                     <Text style={styles.placeholderText}>아직 회원이 없어요</Text>
                   ) : (
                     <>
-                      {previewMembers.slice(0, 30).map((m) => (
-                        <View key={m.id} style={styles.previewRow} accessibilityLabel={`${m.gender === 'M' ? '남' : m.gender === 'F' ? '여' : ''} ${m.age ?? ''}세 ${m.location ?? ''}`}>
-                          <Avatar photoUrls={m.photo_urls} size={40} blur />
-                          <Text style={styles.previewName}>{(m.name || '회원').slice(0, 1)}○○</Text>
-                          <Text style={styles.previewInfo}>{[m.gender === 'M' ? '남' : m.gender === 'F' ? '여' : null, m.age ? `${m.age}세` : null, m.location].filter(Boolean).join(' · ')}</Text>
-                        </View>
-                      ))}
+                      {previewMembers.slice(0, 30).map((m) => {
+                        const g = m.gender === 'M' ? '남' : m.gender === 'F' ? '여' : null;
+                        const head = [g, m.age ? `${m.age}세` : null, [m.location, m.district].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
+                        const body = [m.height ? `${m.height}cm` : null, m.body_type ? `${m.body_type} 체형` : null].filter(Boolean).join(' · ');
+                        const work = [m.job, m.education].filter(Boolean).join(' · ');
+                        const habits = [m.religion, m.smoking === '가끔' ? '흡연 가끔' : m.smoking, m.drinking && m.drinking !== '비음주' ? `음주 ${m.drinking}` : m.drinking].filter(Boolean);
+                        return (
+                          <View key={m.id} style={styles.previewCard} accessibilityLabel={`회원 ${head}`}>
+                            <Avatar photoUrls={m.photo_urls} size={64} blur />
+                            <View style={{ flex: 1, gap: 3 }}>
+                              <Text style={styles.previewHead}>{head || '회원'}</Text>
+                              {!!body && <Text style={styles.previewInfo}>📏 {body}</Text>}
+                              {!!work && <Text style={styles.previewInfo} numberOfLines={1}>💼 {work}</Text>}
+                              {habits.length > 0 && (
+                                <View style={styles.previewChips}>
+                                  {habits.map((h) => <Text key={h} style={styles.previewChip}>{h}</Text>)}
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        );
+                      })}
                       {previewMembers.length > 30 && <Text style={styles.previewMore}>외 {previewMembers.length - 30}명</Text>}
                     </>
                   )}
@@ -981,9 +1001,11 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
-  previewRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#F1EFF4' },
-  previewName: { fontSize: 14, fontWeight: '600', color: '#1A1820', width: 44 },
-  previewInfo: { fontSize: 13, color: '#736F7A', flex: 1 },
+  previewCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 12, borderWidth: 1, borderColor: '#EEEBF3', borderRadius: 12, marginBottom: 8 },
+  previewHead: { fontSize: 15, fontWeight: '700', color: '#1A1820' },
+  previewInfo: { fontSize: 13, color: '#4A4651' },
+  previewChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 },
+  previewChip: { fontSize: 12, color: '#736F7A', backgroundColor: '#F4F2F7', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden' },
   previewMore: { fontSize: 12, color: '#736F7A', textAlign: 'center', marginTop: 8 },
   myRulesLine: { fontSize: 12, color: '#736F7A', marginTop: 3 },
   cardRules: { fontSize: 12, color: '#736F7A', marginTop: 2 },
