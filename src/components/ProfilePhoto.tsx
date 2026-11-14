@@ -5,11 +5,12 @@ import { shownPhotos } from '@/lib/photos';
 import ProtectedPhoto from './ProtectedPhoto';
 
 // 동그란 대표 사진. 사진이 없으면 기본 아이콘을 보여준다.
-export function Avatar({ photoUrls, size = 44 }: { photoUrls?: string[] | null; size?: number }) {
+// blur: 동맹 전 회원 미리보기처럼 얼굴을 알아볼 수 없게 흐리게 보여 줄 때
+export function Avatar({ photoUrls, size = 44, blur = false }: { photoUrls?: string[] | null; size?: number; blur?: boolean }) {
   const url = shownPhotos(photoUrls)[0];
   const box = { width: size, height: size, borderRadius: size / 2 };
   return url ? (
-    <Image source={{ uri: url }} style={[styles.avatar, box]} contentFit="cover" />
+    <Image source={{ uri: url }} style={[styles.avatar, box]} contentFit="cover" blurRadius={blur ? Math.max(12, size / 2) : 0} />
   ) : (
     <View style={[styles.avatar, styles.placeholder, box]}>
       <Text style={{ fontSize: size * 0.45 }}>👤</Text>

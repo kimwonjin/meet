@@ -26,6 +26,7 @@ import { createNotification } from '@/lib/notifications';
 import { getOrCreateThread, sendMessage } from '@/lib/chat';
 import { acceptAlliance, countAllyMembers, fetchRequestNote, ALLIANCE_NOTE_PREFIX } from '@/lib/alliance';
 import PartnerComposition from '@/components/PartnerComposition';
+import { Avatar } from '@/components/ProfilePhoto';
 
 // 동맹: 매칭 탭의 '동맹' 칸에 들어가는 화면 (마이·홈·알림에서도 이 칸으로 연결된다)
 // onIncoming: 받은 동맹 요청 수 (매칭 탭의 '동맹' 칸 숫자)
@@ -53,6 +54,8 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
   const [fRegions, setFRegions] = useState<string[]>([]);
   const [fFit, setFFit] = useState<0 | 60 | 80>(0); // 궁합 점수 이상
   const [fitInfoOpen, setFitInfoOpen] = useState(false);
+  // 동맹 전 회원 미리보기: 사진은 흐리게, 이름은 가리고, 성별·나이·지역만 (null = 불러오는 중)
+  const [previewMembers, setPreviewMembers] = useState<any[] | null>(null);
   // 동맹 받는 조건 (칸이 없으면 rulesAvail=false → 이 기능을 숨긴다)
   const [rulesAvail, setRulesAvail] = useState(false);
   const [rulesMap, setRulesMap] = useState<Record<string, AllyRules>>({});
@@ -344,6 +347,18 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
     }
   }
 
+  async function loadPreviewMembers(connectorId: string) {
+    try {
+      const { data: reqs } = await supabase.from('hopeful_requests').select('hopeful_id').eq('connector_id', connectorId).eq('status', 'approved');
+      const ids = [...new Set((reqs || []).map((r: any) => r.hopeful_id))];
+      if (!ids.length) { setPreviewMembers([]); return; }
+      const { data: us } = await supabase.from('users').select('id, name, gender, age, location, photo_urls, withdrawn_at, suspended_at').in('id', ids);
+      setPreviewMembers(((us || []) as any[]).filter((u) => !u.withdrawn_at && !u.suspended_at));
+    } catch {
+      setPreviewMembers([]);
+    }
+  }
+
   async function handleViewAlly(conn: any) {
     if (!user) return;
     setSelectedAlly(conn);
@@ -354,6 +369,8 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
     } else {
       setAllyNote(null);
     }
+    setPreviewMembers(null);
+    if (a?.status !== 'ACTIVE') loadPreviewMembers(conn.id);
     setLoadingStats(true);
     setPoolStats(null);
     try {
@@ -718,6 +735,29 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                 )}
               </View>
 
+              {/* 동맹 전 미리보기: 어떤 회원이 있는지만 (사진 흐리게·이름 가림·자세한 프로필은 동맹 후) */}
+              {selectedAlly && getAllianceWith(selectedAlly.id)?.status !== 'ACTIVE' && (
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>회원 미리보기</Text>
+                  {previewMembers === null ? (
+                    <ActivityIndicator color="#5B21FF" style={{ marginVertical: 16 }} />
+                  ) : previewMembers.length === 0 ? (
+                    <Text style={styles.placeholderText}>아직 회원이 없어요</Text>
+                  ) : (
+                    <>
+                      {previewMembers.slice(0, 30).map((m) => (
+                        <View key={m.id} style={styles.previewRow} accessibilityLabel={`${m.gender === 'M' ? '남' : m.gender === 'F' ? '여' : ''} ${m.age ?? ''}세 ${m.location ?? ''}`}>
+                          <Avatar photoUrls={m.photo_urls} size={40} blur />
+                          <Text style={styles.previewName}>{(m.name || '회원').slice(0, 1)}○○</Text>
+                          <Text style={styles.previewInfo}>{[m.gender === 'M' ? '남' : m.gender === 'F' ? '여' : null, m.age ? `${m.age}세` : null, m.location].filter(Boolean).join(' · ')}</Text>
+                        </View>
+                      ))}
+                      {previewMembers.length > 30 && <Text style={styles.previewMore}>외 {previewMembers.length - 30}명</Text>}
+                    </>
+                  )}
+                </View>
+              )}
+
               {/* 회원 프로필: 동맹을 맺은 파트너의 회원만 볼 수 있다 (회원 개인정보 보호) */}
               {(() => {
                 const a = selectedAlly ? getAllianceWith(selectedAlly.id) : null;
@@ -732,12 +772,12 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                     </TouchableOpacity>
                   );
                 }
-                if (a?.status === 'PENDING') return <Text style={styles.memberLock}>🔒 동맹을 맺으면 회원 프로필을 볼 수 있어요</Text>;
+                if (a?.status === 'PENDING') return <Text style={styles.memberLock}>🔒 동맹을 맺으면 사진과 자세한 프로필을 볼 수 있어요</Text>;
                 const blk = selectedAlly ? blockOf(selectedAlly) : null;
                 if (blk) {
                   return (
                     <View>
-                      <Text style={styles.memberLock}>🔒 회원 프로필은 동맹을 맺은 뒤 볼 수 있어요</Text>
+                      <Text style={styles.memberLock}>🔒 사진과 자세한 프로필은 동맹을 맺은 뒤 볼 수 있어요</Text>
                       <TouchableOpacity style={[styles.blockedBtn, { alignSelf: 'stretch', paddingVertical: 14 }]} onPress={() => showBlock(blk)} accessibilityLabel={blk.text}>
                         <Text style={[styles.blockedBtnText, { textAlign: 'center' }]}>{blk.text}</Text>
                       </TouchableOpacity>
@@ -746,7 +786,7 @@ export default function AlliancesPanel({ onIncoming }: { onIncoming?: (n: number
                 }
                 return (
                   <View>
-                    <Text style={styles.memberLock}>🔒 회원 프로필은 동맹을 맺은 뒤 볼 수 있어요</Text>
+                    <Text style={styles.memberLock}>🔒 사진과 자세한 프로필은 동맹을 맺은 뒤 볼 수 있어요</Text>
                     <TouchableOpacity
                       style={styles.noteSendBtn}
                       onPress={() => { const t = selectedAlly; setSelectedAlly(null); setRequestNote(DEFAULT_NOTE); setRequestTarget({ id: t.id, name: t.business_name || t.name || '파트너' }); }}
@@ -941,6 +981,10 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
+  previewRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#F1EFF4' },
+  previewName: { fontSize: 14, fontWeight: '600', color: '#1A1820', width: 44 },
+  previewInfo: { fontSize: 13, color: '#736F7A', flex: 1 },
+  previewMore: { fontSize: 12, color: '#736F7A', textAlign: 'center', marginTop: 8 },
   myRulesLine: { fontSize: 12, color: '#736F7A', marginTop: 3 },
   cardRules: { fontSize: 12, color: '#736F7A', marginTop: 2 },
   blockedBtn: { backgroundColor: '#F1EFF4', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 7, flexShrink: 1 },
