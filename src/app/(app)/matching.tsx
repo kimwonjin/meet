@@ -310,8 +310,12 @@ export default function MatchingScreen() {
       setAllyMembers([]);
       return;
     }
-    const { data: users } = await supabase.from('users').select('id, name').in('id', allyIds);
-    const allies = (users || []).map((u: any) => ({ id: u.id, name: u.name }));
+    const [{ data: users }, { data: conns }] = await Promise.all([
+      supabase.from('users').select('id, name').in('id', allyIds),
+      supabase.from('connectors').select('id, business_name').in('id', allyIds),
+    ]);
+    // 회원들이 아는 회사명을 먼저 (없으면 파트너 이름)
+    const allies = (users || []).map((u: any) => ({ id: u.id, name: (conns || []).find((c: any) => c.id === u.id)?.business_name || u.name }));
     setAllyConnectors(allies);
     await fetchAllyMembers(allies);
   }
@@ -394,7 +398,8 @@ export default function MatchingScreen() {
     if (!firstOverride && selectedForMatch.some((x) => x.id === id)) return null;
     if (pausedIds.has(id)) return '쉬는 중';
     if (lastMatch[id]?.active) return '만남중';
-    const first = firstOverride ?? (selectedForMatch.length === 1 ? selectedForMatch[0] : null);
+    // 두 명을 다 골라도 첫 번째 회원 기준으로 계속 본다 (목록 순서·회색 표시가 갑자기 바뀌지 않게)
+    const first = firstOverride ?? (selectedForMatch.length >= 1 ? selectedForMatch[0] : null);
     if (first) {
       const all = [...ownMembers, ...allyMembers.flatMap((g) => g.members)];
       const g1 = all.find((m) => m.id === first.id)?.gender, g2 = all.find((m) => m.id === id)?.gender;
@@ -1146,7 +1151,7 @@ export default function MatchingScreen() {
 
       {includeAllies && allyGroupsShown.map((g) => (
         <View key={g.connector.id}>
-          <Text style={styles.groupTitle}>{g.connector.name}님 회원 (동맹)</Text>
+          <Text style={styles.groupTitle}>🤝 동맹 · {g.connector.name}의 회원</Text>
           {g.members.length === 0 ? (
             <Text style={styles.emptyCreateText}>{g.hiddenDup ? '모두 내 회원 목록에 이미 있어요' : '승인된 회원이 없습니다'}</Text>
           ) : (
